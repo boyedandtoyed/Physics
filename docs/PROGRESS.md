@@ -23,6 +23,8 @@ decided, what is broken.
 | `docs/BUILD_PLAN.md` | Complete — phases, stack, architecture, deploy, checkpoint protocol |
 | `docs/PHYSICS_SPEC.md` | Complete — equations, constants, benchmarks, honest-physics rules |
 | `docs/PROGRESS.md` | This file |
+| `docs/DEPLOY.md` | Complete — tunnel architecture, host setup, port registry |
+| `docs/verify_benchmarks.py` | Complete — verifies all 32 benchmarks; all pass |
 | `docs/DECISIONS.md` | Not yet created — create it when the first non-obvious choice is made |
 | Application code | None |
 
@@ -45,14 +47,18 @@ decided, what is broken.
 
 ## Open questions for the owner
 
-1. **Domain:** the original brief said `abstract_physics.binodtiwari.com` (underscore). That is
-   an invalid hostname — RFC 1123 disallows underscores, CAs won't issue a certificate, browsers
-   reject it. Proceeding with **`abstract-physics.binodtiwari.com`**. The DNS record and tunnel
-   route may need updating to match.
-2. **Cloudflare tunnel:** is the existing tunnel dashboard-managed (token) or locally managed
-   (`config.yml` + credentials JSON)? Needed before adding the public-hostname route.
-3. **Where is this hosted** — the same machine as the tunnel, a home server, or a VPS? Affects
-   the GPU-less build assumptions and the deploy pipeline.
+1. **Hosting target confirmed:** the owner's own PC (`blind`, Linux), behind one shared
+   Cloudflare tunnel serving several subdomains of `binodtiwari.com`. This project gets port
+   **8080** and `abstract-physics.binodtiwari.com`.
+2. **Tunnel state investigated 2026-09-06:** `cloudflared` is installed but not logged in —
+   `~/.cloudflared/` has no `cert.pem` and no `config.yml`. The previous subdomains ran on a
+   retired dashboard-managed (token) tunnel. A fresh **locally-managed** tunnel is the chosen
+   setup; full step-by-step in `docs/DEPLOY.md`. **This host setup is owned by the project owner
+   and is not yet done** — until it is, there is nothing to deploy to.
+3. **Domain:** the original brief said `abstract_physics.binodtiwari.com` (underscore), which is
+   an invalid hostname. Settled as `abstract-physics.binodtiwari.com`.
+4. **Stale DNS:** CNAMEs from the retired subdomains may still exist in the `binodtiwari.com`
+   zone and will return error 1016. Owner to review and clean up.
 
 ## Decisions already made (see BUILD_PLAN for reasoning)
 

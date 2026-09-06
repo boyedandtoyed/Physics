@@ -204,39 +204,39 @@ approach, not just the checkbox:
 
 ## 7. Deployment
 
-The domain **must** be `abstract-physics.binodtiwari.com` with a hyphen. `abstract_physics...`
-with an underscore is an invalid hostname under RFC 1123; public CAs will not issue a
-certificate for it and browsers reject it. Verify the DNS record and tunnel route use the
-hyphen form before the first deploy.
+**Full detail is in [`DEPLOY.md`](DEPLOY.md) — read it before touching anything deployment-related.**
+Summary of the shape:
 
-**Multi-stage Dockerfile:** node build stage → nginx serving static. Nginx config: gzip/brotli,
-long cache on hashed assets, `no-cache` on `index.html`, correct MIME for `.wasm`, SPA fallback
-to `index.html`.
-
-**docker-compose.yml** — two services, tunnel token from `.env` (which is gitignored):
+This PC hosts several sites on subdomains of `binodtiwari.com` behind **one** shared Cloudflare
+tunnel, running as a host systemd service. **cloudflared is therefore NOT part of this project's
+compose file.** This project is one compose stack publishing one port on localhost; the shared
+tunnel routes the hostname to it. Port **8080** is this project's allocation — see the port
+registry in `DEPLOY.md` and do not take another project's port.
 
 ```yaml
+# docker-compose.yml — web only
 services:
   web:
     build: .
     restart: unless-stopped
-    expose: ["8080"]
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
-    depends_on: [web]
+    ports:
+      - "127.0.0.1:8080:80"     # localhost only; the tunnel is the only way in
 ```
 
-Then in the Cloudflare dashboard (or `config.yml` if this is a locally-managed tunnel), the
-public hostname `abstract-physics.binodtiwari.com` routes to `http://web:8080`. Since a tunnel
-already exists for this domain, prefer adding a public-hostname route to it over creating a new
-tunnel. Confirm with the owner which management mode the existing tunnel uses (dashboard-managed
-token vs. `config.yml` + credentials JSON) before changing anything — do not break an existing
-working tunnel.
+The domain **must** be `abstract-physics.binodtiwari.com` with a hyphen. `abstract_physics...`
+is an invalid hostname under RFC 1123; public CAs will not issue a certificate for it and
+browsers reject it.
 
-Cloudflare terminates TLS, so the container serves plain HTTP on 8080. Do not put a cert in the
-container.
+**Multi-stage Dockerfile:** node build stage -> nginx serving `dist/`. Nginx config: gzip/brotli,
+long cache on hashed assets, `no-cache` on `index.html`, correct MIME for `.wasm`, SPA fallback
+to `index.html`.
+
+Cloudflare terminates TLS at its edge, so the container serves plain HTTP. Do not put a
+certificate in the container, and do not bind to `0.0.0.0`.
+
+The host-level tunnel setup (login, tunnel creation, config.yml, `route dns`, service install)
+is a one-time operation owned by the project owner and is documented step by step in `DEPLOY.md`.
+Do not create a second tunnel.
 
 ## 8. Security
 
