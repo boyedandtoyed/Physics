@@ -311,6 +311,28 @@ export class LensingRenderer {
     gl.bindVertexArray(null);
   }
 
+  /** Block until the GPU has finished the queued work.
+   *
+   * `gl.finish()` alone is not enough in Chromium: commands cross into the GPU process and the
+   * call returns before the work completes, which made a first attempt at timing report 8700 fps
+   * at 1080p — about 0.1 ms for 1.6 billion integration steps. Reading a single pixel back forces
+   * a real round trip, so the number means something. */
+  finish(): void {
+    const gl = this.#gl;
+    gl.finish();
+    const pixel = new Uint8Array(4);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  }
+
+  /** The driver's own renderer string, so a performance figure can say what it ran on. */
+  rendererName(): string {
+    const gl = this.#gl;
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    return info
+      ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL))
+      : String(gl.getParameter(gl.RENDERER));
+  }
+
   /** Read the rendered frame back as RGBA rows, top row first. */
   readPixels(): { width: number; height: number; pixels: Uint8Array } {
     const gl = this.#gl;

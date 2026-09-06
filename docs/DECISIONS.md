@@ -310,3 +310,28 @@ corners, which is what rendered distant stars as elongated blobs.
 
 Step 2 and 3 gates are unchanged throughout: shadow error 0.013354 px, disk agreement 2-3e-5,
 Doppler exponent 4.0019, crescent 3.02.
+
+## 2026-09-06 — Step 5 audit: the performance budget counted one ray per pixel, not three
+
+**§4.5's step count contradicted §4.4.** The 531 M steps/frame figure assumes one ray per pixel,
+but the screen-space Jacobian §4.4 requires needs two extra traced rays for every escaped pixel.
+An all-sky 1080p frame at 256 steps is ~1.6 G steps. The two sections were written independently
+and never reconciled; §4.5 now says so.
+
+**The fps claim itself holds.** Measured on the project machine's Quadro M5000 through ANGLE/
+OpenGL 4.5: 32.4 fps at 1080p native with the disk on, inside §4.5's predicted 30-60 fps band.
+BUILD_PLAN's 60 fps target is met at resolution scale 0.7 (72.6 fps) — one of the two mitigations
+§4.5 already marks *required*, so the target is met as written rather than by relaxing it.
+
+**A measurement trap worth recording.** `gl.finish()` does not block in Chromium: commands cross
+into the GPU process and the call returns before the work completes. Timing on `finish()` alone
+reported **8700 fps at 1080p** — 0.1 ms for 1.6 billion integration steps, which is impossible on
+its face and is why it was caught. Forcing a one-pixel `readPixels` after each frame produces a
+real round trip. Any future performance number in this project must sync that way.
+
+**Accessibility gap specific to this sim.** BUILD_PLAN §6 requires a screen-reader description of
+scene state, and a WebGL canvas is inherently opaque to assistive technology — it has no
+structure to read. The canvas therefore carries `role="img"` with a label summarising the physics,
+backed by a throttled ARIA live region carrying the numbers that change. `prefers-reduced-motion`
+suppresses the idle accumulation loop rather than only easing a transition, since the loop is the
+motion.

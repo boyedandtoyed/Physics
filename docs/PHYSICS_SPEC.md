@@ -374,6 +374,26 @@ At 1080p, 256 steps/ray = $1920\times1080\times256 \approx$ **531 M** integratio
 (an earlier revision said 532 M) ≈ 30–60 fps on a mid-range discrete GPU; integrated GPUs
 (Intel Iris, base Apple M-series) run 3–6× slower. Mitigations, both required:
 
+> **The 531 M figure is a lower bound, because §4.4 needs three rays, not one.** The screen-space
+> Jacobian requires two extra traced rays for every pixel whose ray escapes. An all-sky frame is
+> therefore ~1.6 G integration-steps, not 531 M. The two sections were written independently and
+> did not agree; this is the reconciliation.
+
+**Measured on the project machine** (NVIDIA Quadro M5000, Maxwell, via ANGLE/OpenGL 4.5), disk on,
+256 steps/ray, 12 timed frames each, forced to synchronise with a pixel readback:
+
+| Configuration | fps | ms/frame |
+|---|---|---|
+| 1080p, scale 1.0 | **32.4** | 30.8 |
+| 1080p, scale 0.7 | **72.6** | 13.8 |
+| 1080p, scale 0.5 | 131.7 | 7.6 |
+| 720p, scale 1.0 | 79.7 | 12.5 |
+
+The 30–60 fps prediction above is confirmed at native resolution. **BUILD_PLAN's 60 fps at 1080p
+is met at scale 0.7**, which is one of the two mitigations this section already marks *required* —
+so the target is met as specified, not by relaxing it. Timing note: `gl.finish()` alone does not
+block in Chromium, and timing without a readback reported 8700 fps.
+
 **Resolution scaling.** Render the lensing pass at 0.5–0.7× and bilinearly upsample. Note the
 quadratic saving: 0.5× is 4× less work, 0.7× is 2×.
 

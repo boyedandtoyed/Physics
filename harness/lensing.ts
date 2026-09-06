@@ -121,6 +121,17 @@ export interface AccumulationReport {
   frames: number;
 }
 
+export interface ThroughputReport {
+  framesPerSecond: number;
+  millisecondsPerFrame: number;
+  frames: number;
+  width: number;
+  height: number;
+  stepsPerRay: number;
+  resolutionScale: number;
+  renderer: string;
+}
+
 export interface ExponentReport {
   /** d(log luminance)/d(log g), measured from mirror-image pixels. Must be 4, not 8. */
   exponent: number;
@@ -143,6 +154,7 @@ declare global {
       measureCrescent(request: HarnessRequest): CrescentReport;
     measureTemporalStability(request: HarnessRequest, samples?: number): StabilityReport;
     measureEdgeSharpness(request: HarnessRequest): SharpnessReport;
+    measureThroughput(request: HarnessRequest, frames?: number): ThroughputReport;
     measureAccumulation(request: HarnessRequest, frames?: number): AccumulationReport;
     renderStars(request: HarnessRequest): void;
     };
@@ -556,6 +568,28 @@ window.lensingHarness = {
     }
 
     return { convergenceError, ghostingError, accumulatedFrames, frames };
+  },
+
+  /** Frame rate, measured rather than asserted (BUILD_PLAN Phase 1 definition of done).
+   * gl.finish() after each frame is what makes this a render time rather than a submit time. */
+  measureThroughput(request, frames = 30) {
+    const warmup = draw(request, 'stars');
+    warmup.finish();
+    const started = performance.now();
+    for (let i = 0; i < frames; i++) {
+      draw(request, 'stars').finish();
+    }
+    const elapsed = performance.now() - started;
+    return {
+      framesPerSecond: (frames * 1000) / elapsed,
+      millisecondsPerFrame: elapsed / frames,
+      frames,
+      width: request.width,
+      height: request.height,
+      stepsPerRay: request.stepsPerRay,
+      resolutionScale: request.resolutionScale ?? 1,
+      renderer: warmup.rendererName(),
+    };
   },
 
   renderStars(request) {
