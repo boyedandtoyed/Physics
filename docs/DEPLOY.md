@@ -54,13 +54,75 @@ Adding a site later is then: one ingress block, one `route dns` command, one res
 
 ## Port registry
 
-**Keep this current. It is the only thing stopping two projects claiming the same port.**
+**The authoritative allocation for this machine.** Check it before assigning a port; update it
+in the same commit as any change.
+
+Recovered from the previous tunnel config (`/etc/cloudflared/config.yml.old-2026-09-06`) plus
+the current allocation. Dormant entries are not currently served but their ports are reserved so
+a revived service keeps its old address.
 
 | Port | Project | Hostname | Status |
 |---|---|---|---|
-| 8080 | Abstract Physics | `abstract-physics.binodtiwari.com` | to be deployed |
-| 8081 | *(reserved)* documind | `documind.binodtiwari.com` | dormant |
+| 8080 | **Abstract Physics** | `abstract-physics.binodtiwari.com` | **live route, app not built yet** |
+| 3000 | Portfolio (apex site) | `binodtiwari.com` | dormant |
+| 3001 | NeuralForge | `neuralforge.binodtiwari.com` | dormant |
+| 3002 | PipelineGuard | `pipelineguard.binodtiwari.com` | dormant |
+| 3003 | ResearchCrew | `researchcrew.binodtiwari.com` | dormant |
+| 3004 | DataflowAgent | `dataflowagent.binodtiwari.com` | dormant |
+| 3005 | DefectScope | `defectscope.binodtiwari.com` | dormant |
+| 3006 | ContractLens | `contractlens.binodtiwari.com` | dormant |
+| 3007 | QuantumShield | `quantumshield.binodtiwari.com` | dormant |
+| 3008 | ModelForge | `modelforge.binodtiwari.com` | dormant |
+| 3009 | MLPipelineX | `mlpipelinex.binodtiwari.com` | dormant |
+| 3010 | DocuMind (frontend) | `documind.binodtiwari.com` | dormant |
+| 8001 | DocuMind (API) | `documind.binodtiwari.com/api/*`, `/health`, `/docs` | dormant |
+| 80 | StudyAI | `studyai.binodtiwari.com` | dormant |
 | 8082+ | *(free)* | | |
+
+Port 8080 was chosen because it collides with nothing above.
+
+### Reviving a dormant site
+
+Two things are needed, and the second is the one people forget: those hostnames' DNS records
+still point at the **old, deleted-or-idle tunnel** `d61228a8-8e71-457b-988b-cbaacf646760`, so
+they currently return error 1016. Adding an ingress rule alone will not route them.
+
+```bash
+# 1. add the ingress block to /etc/cloudflared/config.yml, above the catch-all
+# 2. repoint the hostname at the CURRENT tunnel (overwrites the stale CNAME)
+cloudflared tunnel route dns binod-home documind.binodtiwari.com
+# 3. restart
+sudo systemctl restart cloudflared
+```
+
+DocuMind's path-based split is worth preserving verbatim when it comes back — more specific
+paths must come first, since rules match top to bottom:
+
+```yaml
+  - hostname: documind.binodtiwari.com
+    path: /api/.*
+    service: http://localhost:8001
+  - hostname: documind.binodtiwari.com
+    path: /health
+    service: http://localhost:8001
+  - hostname: documind.binodtiwari.com
+    path: /docs
+    service: http://localhost:8001
+  - hostname: documind.binodtiwari.com          # catch-all for this host, must be last of the four
+    service: http://localhost:3010
+```
+
+### Retiring the old tunnel
+
+`d61228a8-…` is superseded. Once nothing is expected from it:
+
+```bash
+cloudflared tunnel list                  # confirm it is idle (no connections)
+cloudflared tunnel delete d61228a8-8e71-457b-988b-cbaacf646760
+```
+
+Deleting a tunnel does **not** remove the DNS records that point at it — those must be deleted
+or repointed in the Cloudflare DNS tab separately, or they keep returning 1016.
 
 ---
 
