@@ -373,3 +373,40 @@ asserted.
 **Test note:** React Aria puts `role="switch"` on a visually hidden input, so a Playwright click
 must target the label, not the role. Not a product defect — the pattern is correct and axe accepts
 it — but it looks like one from a failing test.
+
+## 2026-09-06 — KNOWN LIMITATION: the disk step cap is a stopgap, not the right fix
+
+**What is there now.** Near the disk plane the integration step is capped at
+`0.5 * |y| / |v_y|`, so a ray cannot straddle the plane inside one step. This removed a visible
+artefact — the disk's outer edge rendered scalloped, because a grazing ray stepped across the
+plane and back and the sign-change test never fired.
+
+**What it costs.** Shader-versus-float64-model agreement on emission radius went from **2.0e-5 to
+4.1e-4** (gate 1e-3). The cause is the division by `|v_y|`, which is small precisely for the
+grazing rays that need the cap, so the step length is float32-fragile exactly where it matters.
+Confirmed it is not step-budget exhaustion (identical at 500, 900 and 1400 steps/ray) and not the
+cap's aggressiveness (a gentler cap gives 4.26e-4). The cost is inherent to making the step length
+depend on `y`.
+
+**The better fix, for a later pass — do not confuse this with a TODO to tune constants.**
+Replace step-size capping with **event detection on the step already taken**:
+
+1. Take the RK4 step unconditionally, at the normal adaptive length.
+2. Build the cubic Hermite interpolant of `y(t)` over that step from the four values already in
+   hand — `y0, v_y0` at the start and `y1, v_y1` at the end.
+3. Root-find `y(t) = 0` on the interpolant over `t ∈ [0, 1]`.
+
+This is strictly better on three counts. It catches a **crossing-and-return inside one step**,
+which the sign-change test cannot see at all and which the cap only avoids by making steps small
+enough that it becomes unlikely. It **never divides by a small velocity**, so the fragility
+disappears and the agreement figure should return to the 1e-5 range. And it **costs nothing extra**
+in integration steps, because it reuses the endpoints of a step that was taken anyway — the cap,
+by contrast, buys its safety with many short steps near the plane.
+
+The cubic is the natural interpolant here because the integrator already supplies both the value
+and the derivative at both ends, which determines it uniquely. A quadratic would not capture a
+crossing-and-return; a linear interpolation is what the current secant refinement effectively
+assumes between its endpoints.
+
+Not implemented now: Phase 1 is landing, the artefact is gone, and the agreement figure is inside
+its gate with margin. Recorded so the next pass changes the approach rather than the constants.
