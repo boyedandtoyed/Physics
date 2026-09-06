@@ -234,3 +234,42 @@ when a discrepancy has no numerical explanation.
 
 `createContext` now takes an explicit `alpha` option, documented with this failure, and it stays
 off for the shipped renderer, which wants an opaque buffer.
+
+## 2026-09-06 — Phase 1 §4.4/§4.5 audit: a prescription that cannot compile, and an over-claim
+
+Third audit, third set of findings. These are less dramatic than the §2.3 force law or the §4.3
+double-counted `g` — none of them produces a wrong number — but two of them would have sent the
+implementation down a path that does not work.
+
+**1. `dFdx`/`dFdy` are undefined in this shader.** §4.4 said to "finite-difference the
+neighbouring pixels' escape directions". The natural GPU reading is hardware derivatives, and
+that is invalid here: GLSL ES 3.00 §8.9 makes implicit derivatives undefined under non-uniform
+control flow, and a raymarcher's loop diverges by construction — every pixel breaks at a
+different iteration, on capture, on a disk hit, or on escape. The neighbours must be *traced*,
+not differenced from the quad. Two extra rays, and only for pixels that escaped.
+
+**2. `textureGrad()` presupposes a texture we deliberately do not have.** The star field is
+procedural, chosen in step 2 so the page ships no asset and stays inside a strict content policy.
+The prescription is therefore not executable as written. For a field of *point* sources there is
+something better than an approximation anyway: the exactly-filtered contribution of a star is
+`K(J^+ (omega_s - omega_0))` for a pixel-space reconstruction kernel `K` normalised to unit
+integral. Flux conservation falls out — where the map stretches, each star contributes less to a
+given pixel and proportionally more stars land in the footprint.
+
+**3. "Nearly free visually" was justified by a false premise.** §4.5 defended 0.5-0.7x resolution
+scaling on the grounds that the image is "a smooth warped skybox". The star field is smooth; the
+shadow rim and the disk's inner edge are hard discontinuities, and bilinear upsampling softens
+precisely those. The claim now carries an ASSERT: the shadow gate is evaluated at scale 1.0 and
+the degradation at reduced scale is measured rather than assumed.
+
+**4. Temporal accumulation had an unstated precondition.** "Accumulate while the camera is
+static" describes when it helps but not what the implementation must do: the history has to be
+*discarded* on any camera or parameter change, or the accumulator smears old geometry into the
+new frame. The jitter also has to be zero-mean, or accumulation converges to a biased image
+rather than the supersampled one.
+
+**5.** 1920x1080x256 = 530.8 M, not 532 M.
+
+§4.5 now also requires temporal stability to be a *number* with a recorded baseline, and requires
+the guard to be verified by re-introducing point sampling — the same discipline that caught the
+`g` and flux-profile regressions in step 3.

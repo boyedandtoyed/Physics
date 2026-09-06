@@ -331,19 +331,76 @@ permitted but must be labelled as non-physical.
 
 ### 4.4 Anti-aliasing — the thing naive shaders get wrong
 
-Point-sampling the star field through a lensing map scintillates badly under camera motion.
+Point-sampling the star field through a lensing map scintillates badly under camera motion. Near
+the shadow rim the map compresses a large solid angle into one pixel, so a point sample reports
+whichever single star it happened to land on, and that choice flickers as the camera moves.
+
 DNGR's solution is a propagated elliptical ray bundle giving a per-pixel anisotropic filter
-footprint. **Cheap GPU approximation to implement instead:** finite-difference the neighbouring
-pixels' escape directions to build a screen-space Jacobian, and drive `textureGrad()`
-anisotropic sampling with it. Do this from the start; retrofitting it is painful.
+footprint. The mechanism is the **equation of geodesic deviation**, integrated alongside the
+central ray, yielding the ellipse's major-axis angle $\mu$ and its angular diameters
+$\delta_\pm$ on the celestial sphere (James et al. 2015, §3 and Appendix A.3).
+
+**Cheap GPU approximation:** build a screen-space Jacobian $J = [\partial\omega/\partial x,\;
+\partial\omega/\partial y]$ from neighbouring escape directions, and filter with it.
+
+> **Two corrections to an earlier revision of this section, both of which make the naive reading
+> unimplementable.**
+>
+> **1. The neighbours must be traced explicitly. Hardware derivatives are invalid here.** The
+> obvious reading of "finite-difference the neighbouring pixels" is `dFdx`/`dFdy`. That is
+> **undefined** in this shader: GLSL ES 3.00 §8.9 makes implicit derivatives undefined under
+> non-uniform control flow, and a raymarcher's loop necessarily diverges — each pixel breaks on
+> capture, on a disk hit, or on escape, at a different iteration.
+> ([Khronos GLSL #52](https://github.com/KhronosGroup/GLSL/issues/52).) Trace two extra rays, at
+> $+1$ pixel in $x$ and in $y$, and difference those. Only escaped pixels need them, so the cost
+> is paid where it is used.
+>
+> **2. `textureGrad()` presupposes a texture.** A procedural star field has none, and for a field
+> of *point* sources there is something better than an approximation — the exact filter is
+> available in closed form. A star at direction $\omega_s$ near a pixel whose escape direction is
+> $\omega_0$ appears, to first order, at pixel-space offset
+> $$\Delta p = J^{+}(\omega_s - \omega_0), \qquad J^{+} = \text{pseudo-inverse of } J$$
+> and its contribution is $K(\Delta p)$ for a pixel reconstruction kernel $K$ normalised so
+> $\int K\,d^2p = 1$. Because $K$ is normalised **in pixel space**, flux is conserved
+> automatically: where the map stretches, a given star contributes less to any one pixel, and
+> proportionally more stars fall inside the footprint. That is exactly the anti-aliasing wanted,
+> and for point sources it is not an approximation at all.
+
+Do this from the start; retrofitting it is painful.
 
 ### 4.5 Performance budget
 
-At 1080p, 256 steps/ray ≈ 532 M integration-steps/frame ≈ 30–60 fps on a mid-range discrete
-GPU; integrated GPUs (Intel Iris, base Apple M-series) run 3–6× slower. Mitigations, both
-required: render the lensing pass at 0.5–0.7× and bilinearly upsample (the image is a smooth
-warped skybox, so this is nearly free visually), and temporally accumulate jittered samples when
-the camera is static. Expose steps/ray as a quality slider.
+At 1080p, 256 steps/ray = $1920\times1080\times256 \approx$ **531 M** integration-steps/frame
+(an earlier revision said 532 M) ≈ 30–60 fps on a mid-range discrete GPU; integrated GPUs
+(Intel Iris, base Apple M-series) run 3–6× slower. Mitigations, both required:
+
+**Resolution scaling.** Render the lensing pass at 0.5–0.7× and bilinearly upsample. Note the
+quadratic saving: 0.5× is 4× less work, 0.7× is 2×.
+
+> **Correction: "nearly free visually" is true only of the star field.** An earlier revision
+> justified this by calling the image "a smooth warped skybox". The lensed star field is smooth,
+> but the frame also contains two *hard discontinuities* — the shadow rim and the disk's inner
+> edge — and bilinear upsampling softens exactly those. **ASSERT** the cost by measuring it: the
+> §2.4 shadow-radius gate must be evaluated at scale 1.0, and the degradation at reduced scale
+> must be recorded rather than assumed negligible.
+
+**Temporal accumulation.** Average jittered sub-pixel samples across frames while the camera is
+static. Two requirements the earlier revision left unstated:
+
+- **The history must be discarded on any change to the camera or parameters.** Otherwise the
+  accumulator smears old geometry across the new frame — the ghosting failure mode of every
+  temporal method. "Static camera" is not a description of when it helps; it is a precondition
+  the implementation must enforce.
+- **The jitter must be sub-pixel and zero-mean**, or accumulation converges to a biased image
+  rather than the supersampled one.
+
+**ASSERT — temporal stability must be a number, not an impression.** Define it as the per-pixel
+temporal variance of the rendered luminance over a sequence of frames in a region that correct
+filtering makes static. Record the baseline before the change and require the improvement to
+appear in that number; a filter that "looks smoother" but does not move it has not been shown to
+work. Verify the guard by re-introducing point sampling and confirming the metric degrades.
+
+Expose steps/ray and resolution scale as quality controls.
 
 ### 4.6 float32 near the horizon
 
