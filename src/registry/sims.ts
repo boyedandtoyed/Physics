@@ -19,4 +19,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Schwarzschild', 'Gravitational lensing'],
     load: () => import('../sims/blackhole-lensing'),
   },
+  {
+    id: 'deflection-decomposition',
+    title: 'Does time dilation cause gravity?',
+    description:
+      'The claim is exactly half right, and the half is measurable. Light deflection at the solar '
+      + 'limb, split into the 0.8756″ from curved time and the 0.8756″ from curved space.',
+    tags: ['General relativity', 'Light deflection', 'Interpretations'],
+    load: () => import('../sims/deflection-decomposition'),
+  },
 ];
