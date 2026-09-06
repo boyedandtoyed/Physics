@@ -1,0 +1,66 @@
+/* Styles for the shared components in src/ui/.
+ *
+ * These used to live in the lensing sim's stylesheet, which meant the components only looked
+ * right inside that one sim: the second sim to use NumberSlider shipped a slider with no track
+ * and no thumb, and MisconceptionsPanel shipped a bulleted list with an unstyled "Myth" tag and
+ * a browser-default grey trigger button that failed WCAG contrast in dark mode. A shared
+ * component has to carry its own appearance, so it is here and imported once from main.tsx.
+ *
+ * Colours come from the shell's theme tokens; nothing here defines a colour of its own.
+ */
+
+/* --- NumberSlider --- */
+.control { display: grid; gap: 0.35rem; }
+.control-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.control-head [slot='output'], .control-head output {
+  font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.9rem;
+}
+.control-hint { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.control .react-aria-SliderTrack {
+  position: relative; height: 1.5rem; display: flex; align-items: center;
+}
+.control .react-aria-SliderTrack::before {
+  content: ''; position: absolute; left: 0; right: 0; height: 4px;
+  background: var(--line); border-radius: 2px;
+}
+.track-fill {
+  position: absolute; left: 0; height: 4px; border-radius: 2px;
+  background: var(--accent);
+}
+.control .react-aria-SliderThumb {
+  width: 1.05rem; height: 1.05rem; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--bg);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+.control .react-aria-SliderThumb[data-focus-visible] {
+  outline: 3px solid var(--focus); outline-offset: 2px;
+}
+
+/* Layout shared by every sim's control block. */
+.controls-grid {
+  display: grid; gap: 1.4rem 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+/* --- MisconceptionsPanel --- */
+.misconceptions ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.6rem; }
+.misconceptions .myth { margin: 0 0 0.4rem; }
+.myth-tag {
+  display: inline-block; margin-right: 0.5rem; padding: 0.1rem 0.5rem;
+  border-radius: 0.3rem; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+  background: var(--panel); color: var(--focus); font-weight: 700;
+}
+.misconceptions .reality { margin: 0; }
+.myth-figures {
+  display: grid; gap: 0.5rem 1.5rem; margin: 0.8rem 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+.myth-figures dt { font-size: 0.78rem; color: var(--muted); }
+.myth-figures dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* --- Shared utilities --- */
+.verification-note { color: var(--muted); font-size: 0.85rem; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

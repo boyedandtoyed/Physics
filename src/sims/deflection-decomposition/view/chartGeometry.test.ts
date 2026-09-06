@@ -73,3 +73,18 @@ describe('decade ticks', () => {
     expect(decadeTicks({ min: 0.2, max: 0.8, from: 0, to: 1 }, 5)).toEqual([]);
   });
 });
+
+describe('non-finite axes', () => {
+  // The bug this guards: an all-zero log series gave min = -Infinity and decadeTicks counted
+  // upwards from it forever, hanging the tab. Failing loudly beats spinning.
+  it('refuses to project onto an infinite axis', () => {
+    expect(() => project({ min: -Infinity, max: 3, from: 0, to: 10 }, 1)).toThrow(RangeError);
+    expect(() => project({ min: 0, max: Infinity, from: 0, to: 10 }, 1)).toThrow(RangeError);
+    expect(() => project({ min: Number.NaN, max: 3, from: 0, to: 10 }, 1)).toThrow(RangeError);
+  });
+
+  it('refuses to place ticks on one, rather than looping forever', () => {
+    expect(() => decadeTicks({ min: -Infinity, max: 3, from: 0, to: 1 }, 5)).toThrow(RangeError);
+    expect(() => decadeTicks({ min: 0, max: Infinity, from: 0, to: 1 }, 5)).toThrow(RangeError);
+  });
+});

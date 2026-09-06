@@ -19,11 +19,14 @@ import {
 import { C } from '../../core/units';
 import {
   MAX_LOG_BETA,
-  MIN_LOG_BETA,
+  SLIDER_STEPS,
   deflectionFigures,
   describeDeflection,
   formatArcseconds,
+  formatRatio,
   formatSpeed,
+  indexFromLogBeta,
+  logBetaFromIndex,
 } from './description/describeDeflection';
 import { DeflectionChart } from './view/DeflectionChart';
 import { RayBending } from './view/RayBending';
@@ -32,7 +35,7 @@ import './deflection.css';
 const PhysicsPanel = lazy(() =>
   import('../../ui/PhysicsPanel').then(module => ({ default: module.PhysicsPanel })));
 
-const LOG_BETA_STEP = 0.01;
+
 /** Live-region updates are throttled so dragging does not flood a screen reader (BUILD_PLAN §6). */
 const ANNOUNCE_DELAY_MS = 600;
 const PERCENT = 100;
@@ -59,7 +62,7 @@ export default function DeflectionDecomposition() {
 
   return (
     <article className="deflection">
-      <header className="deflection-head">
+      <div className="deflection-head">
         <p className="eyebrow">Interpretations · Claim A</p>
         <h1>Does time dilation<br /><em>cause</em> gravity?</h1>
         <p className="intro">
@@ -69,7 +72,7 @@ export default function DeflectionDecomposition() {
           cause. For light the two contribute equally, which is exactly why starlight bends 1.75″
           past the Sun and not 0.875″.
         </p>
-      </header>
+      </div>
 
       <section className="split" aria-labelledby="split-heading">
         <h2 id="split-heading">The split at this speed</h2>
@@ -103,7 +106,7 @@ export default function DeflectionDecomposition() {
           </div>
           <div>
             <dt>Space ÷ time</dt>
-            <dd>{figures.spaceOverTime.toExponential(2)}<span>= (v/c)²</span></dd>
+            <dd>{formatRatio(figures.spaceOverTime)}<span>= (v/c)²</span></dd>
           </div>
         </dl>
         {!figures.weakDeflectionValid && (
@@ -125,15 +128,14 @@ export default function DeflectionDecomposition() {
         <div className="controls-grid">
           <NumberSlider
             label="Particle speed"
-            value={logBeta}
-            onChange={setLogBeta}
-            minValue={MIN_LOG_BETA}
-            maxValue={MAX_LOG_BETA}
-            step={LOG_BETA_STEP}
-            places={2}
-            unit=" log₁₀(v/c)"
-            hint={`Currently ${formatSpeed(figures.speed)}. Logarithmic: the slider spans fifteen `
-              + 'orders of magnitude, from a falling apple to light.'}
+            value={indexFromLogBeta(logBeta)}
+            onChange={index => setLogBeta(logBetaFromIndex(index))}
+            minValue={0}
+            maxValue={SLIDER_STEPS}
+            step={1}
+            format={() => formatSpeed(figures.speed)}
+            hint={'Logarithmic: the slider spans fifteen orders of magnitude, from a falling '
+              + 'apple to light.'}
           />
           <div className="preset-group">
             <p className="preset-label" id="preset-label">Jump to</p>
@@ -188,7 +190,9 @@ export default function DeflectionDecomposition() {
         <ul className="chart-key">
           <li className="key-total">Total</li>
           <li className="key-time">Time curvature</li>
-          <li className="key-space">Space curvature</li>
+          {ppnGamma === EINSTEIN_1911_PPN_GAMMA
+            ? <li className="key-absent">Space curvature — zero at γ = 0, not drawable on a log axis</li>
+            : <li className="key-space">Space curvature</li>}
         </ul>
       </section>
 

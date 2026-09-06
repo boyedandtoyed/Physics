@@ -10,17 +10,21 @@ import { GR_PPN_GAMMA, deflection, radiansToArcseconds } from '../../../core/def
 import { deflectionFigures, formatArcseconds } from '../description/describeDeflection';
 
 const WIDTH = 720;
-const HEIGHT = 250;
-const SUN_X = 470;
-const SUN_Y = 210;
-const SUN_RADIUS = 96;
+const HEIGHT = 200;
+const SUN_X = 452;
+/** The Sun runs off the bottom of the frame: we are looking at the limb, not the whole disc,
+ * which also keeps the figure from being mostly empty sky. */
+const SUN_Y = 196;
+const SUN_RADIUS = 126;
 /** Where the ray grazes the limb and the bend is drawn from. */
 const GRAZE_X = SUN_X;
 const GRAZE_Y = SUN_Y - SUN_RADIUS;
-const RAY_LENGTH = 232;
+const RAY_LENGTH = 246;
 /** Light's 1.7512" is drawn at this angle; everything else uses the same factor. */
 const REFERENCE_DEGREES = 21;
-const MAX_DRAWN_DEGREES = 44;
+/** Chosen so a clipped ray still ends inside the frame: 70 + 246*sin(29 deg) = 189 < 200.
+ * A ray sliced off mid-frame reads as a rendering fault rather than as "off scale". */
+const MAX_DRAWN_DEGREES = 29;
 const DEGREES_IN_HALF_TURN = 180;
 /** 1.7512", derived rather than transcribed so it cannot drift from the core. */
 const LIGHT_TOTAL_ARCSEC = radiansToArcseconds(deflection(1, { ppnGamma: GR_PPN_GAMMA }).total);

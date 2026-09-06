@@ -31,6 +31,27 @@ export interface DeflectionState {
 export const betaFromLog = (logBeta: number): number =>
   Math.min(1, DECIMAL_BASE ** logBeta);
 
+/**
+ * The slider moves in integer steps, not in log-beta directly.
+ *
+ * React Aria snaps to a grid anchored at the minimum, and with a float step the top of the range
+ * is not reachable: the exhibit opened at beta = 0.9844 instead of at light, which is the single
+ * value it exists to show. Integers are exact, and both endpoints are pinned explicitly rather
+ * than left to float division.
+ */
+export const SLIDER_STEPS = 750;
+
+export function logBetaFromIndex(index: number): number {
+  if (index <= 0) return MIN_LOG_BETA;
+  if (index >= SLIDER_STEPS) return MAX_LOG_BETA;
+  return MIN_LOG_BETA + ((MAX_LOG_BETA - MIN_LOG_BETA) * index) / SLIDER_STEPS;
+}
+
+export function indexFromLogBeta(logBeta: number): number {
+  const fraction = (logBeta - MIN_LOG_BETA) / (MAX_LOG_BETA - MIN_LOG_BETA);
+  return Math.min(SLIDER_STEPS, Math.max(0, Math.round(fraction * SLIDER_STEPS)));
+}
+
 /** Speed in m/s for a given log10(beta). */
 export const speedFromLog = (logBeta: number): number => betaFromLog(logBeta) * C;
 
@@ -87,6 +108,12 @@ export function formatArcseconds(value: number): string {
     return `${value.toExponential(2)}″`;
   }
   return `${value.toPrecision(SIGNIFICANT_FIGURES)}″`;
+}
+
+/** The space/time ratio, readable at both ends: 1.00 at light, 1.11e-15 for an apple. */
+export function formatRatio(value: number): string {
+  if (value >= EXPONENTIAL_BELOW) return value.toPrecision(3);
+  return value.toExponential(2);
 }
 
 /**
@@ -157,10 +184,25 @@ export function deflectionCurve(ppnGamma: number, samples: number): CurvePoint[]
   return points;
 }
 
-/** log10(arcsec) bounds of the plot, with the space line kept off the axis. */
+/**
+ * log10(arcsec) bounds of the plot.
+ *
+ * Non-finite entries are dropped: at gamma = 0 the space contribution is exactly zero and its
+ * log is -Infinity. Letting that reach the axis produced an axis with an infinite minimum, and
+ * `decadeTicks` then counted upwards from -Infinity — an infinite loop that hung the tab. The
+ * space line is simply not drawable on a log axis when it is zero, and the chart omits it.
+ */
 export function curveBounds(points: readonly CurvePoint[]): { min: number; max: number } {
-  const values = points.flatMap(point => [point.logSpace, point.logTotal]);
+  const values = points
+    .flatMap(point => [point.logSpace, point.logTotal])
+    .filter(Number.isFinite);
+  if (values.length === 0) throw new RangeError('No finite points to bound.');
   return { min: Math.min(...values), max: Math.max(...values) };
+}
+
+/** Whether the space contribution can be drawn at all. False only at gamma = 0. */
+export function hasDrawableSpaceLine(points: readonly CurvePoint[]): boolean {
+  return points.every(point => Number.isFinite(point.logSpace));
 }
 
 /** log10(arcsec) of the weak-deflection ceiling — the boundary of the shaded band. */

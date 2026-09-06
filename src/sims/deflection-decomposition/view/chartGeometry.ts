@@ -19,7 +19,9 @@ export interface Axis {
 /** Map a data value onto its pixel coordinate. Values outside [min, max] extrapolate. */
 export function project(axis: Axis, value: number): number {
   const { min, max, from, to } = axis;
-  if (!(max > min)) throw new RangeError('Axis maximum must exceed its minimum.');
+  if (!(max > min) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    throw new RangeError('Axis bounds must be finite, with the maximum above the minimum.');
+  }
   return from + ((value - min) / (max - min)) * (to - from);
 }
 
@@ -45,6 +47,11 @@ export function toPath(points: readonly XY[], xAxis: Axis, yAxis: Axis): string 
 
 /** Whole-decade tick values inside an axis, for a log-scaled axis's labels. */
 export function decadeTicks(axis: Axis, maxTicks: number): number[] {
+  // A non-finite bound would make this count upwards forever. That is not hypothetical: an
+  // all-zero series gives log10 = -Infinity, and the loop below hung the tab.
+  if (!Number.isFinite(axis.min) || !Number.isFinite(axis.max)) {
+    throw new RangeError('Cannot place ticks on a non-finite axis.');
+  }
   const first = Math.ceil(axis.min);
   const last = Math.floor(axis.max);
   const all: number[] = [];

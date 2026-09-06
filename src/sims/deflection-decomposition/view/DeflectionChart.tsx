@@ -8,6 +8,7 @@ import {
   WEAK_LIMIT_LOG_ARCSEC,
   curveBounds,
   deflectionCurve,
+  hasDrawableSpaceLine,
   type CurvePoint,
 } from '../description/describeDeflection';
 import { MAX_LOG_BETA, MIN_LOG_BETA } from '../description/describeDeflection';
@@ -22,7 +23,9 @@ const PAD_BOTTOM = 44;
 const SAMPLES = 160;
 const MAX_X_TICKS = 8;
 const MAX_Y_TICKS = 6;
-const HEADROOM = 0.4;
+/** Log-decades of clearance. The space line is the exhibit's point and must not sit on the
+ * axis, where it reads as part of the frame rather than as a result. */
+const HEADROOM = 0.9;
 /** Label insets, px. */
 const LABEL_INSET_X = 10;
 const LABEL_INSET_Y = 18;
@@ -38,6 +41,8 @@ interface Props {
 export function DeflectionChart({ logBeta, ppnGamma }: Props) {
   const points = useMemo(() => deflectionCurve(ppnGamma, SAMPLES), [ppnGamma]);
   const bounds = useMemo(() => curveBounds(points), [points]);
+  // At gamma = 0 the space contribution is exactly zero: nothing to draw on a log axis.
+  const drawSpace = useMemo(() => hasDrawableSpaceLine(points), [points]);
 
   const xAxis: Axis = { min: MIN_LOG_BETA, max: MAX_LOG_BETA, from: PAD_LEFT, to: WIDTH - PAD_RIGHT };
   const yAxis: Axis = {
@@ -114,7 +119,9 @@ export function DeflectionChart({ logBeta, ppnGamma }: Props) {
 
       <path className="chart-line chart-total" d={series(point => point.logTotal)} />
       <path className="chart-line chart-time" d={series(point => point.logTime)} />
-      <path className="chart-line chart-space" d={series(point => point.logSpace)} />
+      {drawSpace && (
+        <path className="chart-line chart-space" d={series(point => point.logSpace)} />
+      )}
 
       <line className="chart-marker" x1={markerX} x2={markerX} y1={PAD_TOP} y2={HEIGHT - PAD_BOTTOM} />
 

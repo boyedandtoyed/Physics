@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_LOG_BETA,
   MIN_LOG_BETA,
+  SLIDER_STEPS,
+  hasDrawableSpaceLine,
+  indexFromLogBeta,
+  logBetaFromIndex,
   WEAK_LIMIT_LOG_ARCSEC,
   betaFromLog,
   curveBounds,
@@ -9,6 +13,7 @@ import {
   deflectionFigures,
   describeDeflection,
   formatArcseconds,
+  formatRatio,
   formatSpeed,
   speedFromLog,
 } from './describeDeflection';
@@ -78,6 +83,13 @@ describe('formatting survives fifteen orders of magnitude', () => {
     expect(formatArcseconds(1.7511903)).toBe('1.751″');
     expect(formatArcseconds(0.8755952)).toBe('0.8756″');
     expect(formatArcseconds(7.8695e14)).toMatch(/^7\.87e\+14″$/);
+  });
+
+  it('renders the ratio readably at both ends', () => {
+    expect(formatRatio(1)).toBe('1.00');
+    expect(formatRatio(0.5)).toBe('0.500');
+    expect(formatRatio(1.1127e-15)).toBe('1.11e-15');
+    expect(formatRatio(0)).toBe('0.00e+0');
   });
 
   it('picks a unit a reader can hold, and names c at the top', () => {
@@ -178,5 +190,70 @@ describe('the plotted curves', () => {
     expect(WEAK_LIMIT_LOG_ARCSEC).toBeLessThan(bounds.max);
     // 0.01 rad in arcseconds, i.e. about 2063".
     expect(10 ** WEAK_LIMIT_LOG_ARCSEC).toBeCloseTo(2062.65, 1);
+  });
+});
+
+describe('gamma = 0 does not take the chart down with it', () => {
+  // Found by running the page, not by a unit test: at gamma = 0 the space contribution is
+  // exactly zero, log10(0) is -Infinity, and the tick loop counted upwards from -Infinity
+  // forever. Selecting "Einstein 1911" hung the tab.
+  const zeroGamma = deflectionCurve(EINSTEIN_1911_PPN_GAMMA, 32);
+
+  it('produces a space series that is entirely non-finite, and says so', () => {
+    expect(zeroGamma.every(point => point.logSpace === Number.NEGATIVE_INFINITY)).toBe(true);
+    expect(hasDrawableSpaceLine(zeroGamma)).toBe(false);
+    expect(hasDrawableSpaceLine(deflectionCurve(1, 32))).toBe(true);
+  });
+
+  it('still returns finite, usable bounds', () => {
+    const bounds = curveBounds(zeroGamma);
+    expect(Number.isFinite(bounds.min)).toBe(true);
+    expect(Number.isFinite(bounds.max)).toBe(true);
+    expect(bounds.max).toBeGreaterThan(bounds.min);
+  });
+
+  it('keeps the total and time lines identical, since there is no space term', () => {
+    for (const point of zeroGamma) {
+      expect(point.logTotal).toBeCloseTo(point.logTime, 12);
+    }
+  });
+
+  it('refuses to bound a series with nothing finite in it', () => {
+    expect(() => curveBounds([])).toThrow(RangeError);
+  });
+});
+
+describe('the slider index mapping', () => {
+  it('reaches both endpoints exactly — the whole reason it is integer-valued', () => {
+    expect(logBetaFromIndex(SLIDER_STEPS)).toBe(MAX_LOG_BETA);
+    expect(betaFromLog(logBetaFromIndex(SLIDER_STEPS))).toBe(1);
+    expect(logBetaFromIndex(0)).toBe(MIN_LOG_BETA);
+    expect(speedFromLog(logBetaFromIndex(0))).toBeCloseTo(APPLE_SPEED, 6);
+  });
+
+  it('round-trips through the index at many positions', () => {
+    for (let index = 0; index <= SLIDER_STEPS; index += 37) {
+      expect(indexFromLogBeta(logBetaFromIndex(index))).toBe(index);
+    }
+  });
+
+  it('is monotonic and stays inside the range even when pushed outside it', () => {
+    for (let index = 1; index <= SLIDER_STEPS; index++) {
+      expect(logBetaFromIndex(index)).toBeGreaterThan(logBetaFromIndex(index - 1));
+    }
+    expect(logBetaFromIndex(-50)).toBe(MIN_LOG_BETA);
+    expect(logBetaFromIndex(SLIDER_STEPS + 50)).toBe(MAX_LOG_BETA);
+    expect(indexFromLogBeta(5)).toBe(SLIDER_STEPS);
+    expect(indexFromLogBeta(-50)).toBe(0);
+  });
+
+  it('lands close enough to each preset that the readout still names it', () => {
+    // One index step is 2.3% in speed; the readout's tolerance is 2%, so the nearest index has
+    // to be within half a step of every preset for the labels to work.
+    for (const preset of DEFLECTION_PRESETS) {
+      const index = indexFromLogBeta(Math.log10(preset.speed / C));
+      expect(deflectionFigures({ logBeta: logBetaFromIndex(index), ppnGamma: 1 }).presetId)
+        .toBe(preset.id);
+    }
   });
 });

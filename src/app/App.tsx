@@ -38,7 +38,7 @@ export function App({ entries = simulations }: { entries?: readonly SimulationEn
   }, [location.pathname, entries]);
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
-    <header>
+    <header className="site-header">
       <Link to="/" className="brand"><span className="brand-mark" aria-hidden="true">∂</span> Abstract Physics</Link>
       <nav aria-label="Main"><NavLink to="/">Collection</NavLink><NavLink to="/method">Our method</NavLink></nav>
       <label className="theme-control">Theme <select value={theme} onChange={e => setTheme(e.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
@@ -51,7 +51,7 @@ export function App({ entries = simulations }: { entries?: readonly SimulationEn
         <Route path="*" element={<section className="hero"><p className="eyebrow">Outside the collection</p><h1>Nothing at these coordinates.</h1><p>This page doesn’t exist. The collection is a good place to start.</p><Link to="/">Back to the collection →</Link></section>} />
       </Routes></Suspense></RouteError>
     </main>
-    <footer><span>Abstract Physics</span><span>Equations first. Assumptions in the open.</span><Link to="/method">How we check our work ↗</Link></footer>
+    <footer className="site-footer"><span>Abstract Physics</span><span>Equations first. Assumptions in the open.</span><Link to="/method">How we check our work ↗</Link></footer>
   </>;
 }
 
