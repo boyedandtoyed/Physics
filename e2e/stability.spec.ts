@@ -30,11 +30,11 @@ test('star-field sampling is temporally stable under sub-pixel jitter', async ({
   // 6.81, precisely because there was nothing left to vary.
   expect(report.rimMean).toBeGreaterThan(6);
 
-  // Recorded baseline, point-sampled cube-cell field, this exact scene: rimRms 15.09,
-  // frameRms 8.94. Anisotropic footprint filtering brings it to 6.81 / 3.97. The gate sits
-  // between the two: dropping the many-star limit alone returns 11.87 and fails here.
-  expect(report.rimRms).toBeLessThan(9);
-  expect(report.frameRms).toBeLessThan(6);
+  // The gate is the *relative* figure, so tuning brightness cannot break it or game it:
+  // correct filtering 0.32, dropping the many-star limit 1.14, a blank frame 16.8.
+  // Absolute reference values, point-sampled cube-cell field on this scene: rimRms 15.09,
+  // frameRms 8.94; after anisotropic filtering, 6.81 / 3.97.
+  expect(report.rimRelative).toBeLessThan(0.6);
 });
 
 test('resolution scaling costs sharpness at the shadow rim, and the cost is measured', async ({ page }) => {

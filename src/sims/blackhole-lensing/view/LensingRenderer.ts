@@ -63,6 +63,9 @@ export interface LensingParams {
    * 0.5 is a quarter of the work. Diagnostics always render at 1.0 — the shadow gate measures a
    * hard edge to sub-pixel accuracy and upsampling would soften exactly that. */
   resolutionScale: number;
+  /** Blend towards the non-physical symmetric-disk look, 0 = physical. **Physical is the
+   * default** (§4.3); anything above 0 must be labelled non-physical in the UI. */
+  cinematic: number;
   /** Average jittered frames while nothing changes. The history is discarded automatically on
    * any parameter change; see `setParams`. */
   accumulate: boolean;
@@ -78,7 +81,10 @@ const DEFAULT_DISK_OUTER_RADIUS = 12;
 /** A stellar-mass hole's inner disk runs to ~10^7 K; this is a display choice that places the
  * peak inside the 1000-30000 K colour table, and it is labelled as such in the UI. */
 const DEFAULT_PEAK_TEMPERATURE = 9000;
-const DEFAULT_EXPOSURE = 1.6;
+/** Display exposure. Chosen so the disk's radial temperature structure survives the tone curve
+ * instead of saturating to white; at 1.6 most of the disk clipped. Cosmetic: it is applied after
+ * all physical arithmetic, and the measured gates confirm nothing physical moved. */
+const DEFAULT_EXPOSURE = 0.9;
 const COLOUR_TABLE_SIZE = 256;
 /** Full-scale value of an 8-bit texture channel. */
 const BYTE_MAX = 255;
@@ -98,6 +104,7 @@ export const DEFAULT_LENSING_PARAMS: LensingParams = {
   jitter: [0, 0],
   resolutionScale: 1,
   accumulate: false,
+  cinematic: 0,
 };
 
 const UNIFORMS = [
@@ -119,6 +126,7 @@ const UNIFORMS = [
   'uLutMinTemperature',
   'uLutMaxTemperature',
   'uJitter',
+  'uCinematic',
 ] as const;
 
 const MODE_CODES: Record<LensingMode, number> = {
@@ -306,6 +314,7 @@ export class LensingRenderer {
     gl.uniform1f(u.uLutMinTemperature, LUT_MIN_TEMPERATURE);
     gl.uniform1f(u.uLutMaxTemperature, LUT_MAX_TEMPERATURE);
     gl.uniform2f(u.uJitter, jitter[0], jitter[1]);
+    gl.uniform1f(u.uCinematic, this.#params.cinematic);
     this.#setTexture(this.#program, 'uColourTable', this.#colourTable, 0);
     gl.drawArrays(gl.TRIANGLES, 0, FULLSCREEN_TRIANGLE_VERTEX_COUNT);
     gl.bindVertexArray(null);
@@ -409,5 +418,8 @@ function validate(params: LensingParams): void {
   }
   if (!(params.resolutionScale > 0) || params.resolutionScale > 1) {
     throw new RangeError('Resolution scale must be within (0, 1].');
+  }
+  if (!(params.cinematic >= 0) || params.cinematic > 1) {
+    throw new RangeError('Cinematic blend must be within [0, 1].');
   }
 }

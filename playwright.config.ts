@@ -28,7 +28,7 @@ export default defineConfig({
   projects: [
     {
       name: 'app',
-      testMatch: /shell\.spec\.ts/,
+      testMatch: /(shell|sim)\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${APP_PORT}` },
     },
     {

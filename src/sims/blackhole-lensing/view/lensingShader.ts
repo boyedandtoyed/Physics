@@ -50,6 +50,10 @@ uniform float uLutMaxTemperature;
  * 4.5), and the lever the temporal-stability metric uses: correct filtering makes a pixel the
  * average over its footprint, so jittering inside one pixel must barely change it. */
 uniform vec2  uJitter;
+/** 0 = physical (default). 1 = cinematic: the Doppler term is removed and only the gravitational
+ * shift remains, which is what DNGR did for the film to get a symmetric disk. Non-physical, and
+ * the UI must say so. Diagnostic modes force this to 0 so the gates always see physical output. */
+uniform float uCinematic;
 
 const float HORIZON        = 1.0;
 const float MASS           = 0.5;          // r_s = 2M
@@ -63,6 +67,12 @@ const float TANGENT_EPS    = 1e-7;
 const float SQRT3          = 1.7320508076;
 const float SQRT6          = 2.4494897428;
 const int   CROSSING_REFINEMENTS = 3;
+/** Below this height the step is capped so a ray cannot straddle the disk plane inside one step.
+ * Without it a grazing ray steps over the plane and back, the sign-change test never fires, and
+ * the disk's outer edge renders scalloped. */
+const float DISK_APPROACH_HEIGHT = 3.0;
+const float DISK_APPROACH_FRACTION = 0.5;
+const float DISK_MIN_STEP = 0.02;
 const float DIAG_MAX_RADIUS = ${DIAGNOSTIC_MAX_RADIUS}.0;
 const float DIAG_MAX_G      = ${DIAGNOSTIC_MAX_G}.0;
 const float DIAG_MAX_LUM    = ${DIAGNOSTIC_MAX_LUMINANCE}.0;
@@ -138,7 +148,7 @@ float hash(vec3 p) {
 const int   STAR_BANDS   = 110;
 const int   STAR_SECTORS = 346;
 const float STAR_OCCUPANCY = 0.16;       // fraction of cells holding a star
-const float STAR_FLUX      = 0.85;       // flux per star, before the reconstruction kernel
+const float STAR_FLUX      = 2.4;        // flux per star, before the reconstruction kernel
 const float STAR_SIGMA     = 0.5;        // reconstruction kernel width, pixels
 const float TAU = 6.2831853072;
 
@@ -291,6 +301,9 @@ Trace traceRay(vec2 ndc) {
     }
 
     float dl = stepLength(r);
+    if (uDiskEnabled && abs(p.y) < DISK_APPROACH_HEIGHT && abs(v.y) > 0.0) {
+      dl = min(dl, max(DISK_MIN_STEP, DISK_APPROACH_FRACTION * abs(p.y) / abs(v.y)));
+    }
     State next = rk4Step(p, v, dl, hSquared);
 
     if (uDiskEnabled && p.y != 0.0 && sign(next.p.y) != sign(p.y)) {
@@ -324,9 +337,15 @@ void main() {
 
   Trace centre = traceRay(ndc);
 
-  float g = centre.hitDisk
-    ? redshiftFactor(centre.emissionRadius, centre.axialImpact, length(uCameraPosition))
-    : 0.0;
+  float g = 0.0;
+  if (centre.hitDisk) {
+    float observer = length(uCameraPosition);
+    float physical = redshiftFactor(centre.emissionRadius, centre.axialImpact, observer);
+    // b_phi = 0 is the same emitter with no line-of-sight motion: gravitational shift and
+    // transverse Doppler only. Mixing towards it is exactly "soften the beaming".
+    float withoutDoppler = redshiftFactor(centre.emissionRadius, 0.0, observer);
+    g = mix(physical, withoutDoppler, uMode == ${LENSING_STARS_MODE} ? uCinematic : 0.0);
+  }
 
   // PHYSICS_SPEC 4.3: a shifted blackbody IS a blackbody at T' = gT. The g^3 (per band) and
   // g^4 (bolometric) are ALREADY contained in that substitution -- do not apply g again.

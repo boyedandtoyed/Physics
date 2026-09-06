@@ -41,6 +41,12 @@ const MAX_STEPS = 100_000;
 /** Secant iterations used to land the disk crossing on y = 0. Three is ample: the residual
  * falls below 1e-12 in practice, far under the accuracy of the step itself. */
 const CROSSING_REFINEMENTS = THREE;
+/** Below this height the step is capped so a ray cannot straddle the disk plane inside one step.
+ * A grazing ray otherwise steps over and back, the sign-change test never fires, and the disk's
+ * outer edge renders scalloped. Mirrors the shader exactly. */
+const DISK_APPROACH_HEIGHT = THREE;
+const DISK_APPROACH_FRACTION = HALF;
+const DISK_MIN_STEP = 0.02;
 
 export type RayOutcome = 'captured' | 'escaped' | 'exhausted' | 'disk';
 
@@ -140,7 +146,10 @@ export function traceRay(
       };
     }
 
-    const dl = adaptiveStep(r);
+    let dl = adaptiveStep(r);
+    if (disk && Math.abs(p[1]) < DISK_APPROACH_HEIGHT && Math.abs(v[1]) > 0) {
+      dl = Math.min(dl, Math.max(DISK_MIN_STEP, DISK_APPROACH_FRACTION * Math.abs(p[1]) / Math.abs(v[1])));
+    }
     const next = rk4Step(p, v, dl, hSquared);
 
     if (disk && p[1] !== 0 && Math.sign(next.p[1]) !== Math.sign(p[1])) {

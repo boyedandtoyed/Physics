@@ -99,6 +99,11 @@ export interface StabilityReport {
    * nothing" from passing. Found by a mutation that made the kernel so narrow the rim went
    * black and scored better than the correct filter. */
   rimMean: number;
+  /** rimRms / rimMean. **This is the gate**, because it is scale-invariant: brightening the star
+   * field scales the variance and the mean together, so an absolute threshold would flag a purely
+   * cosmetic change as a quality regression. It also still catches a blank frame, where the mean
+   * collapses faster than the variance. */
+  rimRelative: number;
   samples: number;
   rimPixels: number;
 }
@@ -486,6 +491,7 @@ window.lensingHarness = {
       frameRms: Math.sqrt(frameSquares / Math.max(1, framePixels)),
       rimMax,
       rimMean: rimSum / Math.max(1, rimPixels),
+      rimRelative: Math.sqrt(rimSquares / Math.max(1, rimPixels)) / Math.max(1e-9, rimSum / Math.max(1, rimPixels)),
       samples: frames.length,
       rimPixels,
     };

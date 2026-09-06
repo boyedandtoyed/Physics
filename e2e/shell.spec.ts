@@ -7,7 +7,7 @@ for (const theme of ['light', 'dark'] as const) {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('/');
     await page.getByLabel('Theme').selectOption(theme);
-    await expect(page.getByText('Not available yet')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'When light meets a black hole' })).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await page.getByRole('link', { name: 'Our method', exact: true }).click();
     const trigger = page.getByRole('button', { name: 'The physics' });

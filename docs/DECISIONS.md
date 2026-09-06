@@ -335,3 +335,41 @@ structure to read. The canvas therefore carries `role="img"` with a label summar
 backed by a throttled ARIA live region carrying the numbers that change. `prefers-reduced-motion`
 suppresses the idle accumulation loop rather than only easing a transition, since the loop is the
 motion.
+
+## 2026-09-06 — Step 5: the UI, and three defects the build surfaced
+
+**Progressive refinement must ratchet, not oscillate.** The renderer starts at a fraction of the
+target resolution and grows only while frames stay fast, because one full-resolution frame on a
+software renderer or weak integrated GPU blocks the main thread for seconds — long enough to
+freeze input and assistive technology before the user can reach a control. The first attempt
+allowed the scale to grow *and* shrink, which flip-flopped: at full scale the frame was slow, at
+the reduced scale it was fast, so it alternated forever, and because each flip set React state the
+component never stopped re-rendering. The page looked fine to a human and every Playwright
+actionability check timed out. Once a frame has been slow the scale is now locked downward.
+
+**The disk's outer edge was scalloped.** A ray grazing the disk plane could step across it and
+back inside one step, so the sign-change test never fired. The step is now capped near the plane
+in both the shader and the CPU model. This costs agreement: the shader-vs-model figures went from
+2e-5 to 4e-4 (gate 1e-3), because the cap divides by |v_y|, which is small for grazing rays and
+therefore float32-sensitive. Verified it is not step-budget exhaustion — identical at 500, 900 and
+1400 steps — and that a gentler cap does not recover it (4.26e-4), so the cost is inherent to
+having any y-dependent step. Worth it: the artefact was plainly visible.
+
+**Heading order.** React Aria's `Heading` inside a `Disclosure` does not default to a level that
+follows the page's `h1`, so axe reported an invalid heading order on both panels. Both now pass
+`level={2}` explicitly.
+
+**Appearance tuning, with before/after on every gate.** Exposure 1.6 → 0.9 and star flux
+0.85 → 2.4. The stability gate had to be made scale-invariant first: it was an absolute variance
+threshold, so brightening the stars would have tripped it even though nothing about the filtering
+changed. The gate is now `rimRms / rimMean`, which is immune to brightness and still catches a
+blank frame (the mean collapses faster than the variance).
+
+**Measured frame rate, 1080p, Quadro M5000, 320 steps/ray, disk on, median of five runs of twenty
+frames:** 29.3 fps at native, **64.7 fps** at the shipped default scale of 0.65. BUILD_PLAN's
+60 fps target is met with §4.5's required resolution scaling, and the figure is measured, not
+asserted.
+
+**Test note:** React Aria puts `role="switch"` on a visually hidden input, so a Playwright click
+must target the label, not the role. Not a product defect — the pattern is correct and axe accepts
+it — but it looks like one from a failing test.
