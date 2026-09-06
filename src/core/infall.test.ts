@@ -61,6 +61,16 @@ describe('the infall trajectory (§7.4 Claim B)', () => {
     expect(schwarzschildTime(1.0000001)).toBeGreaterThan(30);
     expect(schwarzschildTime(HORIZON)).toBe(Number.POSITIVE_INFINITY);
     expect(properTimeToHorizon()).toBeLessThan(15);
+    // Inside the horizon this chart has nothing to say: t is spatial there. Refusing beats
+    // returning a number that could wander into the invariant comparison.
+    expect(() => schwarzschildTime(0.9)).toThrow(RangeError);
+  });
+
+  it('runs both invertible coordinates strictly downwards in r, which the bisection assumes', () => {
+    for (const [outer, inner] of [[8, 6], [6, 4], [4, 2], [2, 1.5], [1.5, 1.1], [1.1, 1.001]]) {
+      expect(schwarzschildTime(inner!)).toBeGreaterThan(schwarzschildTime(outer!));
+      expect(eddingtonFinkelsteinV(inner!)).toBeGreaterThan(eddingtonFinkelsteinV(outer!));
+    }
   });
 
   it('starts every chart at the stated origin', () => {

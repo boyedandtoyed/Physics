@@ -77,7 +77,13 @@ function schwarzschildAntiderivative(w: number): number {
 export function schwarzschildTime(radius: number, startRadius = DEFAULT_START_RADIUS): number {
   outsideOrigin(startRadius);
   onTrajectory(radius, startRadius);
-  if (radius <= HORIZON) return Number.POSITIVE_INFINITY;
+  if (radius < HORIZON) {
+    // Not merely infinite: inside the horizon `t` is a spatial coordinate and this chart has
+    // nothing to say. Returning a number here would invite it into the invariant comparison.
+    throw new RangeError('Schwarzschild time is not defined inside the horizon.');
+  }
+  // At r = r_s the logarithm supplies the divergence on its own; no special case is needed, and
+  // one would be untestable because it agrees with the formula it replaces.
   return -HORIZON * (
     schwarzschildAntiderivative(root(radius)) - schwarzschildAntiderivative(root(startRadius))
   );
@@ -191,7 +197,14 @@ export function radiusFromKruskal(point: Pick<KruskalPoint, 'U' | 'V'>): number 
   return HORIZON * (1 + lambertW0(product / Math.E));
 }
 
-/** Bisection on a monotone function of radius over the infall. Used to invert t(r) and v(r). */
+/**
+ * Bisection for the radius at which a coordinate takes a given value.
+ *
+ * Both `t(r)` and `v(r)` are strictly DECREASING in r along this infall — the faller starts at
+ * r0 with the smallest coordinate time and accumulates more as it descends. That is asserted in
+ * the tests rather than detected here: auto-detecting a direction that is always the same is
+ * generality nothing exercises, and a mutation to it cannot be caught.
+ */
 function invertOverInfall(
   evaluate: (radius: number) => number,
   target: number,
@@ -200,12 +213,9 @@ function invertOverInfall(
   const ITERATIONS = 200;
   let low = HORIZON;
   let high = startRadius;
-  // Both t and v decrease with increasing r along this trajectory.
-  const decreasing = evaluate(startRadius) < evaluate((HORIZON + startRadius) / TWO);
   for (let step = 0; step < ITERATIONS; step++) {
     const middle = (low + high) / TWO;
-    const above = decreasing ? evaluate(middle) > target : evaluate(middle) < target;
-    if (above) low = middle;
+    if (evaluate(middle) > target) low = middle;
     else high = middle;
   }
   return (low + high) / TWO;
