@@ -137,8 +137,16 @@ The acceptance test is discriminating, not merely green — verified by mutation
 | drop the static-observer sqrt factor | 102.119 px | 2.632 px | fails |
 | revert to the old `rhat/r^5` force law | 66.043 px | 33.444 px | fails |
 
-**Known limitation, for step 4:** the procedural star field hashes on a cube-cell grid, so cells
-have very uneven solid angle and distant stars render as elongated blobs rather than points. The
+**Known limitations, for steps 4 and 5:**
+
+- **Exposure and tone mapping are untuned.** At the default exposure the Reinhard curve saturates
+  most of the disk toward white, which flattens the radial temperature structure visually. The
+  physics underneath is verified — the crescent measures 150 vs 50 in encoded sRGB and the
+  exponent reads 4.0019 — so this is a display-parameter choice, not a physics defect. It belongs
+  with the controls in step 5, where exposure becomes a labelled cosmetic setting. Do not change
+  it in a way that alters `luminance` before tone mapping.
+- The procedural star field hashes on a cube-cell grid, so cells
+  have very uneven solid angle and distant stars render as elongated blobs rather than points. The
 tangential smearing *near* the hole is real lensing and correct; the blockiness far from it is
 not. §4.4's anisotropic sampling work is the right place to fix this. The shadow measurement uses
 the `capture-mask` mode and is unaffected.
