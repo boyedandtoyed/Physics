@@ -1,36 +1,69 @@
-# Physics
+# Abstract Physics
 
-## Status
+A browser-based, physically accurate space-physics simulator — general relativity, spacetime
+geometry, black holes, electromagnetism and quantum field theory. PhET Interactive Simulations
+is the model for the product shape: many small, focused, deeply interactive simulations sharing
+one shell, each rigorous, each accessible.
 
-This repository is a fresh scaffold. No engine code has been written yet — this README exists so that whoever (or whatever AI assistant) picks up this project next has enough context to start correctly instead of guessing.
+**Target:** `https://abstract-physics.binodtiwari.com` — Docker, behind a Cloudflare tunnel.
 
-## Purpose
+**Status:** specification complete, implementation not started. See
+[`docs/PROGRESS.md`](docs/PROGRESS.md).
 
-Not yet defined in detail. The intent is a physics engine / physics-related project (the specific domain — 2D vs 3D, real-time simulation vs. educational/visualization tool, target language and platform — will be specified by the project owner in a follow-up prompt). Whoever starts building should confirm this scope before writing significant code.
+## What makes it different
 
-## Instructions for the next AI assistant or contributor
+Most black hole visualizations on the web are either pretty and wrong, or correct and unusable.
+This one is built from the actual equations, tested against published measured values, and
+explicit about the difference between what the mathematics says and what the popular
+explanations claim.
 
-Before writing code:
+That last part is the thesis, not a footnote. Several standard popular explanations in this
+subject are known to be wrong or badly misleading — the virtual-pair-at-the-horizon story for
+Hawking radiation, "virtual particles constantly popping in and out of the vacuum", "the Casimir
+effect is the vacuum pushing plates together", "gravity is just time dilation", "massive objects
+are expanding toward you". Each of these gets a correct treatment, a labelled myth panel, and
+the calculation that settles it. See [`docs/PHYSICS_SPEC.md`](docs/PHYSICS_SPEC.md) §7.
 
-1. Ask (or check the latest instructions from the owner) what kind of physics engine this is meant to be: 2D or 3D, general-purpose or specialized (rigid body, particle, fluid, etc.), target language/runtime, and whether it needs a renderer or is math/simulation only.
-2. Propose a folder structure and get it confirmed before generating a large number of files.
-3. Once the scope is confirmed, replace this whole README with real documentation — do not leave these placeholder instructions in place alongside real code.
+Every simulation ships with the governing equations rendered on screen, its assumptions and
+limits of validity stated, and links to primary sources. Every published measured value the
+product touches — Mercury's perihelion precession at 42.98″/century, light deflection at 1.75″,
+the GPS clock offset at 38.5 μs/day, the Casimir force at 1.30 Pa across 100 nm — has a test
+asserting the code reproduces it.
 
-While building:
+## Repository map
 
-- Keep commits small and message them descriptively (what changed and why), not just "update".
-- As each major module is added (e.g. the core simulation loop, collision detection, integrators, math/vector library, any rendering or API layer), update the **Architecture** section below so the README always reflects the real, current structure — never let it drift out of date.
-- Do not commit secrets (API keys, tokens) into this repository. Use a `.env` file listed in `.gitignore` for any credentials.
+| File | What it is |
+|---|---|
+| [`PROMPT.md`](PROMPT.md) | The kickoff prompt for a Claude Code session |
+| [`CLAUDE.md`](CLAUDE.md) | Standing rules, auto-loaded every session |
+| [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md) | Phases, tech stack, architecture, deployment, session checkpoint protocol |
+| [`docs/PHYSICS_SPEC.md`](docs/PHYSICS_SPEC.md) | Every equation, constant and numerical benchmark, with sources |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | Living handoff log — read this first |
+| `docs/DECISIONS.md` | Architecture decision record (created when the first non-obvious choice is made) |
 
-## Architecture
+## Working on this
 
-_To be filled in once real code exists. Suggested sections once there is something to document:_
+This is a long project built across many sessions. Start a session with:
 
-- **Overview** — one paragraph on what the engine does and its main entry point.
-- **Core loop** — how a simulation step/frame is advanced (fixed vs. variable timestep, update order).
-- **Modules** — one subsection per major module (e.g. math/vectors, rigid bodies, collision detection, constraint solver, integrator), what each owns, and how they call into each other.
-- **Data flow** — how state moves through the system for one tick (input → simulation → output/render).
-- **External dependencies** — libraries relied on and why.
-- **Build & run** — exact commands to install, build, test, and run the project.
+> Continue work on Abstract Physics. Read `CLAUDE.md`, `docs/PROGRESS.md`, `docs/BUILD_PLAN.md`
+> and `docs/PHYSICS_SPEC.md`, then pick up the next unstarted task and follow the checkpoint
+> protocol in `BUILD_PLAN.md` §9.
 
-Future corrections and extensions should update this section directly rather than adding a second, separate architecture document.
+For the very first session, paste the full prompt from [`PROMPT.md`](PROMPT.md) instead.
+
+The rules that govern every session, in short: physics accuracy is the product; no pop-science
+and no flattering anyone's pet theory; commit often, keep `PROGRESS.md` current, and never end a
+session with a broken build.
+
+## Stack
+
+Vite 7 · React 19 · TypeScript 5.9 strict · WebGL2 (GLSL ES 3.0) for the raymarcher · WebGPU
+where available with a mandatory WebGL2 fallback · Zustand · KaTeX · Vitest + Playwright ·
+Docker + nginx + cloudflared.
+
+The simulation layer is framework-agnostic by design — simulation code does not know React
+exists.
+
+## License
+
+Not yet chosen.
