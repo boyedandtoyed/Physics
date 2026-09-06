@@ -2,12 +2,39 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 1 — The black hole. Steps 1–4 of 5 are done and verified. Phase 0 is signed off
-and merged to `master`.
-**Branch:** `feat/phase-1-blackhole` (branched from `master` at `49a6bf2`).
+**Phase:** 1 — The black hole. **COMPLETE.** All five steps done, verified, merged to `master`
+(`7bd6e70`) and deployed. Phase 0 is signed off.
+**Branch:** `feat/phase-1-blackhole`, merged. Next work starts a Phase 2 branch from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
-**The lensing sim is deliberately NOT in `registry/sims.ts`** and must not be until step 5 is
-finished — the gallery must not advertise an unfinished simulation.
+**The lensing sim is registered and live.** Reachable from the Collection page at
+https://abstract-physics.binodtiwari.com/sims/blackhole-lensing, verified rendering end to end
+through the public HTTPS host.
+
+### Phase 1 definition of done (BUILD_PLAN §3)
+
+| Requirement | Measured | Verdict |
+|---|---|---|
+| 60 fps at 1080p on a mid-range GPU | **64.7 fps** median of 5×20 frames, Quadro M5000, 320 steps/ray, disk on, at the shipped default resolution scale 0.65 (native 1.0 gives 29.3 fps) | met, using the resolution scaling §4.5 marks *required* |
+| Shadow radius matches 3√3 GM/c² to within a pixel | **0.013 px** error, holding across three camera distances and fields of view | met, 77× inside the gate |
+| A physicist finds nothing to complain about | Four source audits fixed four sets of real errors before implementation; every physical claim is gated on a measurement with a mutation that trips it | see the gate table below |
+
+### Final gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| Shadow radius error | **0.013 px** | old `r̂/r⁵` force law | 33.4 px |
+| — | — | drop static-observer √(1−rₛ/D) | 2.63 px |
+| Shader vs float64 model, radius | **4.1e-4** (gate 1e-3) | — | — |
+| Shader vs float64 model, g | **9.0e-5** | — | — |
+| Shader vs float64 model, g·T | **2.1e-4** | Shakura–Sunyaev flux law | 29.8% |
+| Doppler brightness exponent | **4.0045** | apply g twice | 7.998 |
+| Crescent ratio (encoded sRGB) | **3.75** | — | — |
+| Temporal stability (scale-invariant) | **0.278** | drop the many-star limit | 1.14 |
+| Rim luminance (content check) | **43.5** | narrow kernel until rim blanks | 0.11 |
+| Rim sharpness, scale 1.0 vs 0.5 | **117.3 vs 58.1** (2.02×) | — | — |
+| Accumulation vs explicit mean | **0.75** of one 8-bit level | — | — |
+| Ghosting after camera change | **0** | remove the history reset | 134 |
+| Tests | 81 Vitest, 20 Playwright, 57 Python benchmarks | — | — |
 
 **The acceptance suite passes (11 tests).** Run it with `npx playwright test --project=lensing`.
 - Shadow radius off a real GPU frame: 99.474 px vs 99.487 px predicted, **0.013 px** error
@@ -46,12 +73,15 @@ finished — the gallery must not advertise an unfinished simulation.
 
 ## Phase 1 — where to pick up
 
-**NEXT: step 5** — controls, the KaTeX physics panel, a "Common misconceptions" panel, keyboard
-camera and the live screen-reader summary. **Only then register the sim** in `registry/sims.ts`.
+**NEXT: Phase 2** — time dilation, the deflection decomposition (§7.4 Claim A) and the
+Interpretations module (§7.4 Claim B). Audit the relevant spec sections first: four audits have
+now found four sets of real errors in that document, so assume a fifth will too.
 
-Step 5 owns the display-calibration items deferred so far, both appearance rather than physics and
-neither affecting a measured gate: **exposure/tone mapping** (the Reinhard curve saturates the disk
-toward white) and **star brightness** (`STAR_FLUX`).
+**One known limitation carried forward**, recorded in full in `DECISIONS.md`: the disk outer-edge
+step cap trades radius agreement (2.0e-5 → 4.1e-4) for artefact removal and is float32-fragile for
+grazing rays. The replacement is written down — event detection by cubic Hermite root-finding on
+the step already taken, which never divides by a small velocity — and is deliberately *not*
+implemented yet.
 
 ### Step 1 — primary-source audit *(done 2026-09-06, commit `08b0223`)*
 
@@ -377,3 +407,31 @@ empty slice — the two `s.index` anchors were in the wrong order — inserted a
 every character, leaving 127,332 lines. It was committed and pushed, and CI passed because nothing
 validates the markdown. Restored from `23542b2` and re-applied with asserted anchors. Lesson worth
 keeping: the checks in CI cover code, not documentation, so doc edits need their own verification.
+
+### 2026-09-06 — Phase 1 complete, merged and deployed
+
+Step 5 built the UI: controls for mass, distance, inclination, disk, quality and the
+physical-vs-cinematic toggle; the physics panel; a misconceptions panel led by the shadow-versus-
+horizon confusion, showing 1.000 rₛ against 2.598 rₛ side by side; keyboard camera and a live
+screen-reader description. axe passes in both themes.
+
+Appearance was tuned only after the gates existed, and the stability gate had to be repaired
+first: it was an absolute variance threshold, so brightening the stars would have tripped it
+though nothing about the filtering changed. It is now `rimRms / rimMean`, which is immune to
+brightness and still catches a blank frame.
+
+Three defects surfaced during the build, the first the most interesting. Progressive refinement
+oscillated between resolution scales — slow at full, fast when reduced — re-rendering forever,
+which froze every Playwright actionability check while the page looked perfectly fine to a human.
+It now ratchets downward only. The disk's outer edge was scalloped because a grazing ray could
+step across the plane and back inside one step. And React Aria's disclosure headings skipped a
+level, which axe caught.
+
+CI failed once on this branch, on time rather than behaviour: the browser tests drive a raymarcher
+and CI has no GPU, so WebGL falls back to SwiftShader on two vCPUs. Reproduced locally by pinning
+to two cores — the stability measurement takes 57 s against Playwright's 30 s default — and fixed
+by giving those projects a realistic timeout.
+
+Merged to `master` at `7bd6e70`, container rebuilt, and the live site verified end to end: the
+Collection page lists the simulation, the link resolves, and the canvas renders through the public
+HTTPS host.
