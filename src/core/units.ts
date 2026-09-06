@@ -55,3 +55,12 @@ export const HAFELE_KEATING_PREDICTIONS = {
   eastward: { value: -40, uncertainty: 23 },
   westward: { value: 275, uncertainty: 21 },
 } as const;
+
+/** Representative speeds for the deflection decomposition, PHYSICS_SPEC §7.4 Claim A's table.
+ * Reference values chosen to name a familiar system, not measurements to be re-derived. */
+/** A falling apple, m/s. MTW's "Parable of the Apple", Gravitation §1.6. */
+export const APPLE_SPEED = 10;
+/** ISS mean orbital speed, m/s. */
+export const ISS_ORBITAL_SPEED = 7700;
+/** Mercury mean orbital speed, m/s. */
+export const MERCURY_ORBITAL_SPEED = 47_900;

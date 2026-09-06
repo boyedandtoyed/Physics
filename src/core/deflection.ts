@@ -7,7 +7,15 @@
  *
  * Framework-free, float64.
  */
-import { ARCSECONDS_PER_RADIAN, C, SOLAR_GM, SOLAR_RADIUS } from './units';
+import {
+  APPLE_SPEED,
+  ARCSECONDS_PER_RADIAN,
+  C,
+  ISS_ORBITAL_SPEED,
+  MERCURY_ORBITAL_SPEED,
+  SOLAR_GM,
+  SOLAR_RADIUS,
+} from './units';
 
 const TWO = 2;
 
@@ -115,8 +123,8 @@ export function radiansToArcseconds(radians: number): number {
 
 /** §7.4's table of representative speeds, as beta. The ratio column is beta^2. */
 export const DEFLECTION_PRESETS = [
-  { id: 'apple', label: 'Falling apple', speed: 10, note: '~10 m/s' },
-  { id: 'iss', label: 'ISS in orbit', speed: 7700, note: '7.7 km/s' },
-  { id: 'mercury', label: 'Mercury', speed: 47_900, note: '47.9 km/s' },
+  { id: 'apple', label: 'Falling apple', speed: APPLE_SPEED, note: '~10 m/s' },
+  { id: 'iss', label: 'ISS in orbit', speed: ISS_ORBITAL_SPEED, note: '7.7 km/s' },
+  { id: 'mercury', label: 'Mercury', speed: MERCURY_ORBITAL_SPEED, note: '47.9 km/s' },
   { id: 'light', label: 'Light', speed: C, note: 'c' },
 ] as const;
