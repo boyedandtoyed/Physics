@@ -2,7 +2,22 @@
 
 How this project is served, and how it fits alongside the other sites on the same machine.
 
-## Current state (verified 2026-09-06)
+## Live configuration
+
+| | |
+|---|---|
+| Tunnel name | `binod-home` |
+| Tunnel UUID | `cd90781c-9c68-42a4-a7ce-0f25e8defa1d` |
+| Canonical config | `/etc/cloudflared/config.yml` (system location — the service runs as root) |
+| Credentials | `/etc/cloudflared/cd90781c-9c68-42a4-a7ce-0f25e8defa1d.json` |
+| Account cert | `~/.cloudflared/cert.pem` (account-level; can create/delete tunnels — never commit or back up off-machine) |
+
+Set up 2026-09-06. `abstract-physics.binodtiwari.com` CNAME created and routed to this tunnel.
+
+**Edit `/etc/cloudflared/config.yml`, not the copy in `~/.cloudflared/`.** Keeping two is what
+broke the previous setup — see Troubleshooting.
+
+## History (2026-09-06)
 
 `cloudflared` is installed on the host but is **not logged in and has no local config**:
 `~/.cloudflared/` contains neither `cert.pem` nor `config.yml`. The previously-running
@@ -126,17 +141,29 @@ cloudflared tunnel route dns binod-home abstract-physics.binodtiwari.com
 This creates the proxied CNAME to `<UUID>.cfargotunnel.com`. **Editing `config.yml` alone gets
 you nothing** — without this the hostname does not resolve.
 
-### 5. Install as a service
+### 5. Promote the config to the system location and install the service
+
+The service runs as root, so the config belongs in `/etc/cloudflared/`, not a user home. Having
+a config in **both** places makes `service install` refuse to run:
+
+> `Possible conflicting configuration in ~/.cloudflared/config.yml and /etc/cloudflared/config.yml`
 
 ```bash
-sudo cloudflared --config /home/blinded-christi/.cloudflared/config.yml service install
+# retire anything left from a previous setup
+sudo mv /etc/cloudflared/config.yml /etc/cloudflared/config.yml.old-$(date +%F) 2>/dev/null
+
+sudo cp ~/.cloudflared/config.yml /etc/cloudflared/config.yml
+sudo cp ~/.cloudflared/<TUNNEL-UUID>.json /etc/cloudflared/
+sudo sed -i 's|/home/blinded-christi/.cloudflared/|/etc/cloudflared/|' /etc/cloudflared/config.yml
+sudo chmod 600 /etc/cloudflared/*.json
+
+sudo cloudflared --config /etc/cloudflared/config.yml service install
 sudo systemctl enable --now cloudflared
-systemctl status cloudflared
+systemctl status cloudflared --no-pager
 ```
 
-**The `--config` flag is not optional here.** Under `sudo`, `$HOME` resolves to `/root`, so
-without it the service looks for `/root/.cloudflared/config.yml`, doesn't find it, and fails.
-This is the single most common way this setup goes wrong.
+Note the `--config` flag: under `sudo`, `$HOME` resolves to `/root`, so cloudflared will not
+find a config in your home directory on its own. Always pass the path explicitly.
 
 ---
 
@@ -197,7 +224,9 @@ for `.wasm`, and SPA fallback to `index.html`.
 | Error 502 / 504 | Tunnel is up; nothing listening on the mapped port, or it bound to a container-internal address |
 | Hostname doesn't resolve at all | `route dns` was never run, or the record isn't proxied |
 | Service fails to start | Missing `--config` on install (looking in `/root`), missing catch-all, or YAML indentation |
-| Config edits do nothing | Tunnel is dashboard-managed; routes live in the Zero Trust UI |
+| Config edits do nothing | Editing `~/.cloudflared/config.yml` while the service reads `/etc/cloudflared/config.yml`. The system copy is the live one. |
+| `service install` refuses to run | A config exists in both `~/.cloudflared/` and `/etc/cloudflared/`. Retire one. |
+| Service crash-loops, `status=1/FAILURE` | Usually a stale `/etc/cloudflared/config.yml` from a previous setup referencing a tunnel that no longer exists |
 
 ## Sources
 
