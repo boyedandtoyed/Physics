@@ -289,7 +289,40 @@ Newtonian $8.16M$.
    is **76.8**; the double-counted pipeline gives **5899**, too large by a factor of 76.8.
    Concretely: look up **luminance-normalised chromaticity** at $T'=g\,T$, and take the brightness
    from $\sigma T'^4$. Do not multiply that product by another $g^4$.
-4. Spectral radiance → CIE XYZ → sRGB with proper tone mapping.
+4. Spectral radiance → CIE XYZ → sRGB with proper tone mapping (below).
+
+#### Blackbody → sRGB, concretely
+
+Colour-matching functions: the multi-lobe piecewise-Gaussian fits of **Wyman, Sloan & Shirley
+2013**, *Simple Analytic Approximations to the CIE XYZ Color Matching Functions*, JCGT 2(2)
+([PDF](https://jcgt.org/published/0002/02/01/paper.pdf)). With
+$G(\lambda;\mu,\sigma_1,\sigma_2) = \exp\!\left[-\tfrac12\left(\tfrac{\lambda-\mu}{\sigma}\right)^2\right]$,
+$\sigma = \sigma_1$ for $\lambda<\mu$ else $\sigma_2$, $\lambda$ in nm:
+
+$$\bar x = 1.056\,G(599.8, 37.9, 31.0) + 0.362\,G(442.0, 16.0, 26.7) - 0.065\,G(501.1, 20.4, 26.2)$$
+$$\bar y = 0.821\,G(568.8, 46.9, 40.5) + 0.286\,G(530.9, 16.3, 31.1)$$
+$$\bar z = 1.217\,G(437.0, 11.8, 36.0) + 0.681\,G(459.0, 26.0, 13.8)$$
+
+Then $X=\int B_\lambda(T)\bar x\,d\lambda$ and likewise $Y, Z$, over 360–830 nm. **Normalise by
+$Y$** so the table stores chromaticity only — the luminance comes from $\sigma T'^4$, and storing
+it twice is the double-count of step 3 in another guise.
+
+Linear sRGB (IEC 61966-2-1, D65 primaries):
+
+$$\begin{pmatrix}R\\G\\B\end{pmatrix} = \begin{pmatrix}3.2406 & -1.5372 & -0.4986\\ -0.9689 & 1.8758 & 0.0415\\ 0.0557 & -0.2040 & 1.0570\end{pmatrix}\begin{pmatrix}X\\Y\\Z\end{pmatrix}$$
+
+Negative components mean the colour is outside the sRGB gamut; desaturate toward white by adding
+the most negative component to all three, rather than clipping, which shifts hue. Transfer
+function: $C' = 1.055\,C^{1/2.4}-0.055$ for $C>0.0031308$, else $12.92\,C$.
+
+**ASSERT:** the Planckian locus at 6504 K must land within 0.001 of $(x,y)=(0.3135,0.3237)$, and
+CIE $x$ must decrease monotonically as $T$ rises.
+
+> **Not a bug: 6504 K is not D65.** sRGB's white point D65 is $(0.3127,0.3290)$, a *daylight*
+> illuminant, and it lies about **0.0054** off the Planckian locus — daylight is scattered
+> sunlight, not a blackbody. A correct implementation misses D65 by roughly that much, and
+> "fixing" it by tuning the colour-matching functions would be fitting to the wrong target. This
+> file asserted the D65 value in an earlier revision and was wrong to.
 
 This produces the characteristic **one-sided bright crescent** — the approaching side is
 dramatically brighter. Note that DNGR deliberately *softened* this for the film because Nolan

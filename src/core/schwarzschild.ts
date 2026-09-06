@@ -89,3 +89,97 @@ function requireOutsideHorizon(distance: number) {
     throw new RangeError('Radius must be finite and outside the horizon.');
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Accretion disk, PHYSICS_SPEC §4.3. Still r_s = 1 units, so M = 1/2 and r_ISCO = 3.
+//
+// The published Novikov-Thorne formulae are written in M = 1 units, where r_ISCO = 6. Mixing the
+// two is exactly what §6.5 warns about, so the conversion happens once, here, in `toMassUnits`.
+// ---------------------------------------------------------------------------------------------
+
+const SQRT_THREE = Math.sqrt(THREE);
+const SQRT_SIX = Math.sqrt(THREE * TWO);
+/** Radius in M = 1 units, given a radius in r_s = 1 units. r_s = 2M, so r/M = 2r. */
+const toMassUnits = (radius: number) => radius * TWO;
+
+/** Keplerian angular velocity of a circular equatorial orbit, Omega = sqrt(M/r^3). */
+export function orbitalAngularVelocity(radius: number): number {
+  requireOutsideHorizon(radius);
+  return Math.sqrt(MASS / radius ** THREE);
+}
+
+/** Specific energy of a circular equatorial orbit, E = (1 - r_s/r)/sqrt(1 - 3M/r).
+ * At the ISCO this is sqrt(8/9), so 1 - E is the 5.7191% radiative efficiency of §2.4. */
+export function circularOrbitEnergy(radius: number): number {
+  requireCircularOrbitExists(radius);
+  return (1 - HORIZON_RADIUS / radius) / Math.sqrt(1 - THREE * MASS / radius);
+}
+
+/** Redshift factor g = nu_obs/nu_em for a circular Keplerian emitter seen by a static observer.
+ *
+ *     g = sqrt(1 - 3M/r_em) / [ (1 - Omega b_phi) sqrt(1 - r_s/r_obs) ]
+ *
+ * `axialImpactParameter` is b_phi = L_z/E, the photon's angular momentum **about the disk axis**
+ * per unit energy — not the total impact parameter that sets the shadow. b_phi > 0 is the
+ * prograde, approaching side. PHYSICS_SPEC §4.3 derives this and checks it against the
+ * g_grav * Doppler factorisation to 5e-16; the closed form is used because it needs no local
+ * frame transformation.
+ */
+export function redshiftFactor(
+  emissionRadius: number,
+  axialImpactParameter: number,
+  observerRadius: number,
+): number {
+  requireCircularOrbitExists(emissionRadius);
+  requireOutsideHorizon(observerRadius);
+  const denominator = 1 - orbitalAngularVelocity(emissionRadius) * axialImpactParameter;
+  if (denominator <= 0) return Number.POSITIVE_INFINITY;
+  return Math.sqrt(1 - THREE * MASS / emissionRadius)
+    / (denominator * Math.sqrt(1 - HORIZON_RADIUS / observerRadius));
+}
+
+/** Dimensionless Novikov-Thorne flux profile, Page & Thorne 1974, specialised to Schwarzschild.
+ *
+ * The emitted flux is F(r) = Mdot/(4 pi M^2) * this. Returns 0 at and inside the ISCO, which is
+ * the zero-torque inner boundary condition.
+ *
+ * **This is not the Shakura-Sunyaev [1 - sqrt(r_in/r)] profile.** That Newtonian form
+ * over-radiates by 43% and implies an 8.33% radiative efficiency, contradicting §2.4's 5.7191%.
+ * See `DECISIONS.md`.
+ */
+export function novikovThorneFlux(radius: number): number {
+  if (!(radius > ISCO_RADIUS)) return 0;
+  const r = toMassUnits(radius);
+  const antiderivative = (x: number) =>
+    x - (SQRT_THREE / TWO) * Math.log((x - SQRT_THREE) / (x + SQRT_THREE));
+  const integral = antiderivative(Math.sqrt(r)) - antiderivative(SQRT_SIX);
+  // r^(5/2) written as r^2 * sqrt(r): the exponent is 2.5, and an earlier arithmetic
+  // dodge around the lint rule made it 4, which the luminosity identity caught at once.
+  return (THREE / TWO) / (r ** TWO * Math.sqrt(r) * (r - THREE)) * integral;
+}
+
+/** Peak of the dimensionless NT flux, at r = 9.55M = 4.775 r_s. Computed once by scan rather
+ * than hard-coded, so it tracks any change to the profile. */
+const PEAK_SCAN_OUTER_RADIUS = 60;
+const PEAK_SCAN_STEP = 0.001;
+export const NT_PEAK_FLUX = (() => {
+  let best = 0;
+  for (let r = ISCO_RADIUS; r < PEAK_SCAN_OUTER_RADIUS; r += PEAK_SCAN_STEP) {
+    best = Math.max(best, novikovThorneFlux(r));
+  }
+  return best;
+})();
+
+/** Effective temperature profile, normalised so its peak is 1. The absolute scale depends on
+ * Mdot and M, which are not modelled; the shape is what the physics fixes. T ~ F^(1/4). */
+export function novikovThorneTemperature(radius: number, peakFlux = NT_PEAK_FLUX): number {
+  const flux = novikovThorneFlux(radius);
+  return flux <= 0 ? 0 : (flux / peakFlux) ** (1 / (TWO + TWO));
+}
+
+function requireCircularOrbitExists(radius: number) {
+  requireOutsideHorizon(radius);
+  if (radius <= THREE * MASS) {
+    throw new RangeError('No circular orbit exists at or inside the photon sphere.');
+  }
+}
