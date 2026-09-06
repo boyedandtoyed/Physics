@@ -21,10 +21,6 @@ export { HAFELE_KEATING_EASTWARD, HAFELE_KEATING_WESTWARD, HAFELE_KEATING_PREDIC
 
 const TWO = 2;
 
-function positiveFinite(value: number): void {
-  if (!Number.isFinite(value) || value <= 0) throw new RangeError('Expected a finite positive value.');
-}
-
 /** Schwarzschild radius of a mass, metres. */
 export function schwarzschildRadius(massKilograms: number): number {
   return (TWO * G * massKilograms) / C ** TWO;

@@ -133,6 +133,20 @@ describe('Hafele-Keating (§8 rows 8, 9, 19)', () => {
     expect(Math.abs(east - west)).toBeGreaterThan(100);
   });
 
+  it('reports parts that add up to the whole it reports', () => {
+    // Found by mutation: `kinematic` was displayed but asserted by nothing, so it could have
+    // returned the cross term alone and the suite would still have been green. The panel shows
+    // this decomposition to the reader, so the decomposition itself has to be gated.
+    for (const leg of [HAFELE_KEATING_EASTWARD, HAFELE_KEATING_WESTWARD]) {
+      const o = hafeleKeating(leg);
+      expect(o.kinematic).toBeCloseTo(-(o.sagnacCross + o.quadratic), 9);
+      expect(o.net).toBeCloseTo(o.gravitational + o.kinematic, 9);
+      expect(o.quadratic).toBeGreaterThan(0);
+    }
+    const gps = gpsOffsets();
+    expect(gps.net).toBeCloseTo(gps.gravitational + gps.kinematic, 9);
+  });
+
   it('scales the gravitational term linearly with altitude, at several altitudes', () => {
     const at = (h: number) => hafeleKeating({ ...HAFELE_KEATING_EASTWARD, heightMetres: h }).gravitational;
     for (const h of [2000, 5000, 11000]) {
