@@ -398,8 +398,15 @@ $$\frac{E}{A} = -\frac{\pi^2\hbar c}{720\,a^3}, \qquad \boxed{\frac{F}{A} = -\fr
 **Note the $\pi^2$, not $\pi$.** Coefficient $\pi^2\hbar c/240 = 1.3001\times10^{-27}$ N·m²,
 so $F/A\,[\rm Pa] = 1.3001\times10^{-27}/a^4$ with $a$ in metres.
 
-**ASSERT:** $a=10$ nm → 13.0 kPa; $a=100$ nm → 1.30 Pa; $a=1\ \mu$m → 1.30 mPa;
-$a=10\ \mu$m → 0.13 μPa.
+**ASSERT** (verified numerically against the formula — do not trust transcriptions of these,
+several sources get the small-separation rows wrong by a factor of 10):
+
+| $a$ | $F/A$ | |
+|---|---|---|
+| 10 nm | **1.3001×10⁵ Pa = 130 kPa** | ≈ 1.3 atmospheres — the headline demo |
+| 100 nm | **13.001 Pa** | |
+| 1 μm | **1.3001 mPa** | |
+| 10 μm | **0.13001 μPa** | |
 
 Sphere–plate (the geometry actually measured — Lamoreaux 1997, Mohideen 1998), PFA, $R \gg a$:
 $F(a) = -\pi^3\hbar cR/(360a^3)$.
@@ -571,6 +578,11 @@ sim, with the numbers, is a required feature, not a nice-to-have.
 Store these as a JSON data file (`test/golden/benchmarks.json`), not scattered assertions, so
 they are auditable in one place.
 
+**Every value in this table has been verified numerically against the formulas above by
+[`verify_benchmarks.py`](verify_benchmarks.py) — run `python3 docs/verify_benchmarks.py`.**
+Do this again after any edit to this table. It matters: the Casimir values at 10 nm and 100 nm
+are widely transcribed a factor of 10 too small, and this script is what caught it.
+
 | # | Benchmark | Formula | Expected | Gate |
 |---|---|---|---|---|
 | 1 | Mercury perihelion precession | $\Delta\varpi = \dfrac{6\pi GM_\odot}{c^2a(1-e^2)}$ | **42.98″/century** (0.10353″/orbit, 415.20 orbits/cy) | ±0.01″/cy |
@@ -578,7 +590,7 @@ they are auditable in one place.
 | 3 | Deflection ratio to "time-only" | | **exactly 2** (1.751″ vs 0.875″) | exact |
 | 4 | Shapiro delay, Earth–Venus round trip | $\Delta t = \dfrac{4GM}{c^3}\ln\dfrac{4r_1r_2}{b^2}$ | **~200 μs** | order-of-magnitude + formula test |
 | 5 | GPS gravitational | | **+45.7 μs/day** | ±0.2 |
-| 6 | GPS kinematic | | **−7.2 μs/day** | ±0.1 |
+| 6 | GPS kinematic | | **−7.2 μs/day** | ±0.2 (depends on ground-station latitude; −7.11 at the equator) |
 | 7 | GPS net | | **+38.5 μs/day** | ±0.3 |
 | 8 | Hafele–Keating eastward | | predicted −40±23 ns, observed −59±10 ns | reproduce prediction |
 | 9 | Hafele–Keating westward | | predicted +275±21 ns, observed +273±7 ns | reproduce prediction |
@@ -588,7 +600,7 @@ they are auditable in one place.
 | 13 | Kerr ISCO, $\chi=0/1$pro/$1$retro | BPT | 6M / 1M / 9M | exact |
 | 14 | Gravity Probe B geodetic | | 6606.1 mas/yr (measured 6601.8±18.3) | reproduce prediction |
 | 15 | Gravity Probe B frame drag | | 39.2 mas/yr (measured 37.2±7.2) | reproduce prediction |
-| 16 | Casimir $F/A$ at 100 nm | $\pi^2\hbar c/240a^4$ | **1.30 Pa** | ±1% |
+| 16 | Casimir $F/A$ at 100 nm | $\pi^2\hbar c/240a^4$ | **13.001 Pa** (and 130 kPa at 10 nm ≈ 1.3 atm) | ±1% |
 | 17 | Hawking $T_H(M_\odot)$ | | $6.17\times10^{-8}$ K | ±1% |
 | 18 | Lamb shift 2S–2P | | ~1057.8 MHz total; Uehling term −27 MHz | reproduce breakdown |
 | 19 | Hafele–Keating asymmetry mechanism | $2R\Omega v$ Sagnac cross-term | east/west asymmetry sign | qualitative + sign |
