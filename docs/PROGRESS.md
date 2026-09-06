@@ -2,11 +2,16 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 0 — Foundation. **All five remaining gates now pass; Phase 0 is signed off.**
-**Branch:** `feat/phase-0-foundation`, merged to `master`.
+**Phase:** 1 — The black hole. Steps 1 and 2 of 5 are done and verified. Phase 0 is signed off
+and merged to `master`.
+**Branch:** `feat/phase-1-blackhole` (branched from `master` at `49a6bf2`).
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
-No playable simulation is shipped — that is Phase 1, which is now cleared to begin.
-The gate history below is kept as the record of what was actually verified, and how.
+**The lensing sim is deliberately NOT in `registry/sims.ts`** and must not be until step 5 is
+finished — the gallery must not advertise an unfinished simulation.
+
+**The acceptance test passes:** shadow radius measured off a real GPU frame is 99.474 px against
+99.487 px predicted, an error of **0.013 px** against the one-pixel gate, holding across three
+camera distances and fields of view. Run it with `npx playwright test --project=lensing`.
 
 ## Done and verified
 
@@ -15,6 +20,7 @@ The gate history below is kept as the record of what was actually verified, and 
 - In-place float64 RK4, velocity Verlet, Yoshida-4 with reusable scratch buffers and documented callback/aliasing contracts.
 - **29 Vitest tests pass:** convergence ratios, reversibility, negative Yoshida substep, non-autonomous RK4 stages, oscillator energy over 1,000 periods, circular/eccentric Newtonian closure, angular momentum, Schwarzschild circular effective-potential equilibrium, formal million-fold-c limit, dimension/alias validation, constants, fourth-order Kepler step-refinement at four (e, a) pairs, and the shell's lazy-route/storage tests.
 - **Typecheck and ESLint pass. Production build passes.**
+- **44 Vitest tests and 7 Playwright tests pass** (4 of the latter are the lensing acceptance suite).
 - All **43 Python reference benchmark checks pass**; these check formulas, not future simulation
   implementations. §2.4's critical radii are now *derived* by root-finding on the metric rather
   than compared against themselves (see `DECISIONS.md`, Phase 1 source audit).
@@ -29,6 +35,72 @@ The gate history below is kept as the record of what was actually verified, and 
 - Gitleaks v8.24.3 Docker scan of Git history and source found no leaks. Owner explicitly approved using this pinned scanner.
 - GitHub Actions workflow (typecheck/lint/arch/tests/Python/build/Playwright/axe/Gitleaks/Docker
   build) **verified green on remote CI**, actions pinned by commit SHA and gitleaks by digest.
+
+## Phase 1 — where to pick up
+
+**NEXT: step 3, the accretion disk.** Do not skip ahead to step 4 or 5.
+
+Before writing disk code, audit PHYSICS_SPEC §4.3 against its sources the same way §2.2–2.4 were
+audited — that audit found a wrong equation that would have silently failed the acceptance test.
+§4.3 needs: Novikov–Thorne / Shakura–Sunyaev T(r) with the inner-edge factor
+[1 - sqrt(r_in/r)]^(1/4), the fact that a Doppler-shifted blackbody is still a blackbody at
+T' = gT (so shift the temperature and look up a colour LUT rather than shifting spectra), the
+g^4 bolometric / g^3 per-band factor, and spectral radiance -> CIE XYZ -> sRGB. **Physical mode
+is the default; the one-sided crescent is correct output, not a bug** (§4.3, CLAUDE.md).
+
+Then step 4 (screen-space Jacobian anisotropic star sampling §4.4, resolution scaling, temporal
+accumulation), then step 5 (controls, KaTeX physics panel, keyboard camera, screen-reader
+summary), and only then register the sim.
+
+### Step 1 — primary-source audit *(done 2026-09-06, commit `08b0223`)*
+
+Verified §2.2 by differentiating the first integral, §2.4's critical radii, and the §6.5
+normalization table. **Found two defects**; both are recorded in `DECISIONS.md`:
+
+- **§2.3's flat-Cartesian force law was wrong.** It read `-1.5 h^2 rhat/r^5` with a *unit* vector;
+  `starless` writes `points / r**5` where `points` is the position **vector**, i.e. `rhat/r^4`.
+  Corrected to `-3M h^2 rhat/r^4`, derived via Binet and confirmed two independent ways
+  (b_crit 2.598076 vs the old form's 1.732051; weak-field deflection converging to 4M/b).
+  Later reconfirmed on the GPU: the old law renders the shadow 33% too small.
+- **§2.4's "ASSERT all of these" asserted nothing** — `check("Photon sphere / M", 3.0, 3.0, ...)`
+  compared the expected value with itself. Now derived by root-finding on the metric. Mutating
+  the photon potential or L^2(r) fails six checks. Benchmarks went 32 -> 43.
+
+### Step 2 — minimal correct raymarcher *(done 2026-09-06, commit `5908d25`)*
+
+WebGL2 fragment-shader raymarcher, flat-Cartesian per §2.3, RK4 in Nyström form, adaptive
+stepping per §4.2 with the photon-sphere Gaussian narrowing. Star field only, no disk.
+
+| File | What it is |
+|---|---|
+| `src/core/schwarzschild.ts` | Critical radii in r_s = 1 units, shadow angle, the b -> h conversion |
+| `src/core/gl/context.ts` | WebGL2 program/context helpers; every failure reports the driver log |
+| `sims/blackhole-lensing/view/lensingShader.ts` | The GLSL. float32, r_s = 1 |
+| `sims/blackhole-lensing/view/LensingRenderer.ts` | Renderer class, no React |
+| `sims/blackhole-lensing/model/rayTracer.ts` | **float64 CPU mirror of the shader** |
+| `sims/blackhole-lensing/model/shadowMeasurement.ts` | The acceptance measurement |
+| `harness/lensing.ts`, `lensing-harness.html` | Test fixture, built only under `PHYSICS_HARNESS=1` |
+| `e2e/lensing.spec.ts` | The acceptance test |
+
+**The launch conditions are the subtle part — read `DECISIONS.md` before touching them.** A pixel
+direction is a direction in the camera's *local orthonormal frame*, so
+`b = D sin(theta)/sqrt(1 - r_s/D)`, and the flat system's conserved `h` is not `b` but
+`1/h^2 = 1/b^2 + 2M/D^3`. Dropping the first puts the edge 2.63 px off; dropping the second is
+worth 0.042%.
+
+The acceptance test is discriminating, not merely green — verified by mutation:
+
+| Shader mutation | Measured | Error | Result |
+|---|---|---|---|
+| none (correct) | 99.474 px | 0.013 px | passes |
+| drop the static-observer sqrt factor | 102.119 px | 2.632 px | fails |
+| revert to the old `rhat/r^5` force law | 66.043 px | 33.444 px | fails |
+
+**Known limitation, for step 4:** the procedural star field hashes on a cube-cell grid, so cells
+have very uneven solid angle and distant stars render as elongated blobs rather than points. The
+tangential smearing *near* the hole is real lensing and correct; the blockiness far from it is
+not. §4.4's anisotropic sampling work is the right place to fix this. The shadow measurement uses
+the `capture-mask` mode and is unaffected.
 
 ## Phase 0 gates — all closed 2026-09-06
 
@@ -112,6 +184,7 @@ npm run typecheck
 npm run lint
 npm run arch
 npm test
+npx playwright test --project=lensing   # the Phase 1 acceptance gate
 npm run build
 npx playwright install chromium
 npx playwright test
@@ -173,3 +246,21 @@ requests or horizontal overflow. Screenshots are verification artifacts and are 
 **Result:** typecheck, lint, arch, 29 unit tests, 32 Python benchmarks, production build, 3
 Playwright/axe tests against `dist/`, both gitleaks scans and `docker compose build` all pass
 locally and on remote CI (run `34018255845`, conclusion success).
+
+### 2026-09-06 — Phase 1 opened: source audit and a gated raymarcher
+
+Closed the five Phase 0 gates, merged to `master`, then began Phase 1 in the required order.
+
+The source audit earned its place immediately: PHYSICS_SPEC §2.3's renderer force law was wrong,
+in the specific way that would have produced a plausible-looking image that quietly failed the
+phase acceptance test by 33%. It was caught before a line of shader code existed, by deriving the
+law from Binet and checking it against two independent observables. A second finding — that
+§2.4's critical radii were "asserted" against themselves — means the benchmark suite now actually
+constrains the geometry.
+
+The raymarcher then landed with its acceptance harness built in the same step, as instructed
+rather than deferred, and the harness was mutation-tested against two deliberately wrong shaders
+before its passing result was believed.
+
+Nothing is registered in the gallery. Steps 3 (disk), 4 (anisotropic sampling, resolution
+scaling, accumulation) and 5 (controls, physics panel, a11y) remain.
