@@ -8,10 +8,12 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to commit SHAs, not tags: a mutable tag lets a compromised or
+      # simply changed action run with this workflow's token. Comments record the version.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -25,7 +27,13 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
       - name: Scan Git history for secrets
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 git /repo --redact
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro"
+          zricethezav/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055
+          git /repo --redact
       - name: Scan source files for secrets
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 dir /repo/src --redact
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro"
+          zricethezav/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055
+          dir /repo/src --redact
       - run: docker compose build

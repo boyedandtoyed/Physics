@@ -20,6 +20,8 @@ No playable simulation is shipped. Do not start Phase 1 until the remaining gate
 - **3 Playwright tests pass**, including light/dark axe scans, keyboard disclosure, theme persistence, narrow-screen overflow check, system dark mode and not-found route. No page errors in tested flows.
 - Docker multi-stage Node→nginx, web-only compose on `127.0.0.1:8080`, healthy container `physics-web-1`.
 - Local deep link `/method` returns 200 with no-cache HTML; missing `/assets/missing.js` returns 404. Public HTTPS root returns 200.
+- Full header/MIME sweep against the running container passes, including `font/ttf` after the nginx fix below. Seven screenshots inspected across themes and viewports with no page errors or overflow.
+- **3 Playwright tests pass against the production build** (`vite preview` over `dist/`), not the dev server.
 - Existing Cloudflare tunnel untouched. Domain already uses the correct hyphen; no DNS action needed.
 - Gitleaks v8.24.3 Docker scan of Git history and source found no leaks. Owner explicitly approved using this pinned scanner.
 - GitHub Actions workflow authored (typecheck/lint/tests/Python/build/Playwright/axe/Gitleaks/Docker build); **remote execution not verified**.
@@ -49,8 +51,30 @@ No playable simulation is shipped. Do not start Phase 1 until the remaining gate
    truncation error rather than a wrong model, and the varying semi-major axis makes closure
    itself a Kepler third-law check. The million-fold-c limit remains an algebraic force check,
    not a full GR orbit integration.
-4. Complete visual inspection and asset cache/MIME verification against the deployed container. A standalone screenshot run could not launch Chromium in this environment; no screenshot was produced. The earlier Playwright suite passed. Resolve browser-launch prerequisites through the normal permission process.
-5. Consider stronger CI action/image digest pinning and a production-preview browser run (current E2E uses Vite dev). Validate full release gates before marking Phase 0 complete.
+4. ~~Complete visual inspection and asset cache/MIME verification against the deployed
+   container.~~ **DONE 2026-09-06.** Chromium launches in this environment now; the earlier
+   blocker is gone. Seven full-page screenshots were captured against the container on
+   `127.0.0.1:8080` (gallery/method/not-found x light/dark, desktop 1440 and mobile 375) and
+   inspected: KaTeX renders in both themes, the disclosure is open by default, mobile stacks
+   without horizontal overflow, and the run reported no page errors, no failed requests and no
+   4xx/5xx. Screenshots are verification artifacts, not committed.
+   Header/MIME verification against the container found and fixed one real defect: **nginx
+   1.28's `mime.types` has no `ttf`/`otf` entry, so KaTeX's TrueType fallbacks were served as
+   `application/octet-stream`.** `nginx.conf` now maps them in a regex location scoped to those
+   extensions, because a `types` block replaces the inherited map wholesale — `woff2` was
+   re-checked afterwards to confirm the rest of the map survived. Verified after rebuild:
+   `index.html`, `/`, `/method` and unknown routes serve `text/html` with `Cache-Control:
+   no-cache`; `/assets/*` serve `public, max-age=31536000, immutable` with `application/javascript`,
+   `text/css`, `font/woff2` and now `font/ttf`; `wasm` was already `application/wasm`; gzip
+   negotiates on the JS bundle; a missing asset is a genuine 404, not the SPA fallback.
+5. ~~Stronger CI pinning and a production-preview browser run.~~ **DONE 2026-09-06.** Playwright
+   now builds and serves `dist/` via `vite preview` instead of the dev server, so the E2E and axe
+   scans exercise the artifact that actually ships; all 3 tests pass against it. CI actions are
+   pinned to commit SHAs (`actions/checkout` `11d5960`, `actions/setup-node` `49933ea`, both v4,
+   version recorded in a comment) and gitleaks to digest
+   `sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055`, with its repo mount
+   made read-only to match the documented local command. Both scans were re-run locally against
+   the pinned digest with the read-only mount and report no leaks.
 6. Then begin Phase 1 with a careful primary-source audit of the rendering equations/normalization before implementing the shader. No Phase 1 files exist.
 
 ## Decisions and specification clarifications
