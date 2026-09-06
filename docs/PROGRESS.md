@@ -2,8 +2,8 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 2 — Time and interpretations. **Audit done; part 1's physics core is landed
-(`d28d97e`), 15 tests green; parts 2 and 3 are not started.**
+**Phase:** 2 — Time and interpretations. **Part 1's physics core and part 2 (the deflection
+decomposition exhibit) are landed and green. Part 3 and part 1's UI remain.**
 Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is signed off.
 **Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
@@ -92,13 +92,57 @@ from prose.
 
 **DONE: part 1's physics core** (`src/core/timeDilation.ts`, `d28d97e`). Static Schwarzschild clock
 rates and their inverse, the GPS gravitational/kinematic split, and Hafele–Keating decomposed into
-its Sagnac cross term and quadratic term. 15 Vitest tests, all mutation-tested — see the gate table
+its Sagnac cross term and quadratic term. 16 Vitest tests, all mutation-tested — see the gate table
 below. **Part 1's UI is not built.**
 
-**NEXT: part 2** (deflection decomposition, §7.4 Claim A), then **part 3** (the Interpretations
-module, §7.4 Claim B), then part 1's UI. Parts 2 and 3 are the product's thesis made interactive
-and must carry the same measurement discipline as the raymarcher: part 2 asserts its two components
-numerically, part 3 asserts the invariants agree across all four charts to a stated tolerance.
+**DONE: part 2, the deflection decomposition interactive** (`/sims/deflection-decomposition`,
+commits `dc52dfa` → `3dc64ab`). Core, figures, chart geometry, view, 8 Playwright tests. See the
+Phase 2 gate table below.
+
+**NEXT: part 3**, the Interpretations module (§7.4 Claim B), then part 1's UI. Part 3 must assert
+the invariants agree across all four charts to 1e-10 **at the same physical events**, not at the
+same coordinate values — comparing charts at equal coordinate values compares different events and
+would make the test pass for the wrong reason.
+
+### Phase 2 gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| Light deflection, solar limb | **1.7512″** (§8 row 2) | drop the space term | 0.8756″ |
+| Time-only (Einstein 1911) | **0.8756″** | γ on the time term instead | ratio ≠ 2 |
+| Deflection ratio | **exactly 2** (§8 row 3) | `1/β` instead of `1/β²` | slope −1 |
+| Space term across the slider | **constant 0.8756″** | make it ∝ β² | fails at 6 speeds |
+| Time term log-log slope | **−2.000000000** | any wrong exponent | slope ≠ −2 |
+| Linearisation vs exact Newtonian | **<0.02%** at α = 0.01 rad | drop the half-angle | factor 2 |
+| Weak-deflection threshold | **β = 0.0206**, v = 6178 km/s | ignore the constant space term | 0.0206 → 0.0206 fails |
+| time-dilation mutations killed | **45 / 45** | — | — |
+| deflection mutations killed | **29 / 29** | — | — |
+| Tests | 158 Vitest, 18 Playwright (app) | — | — |
+
+**What building part 2 found, beyond its own physics.** Three defects that one sim had been
+hiding, all now fixed in the shared layer rather than worked around locally:
+
+1. **Shared components had no styles of their own.** `NumberSlider`'s track and thumb and
+   `MisconceptionsPanel`'s list and “Myth” tag lived in `lensing.css`. The second sim to use them
+   shipped a slider with no visible track. Now `src/ui/components.css`.
+2. **The misconceptions trigger button failed WCAG AA in dark mode** (4.46:1) — it had no
+   background reset and fell back to the UA grey. The lensing sim passed axe only because its
+   heading is 24px and so qualifies for the 3:1 large-text threshold.
+3. **The site chrome's `header`/`footer` selectors were unscoped**, so both sims' semantic
+   `<header>` inherited `display:flex` and a border-bottom and laid their title block out as a
+   wrapping row. Now `.site-header` / `.site-footer`.
+
+And two of my own, found by driving the page rather than by any test:
+
+4. **γ = 0 hung the tab.** The space contribution is exactly zero there, `log10(0)` is `-Infinity`,
+   and the decade-tick loop counted upwards from it forever. Axis helpers now refuse a non-finite
+   axis; the chart drops a line it cannot draw and says so.
+5. **The slider could not reach its own top.** React Aria snaps to a grid anchored at the minimum,
+   so with a float step the exhibit opened at β = 0.9844 instead of at light — the single value it
+   exists to show. It moves in integer indices now, with both endpoints pinned.
+
+**The lesson for the remaining sims:** typecheck, lint and unit tests were green through all five.
+Only rendering the page and reading the screenshot found 3, 4 and 5.
 
 The formulae and their tolerances are settled — see §8's Hafele–Keating block, §7.4 Claim A's
 boxed α(β), and §7.4 Claim B's four-chart table. What remains is entirely UI and its tests.
