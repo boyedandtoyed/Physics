@@ -902,8 +902,11 @@ relative error of $9\times10^{-6}$ at $r=1.001\,r_s$ and $6\times10^{-5}$ at $r=
 against a required tolerance of $10^{-10}$. The boost freedom in the Kruskal plane (shifting the
 $t$ origin multiplies $V$ and divides $U$) moves the ill-conditioning from one end of the
 trajectory to the other but never removes it. **The product $UV$, formed from $U$ and $V$
-directly, is accurate to $2\times10^{-15}$ everywhere and is what the module uses.** This is the
-same discipline §6 applies to the shader: work in the variable that does not cancel.
+directly, is what the module uses**: measured in the shipped implementation it holds
+$5\times10^{-14}$ down to $r=1.001\,r_s$ and $6\times10^{-12}$ at $r=1.00001\,r_s$ — at the same
+points, seven to eight orders of magnitude better than the difference of squares, and far inside
+the $10^{-10}$ gate. This is the same discipline §6 applies to the shader: work in the variable
+that does not cancel.
 
 Inverting for the areal radius is then exact via the Lambert $W$ function:
 
