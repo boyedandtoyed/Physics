@@ -2,11 +2,23 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 0 — Foundation. **All five remaining gates now pass; Phase 0 is signed off.**
-**Branch:** `feat/phase-0-foundation`, merged to `master`.
+**Phase:** 1 — The black hole. Steps 1–4 of 5 are done and verified. Phase 0 is signed off
+and merged to `master`.
+**Branch:** `feat/phase-1-blackhole` (branched from `master` at `49a6bf2`).
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
-No playable simulation is shipped — that is Phase 1, which is now cleared to begin.
-The gate history below is kept as the record of what was actually verified, and how.
+**The lensing sim is deliberately NOT in `registry/sims.ts`** and must not be until step 5 is
+finished — the gallery must not advertise an unfinished simulation.
+
+**The acceptance suite passes (11 tests).** Run it with `npx playwright test --project=lensing`.
+- Shadow radius off a real GPU frame: 99.474 px vs 99.487 px predicted, **0.013 px** error
+  against the one-pixel gate, holding across three camera distances and fields of view.
+- Disk: shader vs float64 model agree to **3e-5** on emission radius, g and g*T, with **zero**
+  hit/miss disagreements over 2500 sampled pixels.
+- Doppler exponent measured off the frame: **4.0019** (correct is 4; double-counting reads 8).
+- Star-field temporal stability: **rimRms 6.81** against a recorded point-sampling baseline of
+  **15.09**; the gate also requires rim luminance > 6, because variance alone rewards a blank frame.
+- Accumulation matches an explicit mean of the same jitters to **0.75** of one 8-bit level, and
+  discards history on a camera change with ghosting error **0** (**134** without the reset).
 
 ## Done and verified
 
@@ -15,7 +27,11 @@ The gate history below is kept as the record of what was actually verified, and 
 - In-place float64 RK4, velocity Verlet, Yoshida-4 with reusable scratch buffers and documented callback/aliasing contracts.
 - **29 Vitest tests pass:** convergence ratios, reversibility, negative Yoshida substep, non-autonomous RK4 stages, oscillator energy over 1,000 periods, circular/eccentric Newtonian closure, angular momentum, Schwarzschild circular effective-potential equilibrium, formal million-fold-c limit, dimension/alias validation, constants, fourth-order Kepler step-refinement at four (e, a) pairs, and the shell's lazy-route/storage tests.
 - **Typecheck and ESLint pass. Production build passes.**
-- All **32 Python reference benchmark checks pass**; these check formulas, not future simulation implementations.
+- **72 Vitest tests and 14 Playwright tests pass** (8 of the latter are the lensing acceptance
+  suite: shadow radius, per-pixel disk agreement, the Doppler exponent, and the crescent).
+- All **57 Python reference benchmark checks pass**; these check formulas, not future simulation
+  implementations. §2.4's critical radii are now *derived* by root-finding on the metric rather
+  than compared against themselves (see `DECISIONS.md`, Phase 1 source audit).
 - Gallery with explicit unavailability state, routing/not-found handling, typed lazy sim registry, system/light/dark themes, keyboard skip navigation, responsive layout.
 - Methodology page with lazy-loaded KaTeX and React Aria physics disclosure, assumptions and primary sources.
 - **3 Playwright tests pass**, including light/dark axe scans, keyboard disclosure, theme persistence, narrow-screen overflow check, system dark mode and not-found route. No page errors in tested flows.
@@ -27,6 +43,138 @@ The gate history below is kept as the record of what was actually verified, and 
 - Gitleaks v8.24.3 Docker scan of Git history and source found no leaks. Owner explicitly approved using this pinned scanner.
 - GitHub Actions workflow (typecheck/lint/arch/tests/Python/build/Playwright/axe/Gitleaks/Docker
   build) **verified green on remote CI**, actions pinned by commit SHA and gitleaks by digest.
+
+## Phase 1 — where to pick up
+
+**NEXT: step 5** — controls, the KaTeX physics panel, a "Common misconceptions" panel, keyboard
+camera and the live screen-reader summary. **Only then register the sim** in `registry/sims.ts`.
+
+Step 5 owns the display-calibration items deferred so far, both appearance rather than physics and
+neither affecting a measured gate: **exposure/tone mapping** (the Reinhard curve saturates the disk
+toward white) and **star brightness** (`STAR_FLUX`).
+
+### Step 1 — primary-source audit *(done 2026-09-06, commit `08b0223`)*
+
+Verified §2.2 by differentiating the first integral, §2.4's critical radii, and the §6.5
+normalization table. **Found two defects**; both are recorded in `DECISIONS.md`:
+
+- **§2.3's flat-Cartesian force law was wrong.** It read `-1.5 h^2 rhat/r^5` with a *unit* vector;
+  `starless` writes `points / r**5` where `points` is the position **vector**, i.e. `rhat/r^4`.
+  Corrected to `-3M h^2 rhat/r^4`, derived via Binet and confirmed two independent ways
+  (b_crit 2.598076 vs the old form's 1.732051; weak-field deflection converging to 4M/b).
+  Later reconfirmed on the GPU: the old law renders the shadow 33% too small.
+- **§2.4's "ASSERT all of these" asserted nothing** — `check("Photon sphere / M", 3.0, 3.0, ...)`
+  compared the expected value with itself. Now derived by root-finding on the metric. Mutating
+  the photon potential or L^2(r) fails six checks. Benchmarks went 32 -> 43.
+
+### Step 4 — anti-aliasing, scaling, accumulation *(done 2026-09-06, commits `b72f227`, `bd08d9d`, `23542b2`)*
+
+**The §4.4/§4.5 audit found five things**; two were prescriptions that cannot be carried out.
+
+1. **`dFdx`/`dFdy` are undefined here.** GLSL ES 3.00 §8.9 leaves implicit derivatives undefined
+   under non-uniform control flow, and a raymarcher's loop diverges by construction. Neighbours
+   are **traced explicitly**, only for escaped pixels.
+2. **`textureGrad()` presupposes a texture** the renderer deliberately does not have. For point
+   sources the exact filter is `K(J⁺(ω_s − ω_0))` with `K` normalised in *pixel* space.
+3. **"Nearly free visually" was false at hard edges.**
+4. **Accumulation's reset requirement was unstated.**
+5. 1920×1080×256 = 530.8 M, not 532 M.
+
+| Measurement | Value | Guard mutation | Mutated |
+|---|---|---|---|
+| Temporal stability, rimRms | **6.81** (baseline 15.09) | drop the many-star limit | 11.87, fails |
+| Rim luminance | **21.22** | narrow kernel until rim blanks | 0.11, fails |
+| Rim edge sharpness, scale 1.0 vs 0.5 | **110.6 vs 51.6** (2.14×) | — | — |
+| Ghosting after camera change | **0** | remove the history reset | 134, fails |
+| Accumulation vs explicit mean | **0.75** of one 8-bit level | — | — |
+
+**The stability gate needed two halves, and only a mutation showed it.** Narrowing the kernel until
+the rim went black scored rimRms 1.78 — better than correct code — because a blank frame has
+nothing to vary. It is now paired with a minimum rim luminance.
+
+The star field is rebuilt on **equal-area** cells (equal-`d(cos θ)` bands, fixed azimuthal count),
+which fixed the elongated-blob artefact of the old cube lattice.
+
+### Step 3 — accretion disk *(done 2026-09-06, commits `8a8c45b`, `d1192ca`, `51bdfb9`)*
+
+**The §4.3 audit found two errors, both of the "renders convincingly, is wrong" kind.** Full
+detail in `DECISIONS.md`; the short version:
+
+1. **The colour pipeline applied `g` twice.** It said to shift the temperature to `T' = gT` *and*
+   multiply radiance by `g^4`. But `g^3 B_{nu/g}(T) = B_nu(gT)` identically — the substitution
+   *is* the `g^3`, and Stefan–Boltzmann makes it exactly `g^4` bolometrically. The literal
+   pipeline scales brightness as `g^8`. At the ISCO edge-on from 20 r_s the true crescent
+   contrast is **76.8**; double-counted it is **5899**.
+2. **The "Novikov–Thorne" profile was Shakura–Sunyaev**, i.e. Newtonian. That form over-radiates
+   by **43%** and implies **8.33%** radiative efficiency, contradicting §2.4's own asserted
+   **5.7191%** in the same document. §4.3 now carries the Page–Thorne integral and its
+   closed-form Schwarzschild specialisation, derived and confirmed against an independent
+   invariant: `int F_NT(r) E(r) r dr = 1 - sqrt(8/9)` to 1.8e-9.
+
+Smaller fixes: the bolometric relation confused flux with intensity; the `g_grav * Doppler`
+factorisation never stated that beta and n-hat must be in the *local static frame*, so §4.3 now
+gives a closed form for `g` needing no frame transformation; and `hbar` was declared exact.
+
+New code: `core/schwarzschild.ts` (NT flux, circular-orbit energy, `redshiftFactor`),
+`core/color/blackbody.ts` (Planck, Wyman/Sloan/Shirley CMF fits, CIE XYZ, linear sRGB),
+`model/camera.ts` (camera basis and launch, shared by CPU and shader), disk crossing with secant
+refinement in `model/rayTracer.ts`, and the disk in the shader.
+
+**Each audit finding has its own guard, and each was verified by re-introducing the error:**
+
+| Mutation | Measured | Gate | Result |
+|---|---|---|---|
+| apply `g` twice | exponent **7.998** | 4.0 ± 0.2 | fails |
+| Shakura–Sunyaev flux | temperature error **29.8%** | < 0.2% | fails |
+| none (correct) | exponent 4.0019, temp error 0.002% | — | passes |
+
+**One guard was not enough.** The Shakura–Sunyaev mutation initially passed everything, because
+emission radius and `g` are identical under either flux law. Only comparing `g*T(r)` catches it.
+
+Two corrections to my own work, both worth knowing about:
+- I asserted in the spec that the Planckian locus at 6504 K should hit sRGB's D65 white point. It
+  should not: D65 is a *daylight* illuminant ~0.0054 off the blackbody locus. The implementation
+  matches the published locus to 0.0001, and a test now pins the distinction.
+- The per-pixel comparison reported a 1.8% `g` error against a 2e-5 radius agreement. The cause
+  was the harness, not the renderer: diagnostics pack 16 bits across blue and **alpha**, and a
+  context created `alpha: false` makes `readPixels` return 255 for alpha. See `DECISIONS.md`.
+
+### Step 2 — minimal correct raymarcher *(done 2026-09-06, commit `5908d25`)*
+
+WebGL2 fragment-shader raymarcher, flat-Cartesian per §2.3, RK4 in Nyström form, adaptive
+stepping per §4.2 with the photon-sphere Gaussian narrowing. Star field only, no disk.
+
+| File | What it is |
+|---|---|
+| `src/core/schwarzschild.ts` | Critical radii in r_s = 1 units, shadow angle, the b -> h conversion |
+| `src/core/gl/context.ts` | WebGL2 program/context helpers; every failure reports the driver log |
+| `sims/blackhole-lensing/view/lensingShader.ts` | The GLSL. float32, r_s = 1 |
+| `sims/blackhole-lensing/view/LensingRenderer.ts` | Renderer class, no React |
+| `sims/blackhole-lensing/model/rayTracer.ts` | **float64 CPU mirror of the shader** |
+| `sims/blackhole-lensing/model/shadowMeasurement.ts` | The acceptance measurement |
+| `harness/lensing.ts`, `lensing-harness.html` | Test fixture, built only under `PHYSICS_HARNESS=1` |
+| `e2e/lensing.spec.ts` | The acceptance test |
+
+**The launch conditions are the subtle part — read `DECISIONS.md` before touching them.** A pixel
+direction is a direction in the camera's *local orthonormal frame*, so
+`b = D sin(theta)/sqrt(1 - r_s/D)`, and the flat system's conserved `h` is not `b` but
+`1/h^2 = 1/b^2 + 2M/D^3`. Dropping the first puts the edge 2.63 px off; dropping the second is
+worth 0.042%.
+
+The acceptance test is discriminating, not merely green — verified by mutation:
+
+| Shader mutation | Measured | Error | Result |
+|---|---|---|---|
+| none (correct) | 99.474 px | 0.013 px | passes |
+| drop the static-observer sqrt factor | 102.119 px | 2.632 px | fails |
+| revert to the old `rhat/r^5` force law | 66.043 px | 33.444 px | fails |
+
+**Known limitation, for step 5:** exposure, tone mapping and star brightness are untuned display
+parameters. The physics underneath is verified, so tuning them is a step 5 task with measured
+gates to catch regressions. Do not change anything that alters `luminance` before tone mapping. The
+tangential smearing *near* the hole is real lensing and correct; the blockiness far from it is
+not. §4.4's anisotropic sampling work is the right place to fix this. The shadow measurement uses
+the `capture-mask` mode and is unaffected.
 
 ## Phase 0 gates — all closed 2026-09-06
 
@@ -110,6 +258,7 @@ npm run typecheck
 npm run lint
 npm run arch
 npm test
+npx playwright test --project=lensing   # the Phase 1 acceptance gate
 npm run build
 npx playwright install chromium
 npx playwright test
@@ -171,3 +320,60 @@ requests or horizontal overflow. Screenshots are verification artifacts and are 
 **Result:** typecheck, lint, arch, 29 unit tests, 32 Python benchmarks, production build, 3
 Playwright/axe tests against `dist/`, both gitleaks scans and `docker compose build` all pass
 locally and on remote CI (run `34018255845`, conclusion success).
+
+### 2026-09-06 — Phase 1 opened: source audit and a gated raymarcher
+
+Closed the five Phase 0 gates, merged to `master`, then began Phase 1 in the required order.
+
+The source audit earned its place immediately: PHYSICS_SPEC §2.3's renderer force law was wrong,
+in the specific way that would have produced a plausible-looking image that quietly failed the
+phase acceptance test by 33%. It was caught before a line of shader code existed, by deriving the
+law from Binet and checking it against two independent observables. A second finding — that
+§2.4's critical radii were "asserted" against themselves — means the benchmark suite now actually
+constrains the geometry.
+
+The raymarcher then landed with its acceptance harness built in the same step, as instructed
+rather than deferred, and the harness was mutation-tested against two deliberately wrong shaders
+before its passing result was believed.
+
+Nothing is registered in the gallery. Steps 3 (disk), 4 (anisotropic sampling, resolution
+scaling, accumulation) and 5 (controls, physics panel, a11y) remain.
+
+### 2026-09-06 — Phase 1 step 3: the accretion disk
+
+Audited §4.3 before writing code, as instructed and as §2.3 had been. It found two errors again,
+and this time both were the kind that produce a beautiful, confident, wrong picture: a redshift
+factor applied twice (brightness scaling as g^8 instead of g^4, a crescent contrast of 5899
+instead of 76.8), and a Newtonian flux profile shipped under the Novikov-Thorne name, whose
+implied 8.33% radiative efficiency contradicted §2.4's own 5.7191% in the same file.
+
+The instruction to make disk correctness measurable before tuning appearance was the right call
+and paid off twice over. Building the guards surfaced that one guard did not cover the other
+finding — the Shakura-Sunyaev mutation sailed through every test until a shifted-temperature
+comparison was added — and it surfaced a bug in the measuring apparatus itself, where an
+`alpha: false` context corrupted the diagnostic readback and mimicked a 1% physics error for long
+enough to be worth documenting.
+
+Nothing was tuned for looks until all of that passed. Exposure and peak temperature are display
+parameters and are labelled as such.
+
+Still not registered in the gallery. Steps 4 (anisotropic sampling, resolution scaling,
+accumulation) and 5 (controls, physics panel, a11y) remain.
+
+### 2026-09-06 — Phase 1 step 4: anti-aliasing, scaling, accumulation
+
+Audited §4.4/§4.5 first. Third audit, third set of findings — this time not wrong numbers but two
+prescriptions that cannot be carried out: hardware derivatives are undefined in a raymarcher's
+divergent loop, and `textureGrad()` needs a texture this renderer deliberately does not have.
+
+Making stability a number before tuning it earned its keep in an unexpected way. Establishing the
+baseline was routine; *verifying the guard* is what exposed that the metric was unsound. A mutation
+that blanked the rim scored better than the correct filter, because variance rewards an empty
+frame. The gate now has two halves, each verified by the mutation that trips it. That failure would
+have been invisible without running the mutation.
+
+**A note against myself:** the step 4 handoff commit corrupted this file. A `str.replace` on an
+empty slice — the two `s.index` anchors were in the wrong order — inserted a paragraph between
+every character, leaving 127,332 lines. It was committed and pushed, and CI passed because nothing
+validates the markdown. Restored from `23542b2` and re-applied with asserted anchors. Lesson worth
+keeping: the checks in CI cover code, not documentation, so doc edits need their own verification.

@@ -70,7 +70,32 @@ The $3GMu^2/c^2$ term is the entire GR correction and produces perihelion preces
 `starless` integrates a fictitious Newtonian system in flat 3-D Cartesian coordinates whose
 trajectories are *exactly* the Schwarzschild null geodesics:
 
-$$\ddot{\mathbf r} = -\frac{3}{2}h^2\frac{\hat{\mathbf r}}{r^5}, \qquad h^2 = |\mathbf r \times \mathbf v|^2 \;\text{(conserved, evaluated once at ray launch)}$$
+$$\boxed{\ddot{\mathbf r} = -3Mh^2\frac{\hat{\mathbf r}}{r^4} = -3Mh^2\frac{\mathbf r}{r^5}}, \qquad h^2 = |\mathbf r \times \mathbf v|^2 \;\text{(conserved, evaluated once at ray launch)}$$
+
+In $r_s=1$ normalization ($M=1/2$), which is what the shader uses (§6.5):
+$\;\ddot{\mathbf r} = -\tfrac32 h^2\hat{\mathbf r}/r^4 = -\tfrac32 h^2\mathbf r/r^5$.
+
+> **Transcription warning — this file previously had this equation wrong.** It read
+> $-\tfrac32 h^2\hat{\mathbf r}/r^5$, with a *unit* vector over $r^5$. `starless` writes the
+> force in code as `-1.5 * h2 * points / r**5`, where `points` is the position **vector**, so
+> that expression is $\hat{\mathbf r}/r^4$, not $\hat{\mathbf r}/r^5$. Copying it with a hat
+> loses a factor of $r$. The literal form is also dimensionally inconsistent, and it does not
+> reduce to §2.2.
+>
+> **Derivation (Binet).** For any central acceleration $a_r$ with $h=r^2\dot\phi$ conserved,
+> $u''+u = -a_r/(h^2u^2)$. Requiring §2.2's $u''+u = 3Mu^2$ gives $a_r = -3Mh^2u^4 = -3Mh^2/r^4$.
+> (Check the same identity against Kepler: $a_r=-GMu^2 \Rightarrow u''+u = GM/h^2$. ✓)
+>
+> **Verified numerically two independent ways**, in $r_s=1$ units, and both are regression
+> tests, not one-off checks:
+>
+> | Observable | As previously written | Corrected | Target |
+> |---|---|---|---|
+> | $b_{\rm crit}$ (capture threshold) | 1.732051 | **2.598076** | $3\sqrt3M = 2.598076$ |
+> | Deflection at $b=2000$ | $4.4\times10^{-7}$ | **0.00100074** | $4M/b = 0.001$ |
+>
+> The old form yields a shadow **33% too small**. Anyone implementing from the previous text
+> would have failed the §2.4 $b_{\rm crit}$ assertion with no clue why.
 
 Advantages: **no coordinate singularity at $r = 2M$ at all** (the flat metric is used; $r=2M$ is
 just a capture test), no orbital-plane rotation matrices, no turning-point sign flips, trivially
@@ -191,19 +216,113 @@ Termination: capture if `u >= 1.0`; bail out on `u < 0` (numerical reversal) and
 The rigorous statement is that $I_\nu/\nu^3$ is Liouville-invariant along a null geodesic.
 Define $g \equiv \nu_{\rm obs}/\nu_{\rm em} = 1/(1+z)$. Then:
 
-$$\boxed{I_\nu^{\rm obs} = g^3 I^{\rm em}_{\nu_{\rm em}}} \qquad \boxed{F^{\rm obs}_{\rm bol} \propto g^4 I^{\rm em}_{\rm bol}}$$
+$$\boxed{I_\nu^{\rm obs} = g^3 I^{\rm em}_{\nu_{\rm em}}} \qquad \boxed{I^{\rm obs}_{\rm bol} = g^4 I^{\rm em}_{\rm bol}}$$
 
-For a Schwarzschild static observer and circular-orbit emitter, $g$ factorizes:
+(Both statements are about *specific* and *bolometric intensity*. An earlier revision wrote the
+second as $F^{\rm obs}_{\rm bol}$, mixing flux with intensity; per pixel the solid angle is fixed
+so they are proportional, but the invariant statement is the one about $I$.)
 
-$$g_{\rm grav} = \sqrt{\frac{1-r_s/r_{\rm em}}{1-r_s/r_{\rm obs}}}, \qquad \mathcal D = \frac{1}{\gamma(1+\boldsymbol\beta\cdot\hat n)}, \qquad g_{\rm total} = g_{\rm grav}\cdot\mathcal D$$
+#### The $g$ factor — use the closed form
+
+For a **static observer at $r_{\rm obs}$** and a **circular Keplerian emitter at $r_{\rm em}$** in
+Schwarzschild, $g$ has an exact closed form in quantities a raymarcher already has:
+
+$$\boxed{g = \frac{\sqrt{1-3M/r_{\rm em}}}{\left(1-\Omega\,b_\phi\right)\sqrt{1-r_s/r_{\rm obs}}}},
+\qquad \Omega = \sqrt{M/r_{\rm em}^3}, \qquad b_\phi \equiv L_z/E$$
+
+derived from $g = (-p_\mu u^\mu)_{\rm obs}/(-p_\mu u^\mu)_{\rm em}$ with $u^t = (1-3M/r)^{-1/2}$.
+$b_\phi$ is the photon's **axial** angular momentum per unit energy — the component about the disk
+axis, not the total impact parameter. $b_\phi > 0$ is the prograde (approaching) side.
+
+The older factorisation is still correct and is a useful cross-check:
+
+$$g_{\rm grav} = \sqrt{\frac{1-r_s/r_{\rm em}}{1-r_s/r_{\rm obs}}}, \qquad \mathcal D = \frac{1}{\gamma(1-\boldsymbol\beta\cdot\hat n)}, \qquad g_{\rm total} = g_{\rm grav}\cdot\mathcal D$$
+
+but **only when $\boldsymbol\beta$ and $\hat n$ are measured in the local static frame at the
+emission point** — $\beta = \sqrt{M/r}\,/\sqrt{1-r_s/r}$ (which is exactly $c/2$ at the ISCO,
+§2.4) and $n_{\hat\phi} = b_\phi\sqrt{1-r_s/r}\,/\,r$. Using a coordinate velocity, or $\hat n$ in
+the observer's frame, is wrong. The two forms agree to $5\times10^{-16}$; **ASSERT** this.
+
+#### Disk temperature — Novikov–Thorne, which is *not* Shakura–Sunyaev
+
+**Do not use the Newtonian profile and call it Novikov–Thorne.** An earlier revision of this file
+printed $T \propto r^{-3/4}[1-\sqrt{r_{\rm in}/r}]^{1/4}$ under the heading "Novikov–Thorne /
+Shakura–Sunyaev". That expression is Shakura & Sunyaev (1973) — the **Newtonian** solution. The
+relativistic Novikov–Thorne profile is that solution multiplied by relativistic correction
+factors, and the difference is not cosmetic: the Newtonian form over-radiates by **43%** in total
+and implies a radiative efficiency of **8.33%**, contradicting §2.4's asserted **5.7191%**.
+
+General form (Novikov & Thorne 1973; Page & Thorne 1974), zero-torque at $r_{\rm in}=r_{\rm ISCO}$:
+
+$$\mathcal F(r) = \frac{\dot M}{4\pi M^2}F(r), \qquad
+F(r) = \frac{-\partial_r\Omega}{(E-\Omega L)^2}\frac{M^2}{\sqrt{-G}}\int_{r_{\rm in}}^{r}(E-\Omega L)\,\partial_\rho L\;d\rho$$
+
+with $E$, $L$, $\Omega$ the specific energy, axial angular momentum and angular velocity of
+equatorial circular geodesics and $-G = \alpha^2 g_{rr}g_{\phi\phi}$.
+
+**Specialised to Schwarzschild** ($M=1$; $\Omega = r^{-3/2}$, $E = (1-2/r)/\sqrt{1-3/r}$,
+$L = r/\sqrt{r-3}$, $\sqrt{-G} = r$), two simplifications make it elementary —
+$E-\Omega L = \sqrt{1-3M/r}$ and $\partial_r L = (r-6M)/[2(r-3M)^{3/2}]$, the latter vanishing at
+the ISCO as marginal stability requires — and the integral is done in closed form by $x=\sqrt r$:
+
+$$\boxed{F_{\rm NT}(r) = \frac{3}{2\,r^{5/2}(r-3M)}\left[\sqrt r-\sqrt6-\frac{\sqrt3}{2}\ln\frac{(\sqrt r-\sqrt3)(\sqrt6+\sqrt3)}{(\sqrt r+\sqrt3)(\sqrt6-\sqrt3)}\right]}$$
+
+$$T_{\rm eff}(r) = \left[\mathcal F(r)/\sigma\right]^{1/4}$$
+
+**ASSERT** — this is the check that makes the profile trustworthy, and it ties the disk to §2.4:
+
+$$\int_{r_{\rm ISCO}}^{\infty} F_{\rm NT}(r)\,E(r)\,r\,dr \;=\; 1-E_{\rm ISCO} \;=\; 1-\sqrt{8/9} = 0.0571909584$$
+
+(verified to $1.8\times10^{-9}$). The $E(r)$ weight is the redshift of locally emitted radiation to
+infinity; omitting it gives 0.05829 and is a 1.9% error. Peak flux sits at $r=9.55M$, not the
+Newtonian $8.16M$.
 
 **Colour pipeline:**
-1. Disk temperature: Novikov–Thorne / Shakura–Sunyaev thin disk, $T(r) \propto r^{-3/4}$ with
-   inner-edge cutoff factor $[1-\sqrt{r_{\rm in}/r}]^{1/4}$.
-2. A Doppler-shifted blackbody **is still a blackbody**, at $T' = g\,T$ — so shift the
-   temperature and look up a blackbody-colour LUT (1000–30 000 K) rather than shifting spectra.
-3. Multiply radiance by $g^4$ (bolometric) or $g^3$ (per-band).
-4. Spectral radiance → CIE XYZ → sRGB with proper tone mapping.
+1. Disk temperature: **Novikov–Thorne**, the boxed $F_{\rm NT}$ above. Never the Newtonian form.
+2. A Doppler-shifted blackbody **is still a blackbody**, at $T' = g\,T$. This is exact:
+   $g^3B_{\nu/g}(T) = B_\nu(gT)$ identically.
+3. **Therefore do not apply $g$ again.** The substitution $T\to gT$ *already contains* the whole
+   factor — $g^3$ per band and $g^4$ bolometrically, the latter because Stefan–Boltzmann turns
+   $T\to gT$ into exactly $g^4$. An earlier revision said "shift the temperature *and* multiply
+   radiance by $g^4$", which applies the shift twice and makes brightness scale as $g^8$. At the
+   ISCO viewed edge-on from $r_{\rm obs}=20r_s$ the true approaching/receding bolometric contrast
+   is **76.8**; the double-counted pipeline gives **5899**, too large by a factor of 76.8.
+   Concretely: look up **luminance-normalised chromaticity** at $T'=g\,T$, and take the brightness
+   from $\sigma T'^4$. Do not multiply that product by another $g^4$.
+4. Spectral radiance → CIE XYZ → sRGB with proper tone mapping (below).
+
+#### Blackbody → sRGB, concretely
+
+Colour-matching functions: the multi-lobe piecewise-Gaussian fits of **Wyman, Sloan & Shirley
+2013**, *Simple Analytic Approximations to the CIE XYZ Color Matching Functions*, JCGT 2(2)
+([PDF](https://jcgt.org/published/0002/02/01/paper.pdf)). With
+$G(\lambda;\mu,\sigma_1,\sigma_2) = \exp\!\left[-\tfrac12\left(\tfrac{\lambda-\mu}{\sigma}\right)^2\right]$,
+$\sigma = \sigma_1$ for $\lambda<\mu$ else $\sigma_2$, $\lambda$ in nm:
+
+$$\bar x = 1.056\,G(599.8, 37.9, 31.0) + 0.362\,G(442.0, 16.0, 26.7) - 0.065\,G(501.1, 20.4, 26.2)$$
+$$\bar y = 0.821\,G(568.8, 46.9, 40.5) + 0.286\,G(530.9, 16.3, 31.1)$$
+$$\bar z = 1.217\,G(437.0, 11.8, 36.0) + 0.681\,G(459.0, 26.0, 13.8)$$
+
+Then $X=\int B_\lambda(T)\bar x\,d\lambda$ and likewise $Y, Z$, over 360–830 nm. **Normalise by
+$Y$** so the table stores chromaticity only — the luminance comes from $\sigma T'^4$, and storing
+it twice is the double-count of step 3 in another guise.
+
+Linear sRGB (IEC 61966-2-1, D65 primaries):
+
+$$\begin{pmatrix}R\\G\\B\end{pmatrix} = \begin{pmatrix}3.2406 & -1.5372 & -0.4986\\ -0.9689 & 1.8758 & 0.0415\\ 0.0557 & -0.2040 & 1.0570\end{pmatrix}\begin{pmatrix}X\\Y\\Z\end{pmatrix}$$
+
+Negative components mean the colour is outside the sRGB gamut; desaturate toward white by adding
+the most negative component to all three, rather than clipping, which shifts hue. Transfer
+function: $C' = 1.055\,C^{1/2.4}-0.055$ for $C>0.0031308$, else $12.92\,C$.
+
+**ASSERT:** the Planckian locus at 6504 K must land within 0.001 of $(x,y)=(0.3135,0.3237)$, and
+CIE $x$ must decrease monotonically as $T$ rises.
+
+> **Not a bug: 6504 K is not D65.** sRGB's white point D65 is $(0.3127,0.3290)$, a *daylight*
+> illuminant, and it lies about **0.0054** off the Planckian locus — daylight is scattered
+> sunlight, not a blackbody. A correct implementation misses D65 by roughly that much, and
+> "fixing" it by tuning the colour-matching functions would be fitting to the wrong target. This
+> file asserted the D65 value in an earlier revision and was wrong to.
 
 This produces the characteristic **one-sided bright crescent** — the approaching side is
 dramatically brighter. Note that DNGR deliberately *softened* this for the film because Nolan
@@ -212,19 +331,96 @@ permitted but must be labelled as non-physical.
 
 ### 4.4 Anti-aliasing — the thing naive shaders get wrong
 
-Point-sampling the star field through a lensing map scintillates badly under camera motion.
+Point-sampling the star field through a lensing map scintillates badly under camera motion. Near
+the shadow rim the map compresses a large solid angle into one pixel, so a point sample reports
+whichever single star it happened to land on, and that choice flickers as the camera moves.
+
 DNGR's solution is a propagated elliptical ray bundle giving a per-pixel anisotropic filter
-footprint. **Cheap GPU approximation to implement instead:** finite-difference the neighbouring
-pixels' escape directions to build a screen-space Jacobian, and drive `textureGrad()`
-anisotropic sampling with it. Do this from the start; retrofitting it is painful.
+footprint. The mechanism is the **equation of geodesic deviation**, integrated alongside the
+central ray, yielding the ellipse's major-axis angle $\mu$ and its angular diameters
+$\delta_\pm$ on the celestial sphere (James et al. 2015, §3 and Appendix A.3).
+
+**Cheap GPU approximation:** build a screen-space Jacobian $J = [\partial\omega/\partial x,\;
+\partial\omega/\partial y]$ from neighbouring escape directions, and filter with it.
+
+> **Two corrections to an earlier revision of this section, both of which make the naive reading
+> unimplementable.**
+>
+> **1. The neighbours must be traced explicitly. Hardware derivatives are invalid here.** The
+> obvious reading of "finite-difference the neighbouring pixels" is `dFdx`/`dFdy`. That is
+> **undefined** in this shader: GLSL ES 3.00 §8.9 makes implicit derivatives undefined under
+> non-uniform control flow, and a raymarcher's loop necessarily diverges — each pixel breaks on
+> capture, on a disk hit, or on escape, at a different iteration.
+> ([Khronos GLSL #52](https://github.com/KhronosGroup/GLSL/issues/52).) Trace two extra rays, at
+> $+1$ pixel in $x$ and in $y$, and difference those. Only escaped pixels need them, so the cost
+> is paid where it is used.
+>
+> **2. `textureGrad()` presupposes a texture.** A procedural star field has none, and for a field
+> of *point* sources there is something better than an approximation — the exact filter is
+> available in closed form. A star at direction $\omega_s$ near a pixel whose escape direction is
+> $\omega_0$ appears, to first order, at pixel-space offset
+> $$\Delta p = J^{+}(\omega_s - \omega_0), \qquad J^{+} = \text{pseudo-inverse of } J$$
+> and its contribution is $K(\Delta p)$ for a pixel reconstruction kernel $K$ normalised so
+> $\int K\,d^2p = 1$. Because $K$ is normalised **in pixel space**, flux is conserved
+> automatically: where the map stretches, a given star contributes less to any one pixel, and
+> proportionally more stars fall inside the footprint. That is exactly the anti-aliasing wanted,
+> and for point sources it is not an approximation at all.
+
+Do this from the start; retrofitting it is painful.
 
 ### 4.5 Performance budget
 
-At 1080p, 256 steps/ray ≈ 532 M integration-steps/frame ≈ 30–60 fps on a mid-range discrete
-GPU; integrated GPUs (Intel Iris, base Apple M-series) run 3–6× slower. Mitigations, both
-required: render the lensing pass at 0.5–0.7× and bilinearly upsample (the image is a smooth
-warped skybox, so this is nearly free visually), and temporally accumulate jittered samples when
-the camera is static. Expose steps/ray as a quality slider.
+At 1080p, 256 steps/ray = $1920\times1080\times256 \approx$ **531 M** integration-steps/frame
+(an earlier revision said 532 M) ≈ 30–60 fps on a mid-range discrete GPU; integrated GPUs
+(Intel Iris, base Apple M-series) run 3–6× slower. Mitigations, both required:
+
+> **The 531 M figure is a lower bound, because §4.4 needs three rays, not one.** The screen-space
+> Jacobian requires two extra traced rays for every pixel whose ray escapes. An all-sky frame is
+> therefore ~1.6 G integration-steps, not 531 M. The two sections were written independently and
+> did not agree; this is the reconciliation.
+
+**Measured on the project machine** (NVIDIA Quadro M5000, Maxwell, via ANGLE/OpenGL 4.5), disk on,
+256 steps/ray, 12 timed frames each, forced to synchronise with a pixel readback:
+
+| Configuration | fps | ms/frame |
+|---|---|---|
+| 1080p, scale 1.0 | **32.4** | 30.8 |
+| 1080p, scale 0.7 | **72.6** | 13.8 |
+| 1080p, scale 0.5 | 131.7 | 7.6 |
+| 720p, scale 1.0 | 79.7 | 12.5 |
+
+The 30–60 fps prediction above is confirmed at native resolution. **BUILD_PLAN's 60 fps at 1080p
+is met at scale 0.7**, which is one of the two mitigations this section already marks *required* —
+so the target is met as specified, not by relaxing it. Timing note: `gl.finish()` alone does not
+block in Chromium, and timing without a readback reported 8700 fps.
+
+**Resolution scaling.** Render the lensing pass at 0.5–0.7× and bilinearly upsample. Note the
+quadratic saving: 0.5× is 4× less work, 0.7× is 2×.
+
+> **Correction: "nearly free visually" is true only of the star field.** An earlier revision
+> justified this by calling the image "a smooth warped skybox". The lensed star field is smooth,
+> but the frame also contains two *hard discontinuities* — the shadow rim and the disk's inner
+> edge — and bilinear upsampling softens exactly those. **ASSERT** the cost by measuring it: the
+> §2.4 shadow-radius gate must be evaluated at scale 1.0, and the degradation at reduced scale
+> must be recorded rather than assumed negligible.
+
+**Temporal accumulation.** Average jittered sub-pixel samples across frames while the camera is
+static. Two requirements the earlier revision left unstated:
+
+- **The history must be discarded on any change to the camera or parameters.** Otherwise the
+  accumulator smears old geometry across the new frame — the ghosting failure mode of every
+  temporal method. "Static camera" is not a description of when it helps; it is a precondition
+  the implementation must enforce.
+- **The jitter must be sub-pixel and zero-mean**, or accumulation converges to a biased image
+  rather than the supersampled one.
+
+**ASSERT — temporal stability must be a number, not an impression.** Define it as the per-pixel
+temporal variance of the rendered luminance over a sequence of frames in a region that correct
+filtering makes static. Record the baseline before the change and require the improvement to
+appear in that number; a filter that "looks smoother" but does not move it has not been shown to
+work. Verify the guard by re-introducing point sampling and confirming the metric degrades.
+
+Expose steps/ray and resolution scale as quality controls.
 
 ### 4.6 float32 near the horizon
 
@@ -668,6 +864,10 @@ asymmetric.
 - Everitt et al. 2011, *Gravity Probe B: Final Results*, PRL 106, 221101 — [PDF](https://einstein.stanford.edu/content/sci_papers/papers/PhysRevLett.106.221101.pdf)
 - Hafele & Keating 1972, *Around-the-World Atomic Clocks*, Science 177, 168 — [PDF](https://download.itp3.uni-stuttgart.de/rt2324/Hafele_Keating-Experiment.pdf)
 - Müller & Camenzind 2004, A&A — relativistic disk imaging — [PDF](https://www.aanda.org/articles/aa/pdf/2004/03/aah4692.pdf)
+- Novikov & Thorne 1973, *Astrophysics of Black Holes*, in *Black Holes* (Les Houches), eds. DeWitt & DeWitt — the relativistic thin-disk model
+- Page & Thorne 1974, *Disk-Accretion onto a Black Hole. Time-Averaged Structure of Accretion Disk*, ApJ 191, 499 — [ADS](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P) — the flux integral of §4.3
+- Shakura & Sunyaev 1973, *Black holes in binary systems. Observational appearance*, A&A 24, 337 — the **Newtonian** profile, which is not Novikov–Thorne
+- Bambi 2012, *A code to compute the emission of thin accretion disks in non-Kerr space-times* — [arXiv:1210.5679](https://arxiv.org/abs/1210.5679) — states the Page–Thorne flux in the form used here
 
 **Textbooks**
 - Misner, Thorne & Wheeler, *Gravitation* (Princeton, 1973/2017), esp. §1.6 & Box 1.6

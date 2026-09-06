@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', '.claude/**'] },
+  { ignores: ['dist/**', 'dist-harness/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', '.claude/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -26,7 +26,11 @@ export default tseslint.config(
     // Scope is the physics layers. app/ and ui/ are presentation: a layout number there is not a
     // physical constant, and forcing names onto them would only dilute the rule.
     files: ['src/core/**/*.ts', 'src/sims/**/*.{ts,tsx}'],
-    ignores: ['src/core/units.ts', 'src/**/*.test.{ts,tsx}'],
+    // blackbody.ts is exempt because it holds *tabulated standard coefficients* -- the
+    // Wyman/Sloan/Shirley colour-matching lobe fits and the IEC 61966-2-1 sRGB matrix --
+    // each cited in the file. They are not measured physical constants, and inventing a
+    // name for each of ~40 table entries would obscure the tables rather than clarify them.
+    ignores: ['src/core/units.ts', 'src/core/color/blackbody.ts', 'src/**/*.test.{ts,tsx}'],
     rules: {
       'no-magic-numbers': ['error', {
         ignore: [-2, -1, 0, 0.5, 1, 2, 3, 4, 6],

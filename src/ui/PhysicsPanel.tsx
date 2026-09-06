@@ -12,7 +12,7 @@ export function PhysicsPanel({ equation, assumptions, sources }: Props) {
   // KaTeX handles authored TeX only. No user HTML; trust stays disabled.
   const html = katex.renderToString(equation, { throwOnError: false, trust: false, displayMode: true, output: 'htmlAndMathml' });
   return <Disclosure defaultExpanded className="physics-panel">
-    <Heading><Button slot="trigger">The physics <span aria-hidden="true">↕</span></Button></Heading>
+    <Heading level={2}><Button slot="trigger">The physics <span aria-hidden="true">↕</span></Button></Heading>
     <DisclosurePanel>
       <div className="equation" dangerouslySetInnerHTML={{ __html: html }} />
       <h3>Assumptions & limits</h3>
