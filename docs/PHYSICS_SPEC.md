@@ -866,6 +866,78 @@ $$\frac{dr}{d\tau} = -\sqrt{\frac{r_s}{r}}, \qquad \tau(r_0\to r) = \frac{2}{3}\
 | Eddington–Finkelstein | $v = t + r_*/c$, $\;r_* = r + r_s\ln\left\|r/r_s - 1\right\|$ | finite |
 | Kruskal–Szekeres | $T = \sqrt{r/r_s-1}\,e^{r/2r_s}\sinh\frac{ct}{2r_s}$, $\;X = \sqrt{r/r_s-1}\,e^{r/2r_s}\cosh\frac{ct}{2r_s}$, so $X^2-T^2 = (r/r_s-1)e^{r/r_s}$ | finite |
 
+##### The trajectory in closed form, and each chart's time origin
+
+The table gives the transformations but not $t(r)$ along the worldline, which is what the module
+must actually evaluate. It follows from the two first integrals above. With $x=r/r_s$ and
+$w=\sqrt{x}$,
+
+$$\frac{dt}{dr}=-\frac{\sqrt{r/r_s}}{1-r_s/r}=-\frac{r_s\,w^3}{w^2-1}\cdot\frac{1}{r_s},\qquad
+\int\frac{w^4}{w^2-1}\,dw = \frac{w^3}{3}+w+\frac12\ln\left|\frac{w-1}{w+1}\right|$$
+
+$$\boxed{t(r) = t(r_0) - r_s\Big[F(w)-F(w_0)\Big],\qquad F(w)\equiv\tfrac23w^3+2w+\ln\left|\tfrac{w-1}{w+1}\right|}$$
+
+The $\ln(w-1)$ term is what sends $t\to+\infty$ at the horizon. The tortoise coordinate carries
+the *same* logarithm with the opposite sign, so it cancels in $v=t+r_*$ and Eddington–Finkelstein
+is regular there — that cancellation, not a numerical accident, is why the chart works.
+Substituting $F$ into the GP transformation likewise cancels both the $2w$ and the logarithm and
+leaves $t_{ff}=\tfrac23 r_s(w_0^3-w^3)=\tau$: **in GP coordinates the free-faller's time
+coordinate is its own proper time**, exactly, given the origin $t_{ff}(r_0)=0$.
+
+Each chart's time origin is a convention and none of the invariants depend on it. The module fixes
+$t(r_0)=0$ and $t_{ff}(r_0)=\tau(r_0)=0$, and says so in the UI, because a reader comparing two
+panels will otherwise read the offset as physics.
+
+##### Kruskal must be carried in null coordinates, not as $(T,X)$
+
+$$V \equiv X+T = e^{v/2r_s},\qquad U \equiv X-T = e^{-u/2r_s},\qquad u\equiv t-r_*,\ v\equiv t+r_*$$
+
+so that $UV = e^{r_*/r_s} = (r/r_s-1)e^{r/r_s}$, which is $X^2-T^2$ written without a subtraction.
+
+This is not a stylistic preference. $X$ and $T$ are each $\tfrac12(V\pm U)$, and $V/U$ runs over
+about eleven orders of magnitude along an infall from $8r_s$, so on approach to the horizon $X$
+and $T$ agree to within one part in $10^{8}$ and $X^2-T^2$ loses almost all of its significant
+figures. Measured in float64 along this trajectory: forming $X^2-T^2$ from stored $(T,X)$ gives a
+relative error of $9\times10^{-6}$ at $r=1.001\,r_s$ and $6\times10^{-5}$ at $r=1.0001\,r_s$,
+against a required tolerance of $10^{-10}$. The boost freedom in the Kruskal plane (shifting the
+$t$ origin multiplies $V$ and divides $U$) moves the ill-conditioning from one end of the
+trajectory to the other but never removes it. **The product $UV$, formed from $U$ and $V$
+directly, is accurate to $2\times10^{-15}$ everywhere and is what the module uses.** This is the
+same discipline §6 applies to the shader: work in the variable that does not cancel.
+
+Inverting for the areal radius is then exact via the Lambert $W$ function:
+
+$$(r/r_s-1)e^{r/r_s-1}=UV/e \;\Longrightarrow\; \boxed{r = r_s\left[1+W_0(UV/e)\right]}$$
+
+with $UV\ge0$ outside the horizon, so the principal branch applies and Newton–Halley converges to
+machine precision. **ASSERT** that $r$ recovered this way matches the trajectory's own $r$ to
+$10^{-12}$ at every sampled event.
+
+##### The comparison must be made at the same EVENTS, not the same coordinate values
+
+This is the one methodological trap in the module, and getting it wrong would make the central
+test pass for the wrong reason. $K=48M^2/r^6$ and the tidal component $-2M/r^3$ are functions of
+the areal radius $r$ alone, and $r$ is a coordinate in three of the four charts. Comparing the
+four charts *at the same $r$* is therefore a tautology: it compares a number with itself and
+would pass no matter how badly the transformations were implemented. It is the same defect as the
+$r=1\,r_s$ Kretschmann check found in this document's own fifth audit.
+
+The comparison that means something: take a **physical event** on the worldline, labelled by the
+free-faller's proper time $\tau$; express it in each of the four charts; then recover the
+invariants **from each chart's own coordinates by that chart's own route** — root-finding $t(r)$
+for Schwarzschild, $\tau$ for GP, $v(r)$ for Eddington–Finkelstein, and $W_0(UV/e)$ for Kruskal —
+and require the four answers to agree.
+
+**ASSERT**, and this is what makes the module honest rather than decorative:
+
+- At every sampled event the four recovered radii agree to $10^{-12}$ and the four Kretschmann
+  scalars and tidal components agree to $10^{-10}$.
+- **The naive comparison disagrees, by a lot.** Evaluating the three time-like coordinates at the
+  same numerical *value* $13\,r_s/c$ lands on three different events — $r = 3.5339$, $2.1386$ and
+  $6.4395\,r_s$ respectively — whose Kretschmann scalars differ by a factor of **745**. The module
+  shows this side by side with the correct comparison; a test asserts the ratio, so that a future
+  refactor which quietly starts comparing coordinate values instead of events fails loudly.
+
 **ASSERT** — this is the module's entire thesis, so it is a test, not a caption:
 
 - The **invariants agree in all four charts** to $10^{-10}$: the Kretschmann scalar
