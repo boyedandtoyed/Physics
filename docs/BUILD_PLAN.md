@@ -33,7 +33,7 @@ Each phase ends deployed and green. Do not start phase N+1 with phase N broken.
 
 ### Phase 0 — Foundation *(target: 1 session)*
 - Vite + React 19 + TypeScript 5.9 strict, `noUncheckedIndexedAccess: true`
-- Dockerfile (multi-stage: build → nginx), `docker-compose.yml` with the cloudflared service
+- Dockerfile (multi-stage: build → nginx), web-only `docker-compose.yml`; use the existing host-owned cloudflared service (§7)
 - CI: typecheck, lint, unit tests, build
 - `core/units.ts` with CODATA 2022 constants — the only place constants exist
 - `core/integrators/` — RK4, velocity Verlet, Yoshida-4 — with the §6.3 quality tests passing

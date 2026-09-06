@@ -85,6 +85,34 @@ it.each([0, 0.3])('closes a Newtonian orbit with eccentricity %s', (e) => {
   expect(q[0]! * v[1]! - q[1]! * v[0]!).toBeCloseTo(Math.sqrt(1 - e * e), 12);
 });
 
+it('preserves a Schwarzschild circular effective-potential orbit outside the ISCO', () => {
+  const radius = 10;
+  const angularMomentumSquared = radius ** 2 / (radius - 3);
+  const period = 2 * Math.PI * radius ** 2 / Math.sqrt(angularMomentumSquared);
+  const q = new Float64Array([radius]);
+  const v = new Float64Array([0]);
+  const solver = createVerlet(1);
+  let phi = 0;
+  for (let i = 0; i < 4096; i++) {
+    solver.step(q, v, period / 4096, (x, a) => {
+      const r = x[0]!;
+      a[0] = -1 / r ** 2 + angularMomentumSquared / r ** 3 - 3 * angularMomentumSquared / r ** 4;
+    });
+    phi += Math.sqrt(angularMomentumSquared) / q[0]! ** 2 * period / 4096;
+  }
+  expect(Math.abs(q[0]! - radius)).toBeLessThan(1e-10);
+  expect(Math.abs(phi - 2 * Math.PI)).toBeLessThan(1e-10);
+});
+
+it('recovers Newtonian effective-potential acceleration as c grows by a million', () => {
+  const r = 10;
+  const lSquared = 12;
+  const newtonian = -1 / r ** 2 + lSquared / r ** 3;
+  const correction = (c: number) => -3 * lSquared / (c ** 2 * r ** 4);
+  expect(correction(1e6) / correction(1)).toBeCloseTo(1e-12, 25);
+  expect(Math.abs((newtonian + correction(1e6)) / newtonian - 1)).toBeLessThan(2e-12);
+});
+
 it('rejects invalid dimensions and aliased state without modifying inputs', () => {
   expect(() => createRK4(0)).toThrow(RangeError);
   expect(() => createVerlet(1.5)).toThrow(RangeError);

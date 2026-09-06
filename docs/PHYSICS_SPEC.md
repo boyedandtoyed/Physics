@@ -22,7 +22,7 @@ Rules for using it:
 |---|---|---|
 | Speed of light | $c$ | 299 792 458 m/s (exact) |
 | Planck constant | $h$ | 6.626 070 15 ×10⁻³⁴ J·s (exact) |
-| Reduced Planck | $\hbar$ | 1.054 571 817×10⁻³⁴ J·s (exact) |
+| Reduced Planck | $\hbar$ | $h/(2\pi)$ exactly; 1.054 571 817×10⁻³⁴ J·s is a rounded decimal |
 | Elementary charge | $e$ | 1.602 176 634×10⁻¹⁹ C (exact) |
 | Boltzmann | $k_B$ | 1.380 649×10⁻²³ J/K (exact) |
 | Gravitational constant | $G$ | 6.674 30(15)×10⁻¹¹ m³ kg⁻¹ s⁻² |
@@ -373,6 +373,14 @@ Source: Murray & Dermott, *Solar System Dynamics* (1999), chapter 2,
 [doi:10.1017/CBO9781139174817](https://doi.org/10.1017/CBO9781139174817).
 These are test problems, not a shipped relativistic orbit model. Numerical closure
 must use a stated step size and tolerance and improve with refinement.
+
+For a radial test of §2.5, differentiating the specified effective potential gives
+$r''=-\mu/r^2+L^2/r^3-3\mu L^2/(c^2r^4)$, with $\phi'=L/r^2$.
+A circular orbit satisfies $L^2=\mu r^2/(r-3\mu/c^2)$. In $M=1$ units,
+use $r=10>r_{ISCO}$, $\mu=c=1$. In the formal Newtonian limit, replace
+$c$ by $10^6c$ and verify the relativistic force correction decreases by $10^{-12}$;
+combine this limit test with the independent Kepler closure tests above. These equations
+are algebraic consequences of §2.5, not an additional force model.
 
 ### 6.4 Horizon coordinate singularity
 
