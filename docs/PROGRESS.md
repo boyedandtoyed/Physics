@@ -2,9 +2,9 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 1 — The black hole. **COMPLETE.** All five steps done, verified, merged to `master`
-(`7bd6e70`) and deployed. Phase 0 is signed off.
-**Branch:** `feat/phase-1-blackhole`, merged. Next work starts a Phase 2 branch from `master`.
+**Phase:** 2 — Time and interpretations. **Audit done; implementation not started.**
+Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is signed off.
+**Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
 **The lensing sim is registered and live.** Reachable from the Collection page at
 https://abstract-physics.binodtiwari.com/sims/blackhole-lensing, verified rendering end to end
@@ -73,9 +73,43 @@ through the public HTTPS host.
 
 ## Phase 1 — where to pick up
 
-**NEXT: Phase 2** — time dilation, the deflection decomposition (§7.4 Claim A) and the
-Interpretations module (§7.4 Claim B). Audit the relevant spec sections first: four audits have
-now found four sets of real errors in that document, so assume a fifth will too.
+## Phase 2 — where to pick up
+
+**The audit is done (commit `4fa3b28`); no Phase 2 UI exists yet.** All the physics the three
+interactives need is now in `PHYSICS_SPEC.md` and asserted in `verify_benchmarks.py` (57 → 84
+checks), so implementation can start from tested formulae rather than from prose.
+
+**NEXT: part 1, the gravitational time dilation calculator and visualiser.** GPS, Hafele–Keating
+and near-horizon clocks. §8 rows 5–9 are all asserted now, including 8 and 9, which could not be
+asserted before the audit. Then part 2 (deflection decomposition, §7.4 Claim A), then part 3 (the
+Interpretations module, §7.4 Claim B). Parts 2 and 3 are the product's thesis made interactive and
+must carry the same measurement discipline as the raymarcher: part 2 asserts its two components
+numerically, part 3 asserts the invariants agree across all four charts to a stated tolerance.
+
+The formulae and their tolerances are settled — see §8's Hafele–Keating block, §7.4 Claim A's
+boxed α(β), and §7.4 Claim B's four-chart table. What remains is entirely UI and its tests.
+
+### Phase 2 audit findings *(2026-09-06, commit `4fa3b28`)*
+
+Fifth audit, fifth set of findings. None was a wrong number; three were **omissions that make a
+stated ASSERT impossible**, which in a document whose rule is "every value marked ASSERT must have
+a corresponding test" is its own kind of error.
+
+1. **§8 rows 8–9 could not be asserted at all** — published predictions given, no flight
+   parameters, and the answer is strongly latitude-dependent. Added representative 1971 values;
+   they land at −44.5 ns and +256 ns, inside the published −40±23 and +275±21 bands.
+2. **A notation trap that deletes the effect.** Both kinematic terms were written with
+   `v_ground`, which reads as *the ground station's* speed RΩ. Substituting that gives a
+   direction-independent constant and the east/west asymmetry vanishes — the one thing rows 8, 9
+   and 19 exist to show. Now `v_air`, with R the distance from the rotation axis.
+3. **§7.4 Claim A gave the ratio table but never α(v)**, which is what the slider plots. It
+   follows uniquely from the section's own assertions, and says something the table does not: the
+   space-curvature contribution is the same 0.8756″ at *every* speed.
+4. **§7.4 Claim B named four charts without their transformations.** Added, with the radial-infall
+   trajectory and the module's thesis turned into assertions.
+5. **A weak test of my own, caught by mutation.** The first Kretschmann check tested only
+   r = 1 rₛ, where every power of r gives 12, so a mutation to r⁻⁵ passed — the same tautology
+   §2.4 carried before its own audit. Now checked at three radii plus the scaling law.
 
 **One known limitation carried forward**, recorded in full in `DECISIONS.md`: the disk outer-edge
 step cap trades radius agreement (2.0e-5 → 4.1e-4) for artefact removal and is float32-fragile for
@@ -435,3 +469,23 @@ by giving those projects a realistic timeout.
 Merged to `master` at `7bd6e70`, container rebuilt, and the live site verified end to end: the
 Collection page lists the simulation, the link resolves, and the canvas renders through the public
 HTTPS host.
+
+### 2026-09-06 — Phase 1 landed; Phase 2 audited
+
+Phase 1 merged at `7bd6e70`, container rebuilt, live site verified end to end through the public
+HTTPS host: the Collection page lists the simulation, the link resolves, the canvas renders.
+
+Then audited the Phase 2 sections before writing any Phase 2 code, as with every prior step. The
+pattern held for a fifth time. Nothing was numerically wrong this time; three sections named an
+ASSERT while omitting what the assertion needs, and one carried a notation ambiguity whose natural
+misreading removes the effect being demonstrated.
+
+The finding worth carrying forward is the one against myself. My first Kretschmann check tested a
+single radius at which every exponent gives the same answer, so a deliberately wrong power passed
+it. I only found that because I wrote the mutation — the check read perfectly well. That is now
+three separate occasions in this project where writing the mutation, not writing the test, is what
+exposed a bad gate.
+
+Stopped here rather than starting part 1: the audit is a complete, coherent unit with everything
+green, and beginning a three-part interactive at the end of a long session would have left a
+half-built stage. All formulae and tolerances the three parts need are now settled and tested.
