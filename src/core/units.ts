@@ -43,6 +43,8 @@ export const MICROSECONDS_PER_SECOND = 1e6;
 export const METRES_PER_KILOMETRE = 1000;
 export const DEGREES_IN_HALF_TURN = 180;
 export const ARCSECONDS_PER_RADIAN = 180 * 3600 / Math.PI;
+/** Arcseconds in one full turn, for reporting angles that have stopped being small. */
+export const ARCSECONDS_PER_TURN = ARCSECONDS_PER_RADIAN * 2 * Math.PI;
 
 /** Representative constant-profile flights, not reconstructed flight logs; PHYSICS_SPEC §8. */
 export const HAFELE_KEATING_EASTWARD = {
