@@ -149,3 +149,44 @@ The shipped Docker image never contains it — verified by checking `dist/` afte
 It sits outside `src/` deliberately: that keeps `only-the-registry-knows-sims` true for
 everything in the app, and a new dependency-cruiser rule forbids anything under `src/` from
 importing the harness, so the fixture cannot leak into the product.
+
+## 2026-09-06 — Phase 1 §4.3 audit: the g factor was applied twice, and "Novikov–Thorne" wasn't
+
+The §4.3 audit, run before any disk code, found two errors of the same character as the §2.3
+one: each produces a picture that looks convincing and is quantitatively wrong.
+
+**1. The colour pipeline double-counted the redshift.** It said to shift the temperature to
+T' = gT *and then* multiply radiance by g^4 (bolometric) or g^3 (per band). But
+g^3 B_{nu/g}(T) = B_nu(gT) identically — the substitution T -> gT *is* the g^3, and
+Stefan–Boltzmann turns it into exactly g^4 bolometrically. Applying g again makes brightness
+scale as **g^8**. Verified to 3.6e-15 over a grid of g, T and nu.
+
+The consequence is not subtle. At the ISCO viewed edge-on from r_obs = 20 r_s, the true
+approaching/receding bolometric contrast is **76.8**; the double-counted pipeline gives **5899**.
+That would have looked spectacular, which is exactly why it needed a number rather than an eye.
+§4.3 now says to take luminance-normalised chromaticity at T' = gT and brightness from sigma T'^4,
+and states explicitly not to multiply again.
+
+**2. The "Novikov–Thorne" temperature profile was Shakura–Sunyaev.** The printed
+T ∝ r^-3/4 [1 - sqrt(r_in/r)]^1/4 is the Newtonian solution. Novikov–Thorne is that times
+relativistic correction factors. The difference is large and, worse, self-contradictory: the
+Newtonian form over-radiates by 43% in total and implies a radiative efficiency of 8.33%, while
+§2.4 of the same document asserts 5.7191%. The flux ratio SS/NT is 7.2 at r = 6.5M and 2.7 at 8M,
+and the peak sits at 8.16M instead of 9.55M.
+
+§4.3 now carries the Page–Thorne integral and its closed-form Schwarzschild specialisation,
+derived here: with E - Omega L = sqrt(1-3M/r) and dL/dr = (r-6M)/[2(r-3M)^{3/2}] the integral is
+elementary under x = sqrt(r). **The derivation is confirmed by an independent invariant** —
+int F_NT(r) E(r) r dr = 1 - E_isco = 1 - sqrt(8/9), to 1.8e-9. The E(r) weight is the redshift of
+locally emitted radiation to infinity; dropping it is a 1.9% error, which is how the check earned
+its keep. All of this is now pinned in `verify_benchmarks.py`.
+
+**3. Two smaller fixes.** The bolometric relation was written F^obs ∝ g^4 I^em, mixing flux with
+intensity. And the g_grav · D factorisation is exact only when beta and n-hat are measured in the
+*local static frame at the emission point*; §4.3 never said so. Rather than rely on that, §4.3 now
+gives the closed form g = sqrt(1-3M/r) / [(1 - Omega b_phi) sqrt(1 - r_s/r_obs)], which needs no
+frame transformation and uses b_phi = L_z/E, a quantity the raymarcher already carries. It agrees
+with the decomposition to 5e-16.
+
+Also corrected in passing: `verify_benchmarks.py` declared hbar as "exact", contradicting §1 and
+`units.ts`. It is now derived from the exact h as h/(2*pi).

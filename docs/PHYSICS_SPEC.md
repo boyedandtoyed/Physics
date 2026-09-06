@@ -216,18 +216,79 @@ Termination: capture if `u >= 1.0`; bail out on `u < 0` (numerical reversal) and
 The rigorous statement is that $I_\nu/\nu^3$ is Liouville-invariant along a null geodesic.
 Define $g \equiv \nu_{\rm obs}/\nu_{\rm em} = 1/(1+z)$. Then:
 
-$$\boxed{I_\nu^{\rm obs} = g^3 I^{\rm em}_{\nu_{\rm em}}} \qquad \boxed{F^{\rm obs}_{\rm bol} \propto g^4 I^{\rm em}_{\rm bol}}$$
+$$\boxed{I_\nu^{\rm obs} = g^3 I^{\rm em}_{\nu_{\rm em}}} \qquad \boxed{I^{\rm obs}_{\rm bol} = g^4 I^{\rm em}_{\rm bol}}$$
 
-For a Schwarzschild static observer and circular-orbit emitter, $g$ factorizes:
+(Both statements are about *specific* and *bolometric intensity*. An earlier revision wrote the
+second as $F^{\rm obs}_{\rm bol}$, mixing flux with intensity; per pixel the solid angle is fixed
+so they are proportional, but the invariant statement is the one about $I$.)
 
-$$g_{\rm grav} = \sqrt{\frac{1-r_s/r_{\rm em}}{1-r_s/r_{\rm obs}}}, \qquad \mathcal D = \frac{1}{\gamma(1+\boldsymbol\beta\cdot\hat n)}, \qquad g_{\rm total} = g_{\rm grav}\cdot\mathcal D$$
+#### The $g$ factor — use the closed form
+
+For a **static observer at $r_{\rm obs}$** and a **circular Keplerian emitter at $r_{\rm em}$** in
+Schwarzschild, $g$ has an exact closed form in quantities a raymarcher already has:
+
+$$\boxed{g = \frac{\sqrt{1-3M/r_{\rm em}}}{\left(1-\Omega\,b_\phi\right)\sqrt{1-r_s/r_{\rm obs}}}},
+\qquad \Omega = \sqrt{M/r_{\rm em}^3}, \qquad b_\phi \equiv L_z/E$$
+
+derived from $g = (-p_\mu u^\mu)_{\rm obs}/(-p_\mu u^\mu)_{\rm em}$ with $u^t = (1-3M/r)^{-1/2}$.
+$b_\phi$ is the photon's **axial** angular momentum per unit energy — the component about the disk
+axis, not the total impact parameter. $b_\phi > 0$ is the prograde (approaching) side.
+
+The older factorisation is still correct and is a useful cross-check:
+
+$$g_{\rm grav} = \sqrt{\frac{1-r_s/r_{\rm em}}{1-r_s/r_{\rm obs}}}, \qquad \mathcal D = \frac{1}{\gamma(1-\boldsymbol\beta\cdot\hat n)}, \qquad g_{\rm total} = g_{\rm grav}\cdot\mathcal D$$
+
+but **only when $\boldsymbol\beta$ and $\hat n$ are measured in the local static frame at the
+emission point** — $\beta = \sqrt{M/r}\,/\sqrt{1-r_s/r}$ (which is exactly $c/2$ at the ISCO,
+§2.4) and $n_{\hat\phi} = b_\phi\sqrt{1-r_s/r}\,/\,r$. Using a coordinate velocity, or $\hat n$ in
+the observer's frame, is wrong. The two forms agree to $5\times10^{-16}$; **ASSERT** this.
+
+#### Disk temperature — Novikov–Thorne, which is *not* Shakura–Sunyaev
+
+**Do not use the Newtonian profile and call it Novikov–Thorne.** An earlier revision of this file
+printed $T \propto r^{-3/4}[1-\sqrt{r_{\rm in}/r}]^{1/4}$ under the heading "Novikov–Thorne /
+Shakura–Sunyaev". That expression is Shakura & Sunyaev (1973) — the **Newtonian** solution. The
+relativistic Novikov–Thorne profile is that solution multiplied by relativistic correction
+factors, and the difference is not cosmetic: the Newtonian form over-radiates by **43%** in total
+and implies a radiative efficiency of **8.33%**, contradicting §2.4's asserted **5.7191%**.
+
+General form (Novikov & Thorne 1973; Page & Thorne 1974), zero-torque at $r_{\rm in}=r_{\rm ISCO}$:
+
+$$\mathcal F(r) = \frac{\dot M}{4\pi M^2}F(r), \qquad
+F(r) = \frac{-\partial_r\Omega}{(E-\Omega L)^2}\frac{M^2}{\sqrt{-G}}\int_{r_{\rm in}}^{r}(E-\Omega L)\,\partial_\rho L\;d\rho$$
+
+with $E$, $L$, $\Omega$ the specific energy, axial angular momentum and angular velocity of
+equatorial circular geodesics and $-G = \alpha^2 g_{rr}g_{\phi\phi}$.
+
+**Specialised to Schwarzschild** ($M=1$; $\Omega = r^{-3/2}$, $E = (1-2/r)/\sqrt{1-3/r}$,
+$L = r/\sqrt{r-3}$, $\sqrt{-G} = r$), two simplifications make it elementary —
+$E-\Omega L = \sqrt{1-3M/r}$ and $\partial_r L = (r-6M)/[2(r-3M)^{3/2}]$, the latter vanishing at
+the ISCO as marginal stability requires — and the integral is done in closed form by $x=\sqrt r$:
+
+$$\boxed{F_{\rm NT}(r) = \frac{3}{2\,r^{5/2}(r-3M)}\left[\sqrt r-\sqrt6-\frac{\sqrt3}{2}\ln\frac{(\sqrt r-\sqrt3)(\sqrt6+\sqrt3)}{(\sqrt r+\sqrt3)(\sqrt6-\sqrt3)}\right]}$$
+
+$$T_{\rm eff}(r) = \left[\mathcal F(r)/\sigma\right]^{1/4}$$
+
+**ASSERT** — this is the check that makes the profile trustworthy, and it ties the disk to §2.4:
+
+$$\int_{r_{\rm ISCO}}^{\infty} F_{\rm NT}(r)\,E(r)\,r\,dr \;=\; 1-E_{\rm ISCO} \;=\; 1-\sqrt{8/9} = 0.0571909584$$
+
+(verified to $1.8\times10^{-9}$). The $E(r)$ weight is the redshift of locally emitted radiation to
+infinity; omitting it gives 0.05829 and is a 1.9% error. Peak flux sits at $r=9.55M$, not the
+Newtonian $8.16M$.
 
 **Colour pipeline:**
-1. Disk temperature: Novikov–Thorne / Shakura–Sunyaev thin disk, $T(r) \propto r^{-3/4}$ with
-   inner-edge cutoff factor $[1-\sqrt{r_{\rm in}/r}]^{1/4}$.
-2. A Doppler-shifted blackbody **is still a blackbody**, at $T' = g\,T$ — so shift the
-   temperature and look up a blackbody-colour LUT (1000–30 000 K) rather than shifting spectra.
-3. Multiply radiance by $g^4$ (bolometric) or $g^3$ (per-band).
+1. Disk temperature: **Novikov–Thorne**, the boxed $F_{\rm NT}$ above. Never the Newtonian form.
+2. A Doppler-shifted blackbody **is still a blackbody**, at $T' = g\,T$. This is exact:
+   $g^3B_{\nu/g}(T) = B_\nu(gT)$ identically.
+3. **Therefore do not apply $g$ again.** The substitution $T\to gT$ *already contains* the whole
+   factor — $g^3$ per band and $g^4$ bolometrically, the latter because Stefan–Boltzmann turns
+   $T\to gT$ into exactly $g^4$. An earlier revision said "shift the temperature *and* multiply
+   radiance by $g^4$", which applies the shift twice and makes brightness scale as $g^8$. At the
+   ISCO viewed edge-on from $r_{\rm obs}=20r_s$ the true approaching/receding bolometric contrast
+   is **76.8**; the double-counted pipeline gives **5899**, too large by a factor of 76.8.
+   Concretely: look up **luminance-normalised chromaticity** at $T'=g\,T$, and take the brightness
+   from $\sigma T'^4$. Do not multiply that product by another $g^4$.
 4. Spectral radiance → CIE XYZ → sRGB with proper tone mapping.
 
 This produces the characteristic **one-sided bright crescent** — the approaching side is
@@ -693,6 +754,10 @@ asymmetric.
 - Everitt et al. 2011, *Gravity Probe B: Final Results*, PRL 106, 221101 — [PDF](https://einstein.stanford.edu/content/sci_papers/papers/PhysRevLett.106.221101.pdf)
 - Hafele & Keating 1972, *Around-the-World Atomic Clocks*, Science 177, 168 — [PDF](https://download.itp3.uni-stuttgart.de/rt2324/Hafele_Keating-Experiment.pdf)
 - Müller & Camenzind 2004, A&A — relativistic disk imaging — [PDF](https://www.aanda.org/articles/aa/pdf/2004/03/aah4692.pdf)
+- Novikov & Thorne 1973, *Astrophysics of Black Holes*, in *Black Holes* (Les Houches), eds. DeWitt & DeWitt — the relativistic thin-disk model
+- Page & Thorne 1974, *Disk-Accretion onto a Black Hole. Time-Averaged Structure of Accretion Disk*, ApJ 191, 499 — [ADS](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P) — the flux integral of §4.3
+- Shakura & Sunyaev 1973, *Black holes in binary systems. Observational appearance*, A&A 24, 337 — the **Newtonian** profile, which is not Novikov–Thorne
+- Bambi 2012, *A code to compute the emission of thin accretion disks in non-Kerr space-times* — [arXiv:1210.5679](https://arxiv.org/abs/1210.5679) — states the Page–Thorne flux in the form used here
 
 **Textbooks**
 - Misner, Thorne & Wheeler, *Gravitation* (Princeton, 1973/2017), esp. §1.6 & Box 1.6

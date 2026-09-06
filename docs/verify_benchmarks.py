@@ -15,7 +15,8 @@ import math
 # CODATA 2022 --------------------------------------------------------------
 c    = 299_792_458.0            # m/s              exact
 G    = 6.674_30e-11             # m^3 kg^-1 s^-2
-hbar = 1.054_571_817e-34        # J s              exact
+h    = 6.626_070_15e-34         # J s              exact (SI definition)
+hbar = h / (2 * math.pi)         # J s   derived; 1.054571817e-34 is a ROUNDED decimal, not exact
 kB   = 1.380_649e-23            # J/K              exact
 GMsun = 1.327_124_400_18e20     # m^3 s^-2
 Msun  = 1.988_4e30              # kg
@@ -133,6 +134,106 @@ for _u, _h in ((0.05, 3.1), (0.2, 7.0), (0.4, 1.3)):
     _a_r = -3 * 1.0 * _h**2 * _u**4
     check(f"Flat-Cartesian Binet reduction (u={_u})", -_a_r / (_h**2 * _u**2),
           3 * 1.0 * _u**2, 1e-15, "")
+
+
+# PHYSICS_SPEC 4.3 — the disk colour pipeline ------------------------------
+# Two errors were found in 4.3 by audit and are pinned here so they cannot return.
+
+def _simpson(f, a, b, n=200000):
+    if n % 2:
+        n += 1
+    h = (b - a) / n
+    total = f(a) + f(b)
+    for i in range(1, n):
+        total += f(a + i * h) * (4 if i % 2 else 2)
+    return total * h / 3
+
+
+def _planck(nu, T):
+    return 2 * h * nu**3 / c**2 / math.expm1(h * nu / (kB * T))
+
+
+# (a) A shifted blackbody is still a blackbody at T' = gT. This identity is the reason the
+# g factor must NOT be applied a second time after the temperature substitution.
+_worst = 0.0
+for _g in (0.6, 0.85, 1.3, 1.8):
+    for _T in (3e3, 8e3, 2e4):
+        for _nu in (2e14, 5e14, 9e14):
+            _worst = max(_worst, abs(_g**3 * _planck(_nu / _g, _T) - _planck(_nu, _g * _T))
+                         / _planck(_nu, _g * _T))
+check("Shifted blackbody is a blackbody at gT", _worst, 0.0, 1e-12, "rel")
+
+# Stefan-Boltzmann then supplies the bolometric g^4 automatically.
+for _g in (0.7, 1.5):
+    check(f"  T->gT already contains g^4 (g={_g})", (_g * 1e4)**4 / (1e4)**4, _g**4, 1e-9, "")
+
+# (b) Novikov-Thorne flux for Schwarzschild, M = 1. Zero torque at the ISCO.
+_S3, _S6, _RISCO = math.sqrt(3.0), math.sqrt(6.0), 6.0
+
+
+def _E_circ(r):
+    return (1 - 2 / r) / math.sqrt(1 - 3 / r)
+
+
+def _nt_flux(r):
+    """F_NT(r); calF = Mdot/(4 pi M^2) * F_NT."""
+    anti = lambda x: x - (_S3 / 2) * math.log((x - _S3) / (x + _S3))
+    return 1.5 / (r**2.5 * (r - 3)) * (anti(math.sqrt(r)) - anti(_S6))
+
+
+def _ss_flux(r):
+    """Shakura-Sunyaev Newtonian profile in the same normalisation, for contrast."""
+    return 1.5 * (1 - math.sqrt(_RISCO / r)) / r**3
+
+
+# dL/dr must vanish at the ISCO (marginal stability) or the zero-torque condition is misplaced.
+check("NT: dL/dr vanishes at the ISCO", (_RISCO - 6) / (2 * (_RISCO - 3) ** 1.5), 0.0, 1e-15, "")
+check("NT: E - Omega L = sqrt(1-3M/r)",
+      _E_circ(10.0) - 10.0**-1.5 * (10.0 / math.sqrt(7.0)), math.sqrt(1 - 0.3), 1e-14, "")
+
+# THE check: total luminosity must equal the ISCO binding energy. The E(r) weight is the
+# redshift of locally emitted radiation to infinity; dropping it is a 1.9% error.
+_lum = _simpson(lambda u: _nt_flux(6 / u) * _E_circ(6 / u) * (6 / u) * (6 / u**2), 1e-10, 1.0)
+check("NT luminosity = 1 - E_isco", _lum, 1 - _E_circ(_RISCO), 1e-7, "")
+check("  ...which is 1 - sqrt(8/9)", 1 - _E_circ(_RISCO), 1 - math.sqrt(8 / 9), 1e-12, "")
+
+# The Newtonian profile is a different curve, not a normalisation of the same one.
+_ss_lum = _simpson(lambda u: _ss_flux(6 / u) * (6 / u) * (6 / u**2), 1e-10, 1.0)
+check("SS Newtonian total luminosity = 1/12", _ss_lum, 1 / 12, 1e-9, "")
+check("  ...SS implied efficiency (WRONG, cf 5.7191%)", _ss_lum * 100, 8.3333, 1e-3, "%")
+_peak_nt = max((_nt_flux(6 + i * 0.005), 6 + i * 0.005) for i in range(1, 4000))[1]
+_peak_ss = max((_ss_flux(6 + i * 0.005), 6 + i * 0.005) for i in range(1, 4000))[1]
+check("NT peak-flux radius", _peak_nt, 9.55, 0.01, "M")
+check("SS peak-flux radius (differs)", _peak_ss, 8.165, 0.01, "M")
+
+# (c) The g closed form must equal the local-static-frame decomposition exactly.
+def _g_closed(r, b_phi, D):
+    return math.sqrt(1 - 3 / r) / ((1 - r**-1.5 * b_phi) * math.sqrt(1 - 2 / D))
+
+
+def _g_decomposed(r, b_phi, D):
+    g_grav = math.sqrt((1 - 2 / r) / (1 - 2 / D))
+    beta = math.sqrt(1 / r) / math.sqrt(1 - 2 / r)
+    gamma = 1 / math.sqrt(1 - beta * beta)
+    n_phi = b_phi * math.sqrt(1 - 2 / r) / r
+    return g_grav / (gamma * (1 - beta * n_phi))
+
+
+_worst_g = 0.0
+for _r in (6.0, 8.0, 12.0, 30.0):
+    _bmax = _r / math.sqrt(1 - 2 / _r)
+    for _f in (-0.9, -0.5, 0.0, 0.5, 0.9):
+        for _D in (20.0, 1e7):
+            _a, _b = _g_closed(_r, _f * _bmax, _D), _g_decomposed(_r, _f * _bmax, _D)
+            _worst_g = max(_worst_g, abs(_a - _b) / abs(_a))
+check("g closed form == g_grav * Doppler", _worst_g, 0.0, 1e-14, "rel")
+check("Local orbital speed at ISCO", math.sqrt(1 / 6) / math.sqrt(1 - 2 / 6), 0.5, 1e-15, "c")
+
+# The crescent contrast the correct pipeline must produce, and what double-counting gives.
+_bm = 6.0 / math.sqrt(1 - 2 / 6.0)
+_ratio = _g_closed(6.0, 0.99 * _bm, 20.0) / _g_closed(6.0, -0.99 * _bm, 20.0)
+check("Crescent bolometric contrast g^4", _ratio**4, 76.81, 0.05, "")
+check("  ...double-counted g^8 (WRONG)", _ratio**8, 5899.3, 5.0, "")
 
 
 # 13  Kerr ISCO — Bardeen-Press-Teukolsky ----------------------------------
