@@ -46,6 +46,10 @@ uniform bool  uDiskEnabled;
 uniform sampler2D uColourTable;
 uniform float uLutMinTemperature;
 uniform float uLutMaxTemperature;
+/** Sub-pixel sample offset, in pixels. Zero-mean over an accumulation sequence (PHYSICS_SPEC
+ * 4.5), and the lever the temporal-stability metric uses: correct filtering makes a pixel the
+ * average over its footprint, so jittering inside one pixel must barely change it. */
+uniform vec2  uJitter;
 
 const float HORIZON        = 1.0;
 const float MASS           = 0.5;          // r_s = 2M
@@ -124,25 +128,91 @@ float hash(vec3 p) {
   return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
-// Procedural star field sampled on the escape direction. Generated rather than textured so the
-// page ships no external asset and stays inside a strict content policy.
-vec3 starField(vec3 dir) {
-  vec3 colour = vec3(0.0);
-  for (int layer = 0; layer < 3; layer++) {
-    float scale = 60.0 + 90.0 * float(layer);
-    vec3 cell = floor(dir * scale);
-    float present = hash(cell + float(layer) * 37.0);
-    if (present > 0.972) {
-      vec3 jitter = vec3(hash(cell + 1.7), hash(cell + 3.1), hash(cell + 5.3)) - 0.5;
-      vec3 centre = (cell + 0.5 + jitter * 0.8) / scale;
-      float d = length(normalize(centre) - dir) * scale;
-      float brightness = smoothstep(1.0, 0.0, d) * (0.35 + 0.65 * hash(cell + 11.0));
-      float temperature = hash(cell + 23.0);
-      vec3 tint = mix(vec3(1.0, 0.78, 0.62), vec3(0.72, 0.83, 1.0), temperature);
-      colour += tint * brightness;
+// --- Star field, PHYSICS_SPEC 4.4 -------------------------------------------------------------
+// Cells are EQUAL-AREA by construction: bands of equal d(cos theta) all have the same solid
+// angle, so giving every band the same number of azimuthal cells makes every cell exactly
+// 4*pi/(BANDS*SECTORS) steradians. The previous version hashed floor(dir * scale) on a cube
+// lattice, whose cells vary several-fold in solid angle and are strongly anisotropic near the
+// cube corners -- that is what made distant stars render as elongated blobs.
+// SECTORS ~ pi * BANDS keeps cells roughly square at the equator.
+const int   STAR_BANDS   = 110;
+const int   STAR_SECTORS = 346;
+const float STAR_OCCUPANCY = 0.16;       // fraction of cells holding a star
+const float STAR_FLUX      = 0.85;       // flux per star, before the reconstruction kernel
+const float STAR_SIGMA     = 0.5;        // reconstruction kernel width, pixels
+const float TAU = 6.2831853072;
+
+float cellHash(int band, int sector, float salt) {
+  return hash(vec3(float(band) * 0.7371, float(sector) * 0.3131, salt));
+}
+
+vec3 starDirection(int band, int sector) {
+  float c = (float(band) + cellHash(band, sector, 1.7)) / float(STAR_BANDS) * 2.0 - 1.0;
+  float phi = ((float(sector) + cellHash(band, sector, 3.1)) / float(STAR_SECTORS) - 0.5) * TAU;
+  float s = sqrt(max(0.0, 1.0 - c * c));
+  return vec3(s * cos(phi), c, s * sin(phi));
+}
+
+vec3 starColour(int band, int sector) {
+  // Indicative tint only: hotter stars bluer. Not a calibrated stellar colour model, and the
+  // disk's colours -- which ARE calibrated -- come from the blackbody table, not from here.
+  float t = cellHash(band, sector, 5.3);
+  return mix(vec3(1.0, 0.78, 0.62), vec3(0.72, 0.83, 1.0), t)
+       * (0.35 + 0.65 * cellHash(band, sector, 7.9));
+}
+
+/** Mean surface brightness of the field, per unit solid angle. In the limit where a pixel's
+ * footprint holds many stars this is the correct filtered value, and it is what the discrete
+ * sum converges to. */
+vec3 meanStarRadiance() {
+  // Average of the tint endpoints times the average brightness factor.
+  vec3 meanTint = 0.5 * (vec3(1.0, 0.78, 0.62) + vec3(0.72, 0.83, 1.0)) * 0.675;
+  float starsPerSteradian = STAR_OCCUPANCY * float(STAR_BANDS) * float(STAR_SECTORS) / (2.0 * TAU);
+  return meanTint * STAR_FLUX * starsPerSteradian;
+}
+
+/** Anisotropically filtered star field.
+ *
+ * inverseJacobian maps a tangential direction offset to a pixel-space offset, so a star at
+ * omega_s contributes K(J^+ (omega_s - omega_0)) with K normalised to unit integral in PIXEL
+ * space -- which is what conserves flux as the map stretches (PHYSICS_SPEC 4.4).
+ *
+ * Only a 3x3 cell neighbourhood is summed. Once the footprint spans more than about one cell the
+ * sum would be incomplete, so the result blends to the analytic mean above; that is the correct
+ * limit, not a fudge, and it is exactly what removes the scintillation near the shadow rim where
+ * the map compresses hardest.
+ */
+vec3 starField(vec3 dir, mat2 inverseJacobian, vec3 e1, vec3 e2, float solidAnglePerPixel) {
+  float cellSolidAngle = 2.0 * TAU / (float(STAR_BANDS) * float(STAR_SECTORS));
+  float cellsSpanned = solidAnglePerPixel / cellSolidAngle;
+
+  vec3 discrete = vec3(0.0);
+  int band0 = int(floor((clamp(dir.y, -1.0, 1.0) * 0.5 + 0.5) * float(STAR_BANDS)));
+  float phi = atan(dir.z, dir.x);
+  int sector0 = int(floor((phi / TAU + 0.5) * float(STAR_SECTORS)));
+  float norm = 1.0 / (TAU * STAR_SIGMA * STAR_SIGMA);
+
+  for (int db = -1; db <= 1; db++) {
+    int band = band0 + db;
+    if (band < 0 || band >= STAR_BANDS) continue;
+    for (int ds = -1; ds <= 1; ds++) {
+      int sector = (sector0 + ds + STAR_SECTORS) % STAR_SECTORS;
+      if (cellHash(band, sector, 0.0) > STAR_OCCUPANCY) continue;
+      vec3 delta = starDirection(band, sector) - dir;
+      vec2 offset = inverseJacobian * vec2(dot(delta, e1), dot(delta, e2));
+      discrete += starColour(band, sector) * STAR_FLUX * norm * exp(-0.5 * dot(offset, offset)
+                  / (STAR_SIGMA * STAR_SIGMA));
     }
   }
-  return colour;
+
+  vec3 mean = meanStarRadiance() * solidAnglePerPixel;
+  return mix(discrete, mean, clamp(cellsSpanned - 0.5, 0.0, 1.0));
+}
+
+void tangentBasis(vec3 d, out vec3 e1, out vec3 e2) {
+  vec3 helper = abs(d.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+  e1 = normalize(cross(helper, d));
+  e2 = cross(d, e1);
 }
 
 // Split a [0,1] value across two 8-bit channels so the harness can read it back to ~1e-5.
@@ -152,8 +222,24 @@ vec2 encode16(float value) {
   return vec2(hi / 255.0, (s - hi * 256.0) / 255.0);
 }
 
-void main() {
-  vec2 ndc = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
+struct Trace {
+  bool captured;
+  bool escaped;
+  bool hitDisk;
+  float emissionRadius;
+  float axialImpact;
+  vec3 escapeDirection;
+};
+
+Trace traceRay(vec2 ndc) {
+  Trace result;
+  result.captured = false;
+  result.escaped = false;
+  result.hitDisk = false;
+  result.emissionRadius = 0.0;
+  result.axialImpact = 0.0;
+  result.escapeDirection = vec3(0.0, 0.0, 1.0);
+
   float aspect = uResolution.x / uResolution.y;
   vec3 viewDir = normalize(
       uCameraForward
@@ -190,20 +276,19 @@ void main() {
   vec3 hVector = cross(uCameraPosition, velocity);
   float hLength = length(hVector);
   // We trace backwards, so the physical photon's L_z is the negative of the traced one.
-  float axialImpact = hLength > 0.0 ? -totalImpact * (hVector.y / hLength) : 0.0;
+  result.axialImpact = hLength > 0.0 ? -totalImpact * (hVector.y / hLength) : 0.0;
 
-  // --- Integrate ------------------------------------------------------------------------------
   vec3 p = uCameraPosition;
   vec3 v = velocity;
-  bool captured = false;
-  bool escaped = false;
-  bool hitDisk = false;
-  float emissionRadius = 0.0;
 
   for (int i = 0; i < uMaxSteps; i++) {
     float r = length(p);
-    if (r <= HORIZON) { captured = true; break; }
-    if (r > FAR_RADIUS && dot(p, v) > 0.0) { escaped = true; break; }
+    if (r <= HORIZON) { result.captured = true; return result; }
+    if (r > FAR_RADIUS && dot(p, v) > 0.0) {
+      result.escaped = true;
+      result.escapeDirection = normalize(v);
+      return result;
+    }
 
     float dl = stepLength(r);
     State next = rk4Step(p, v, dl, hSquared);
@@ -221,24 +306,35 @@ void main() {
       }
       float cylindrical = length(landing.p.xz);
       if (cylindrical >= uDiskInner && cylindrical <= uDiskOuter) {
-        hitDisk = true;
-        emissionRadius = cylindrical;
-        break;
+        result.hitDisk = true;
+        result.emissionRadius = cylindrical;
+        return result;
       }
     }
     p = next.p;
     v = next.v;
   }
+  return result;
+}
 
-  float g = hitDisk ? redshiftFactor(emissionRadius, axialImpact, distance) : 0.0;
+void main() {
+  vec2 pixel = gl_FragCoord.xy + uJitter;
+  vec2 ndcScale = 2.0 / uResolution;
+  vec2 ndc = pixel * ndcScale - 1.0;
+
+  Trace centre = traceRay(ndc);
+
+  float g = centre.hitDisk
+    ? redshiftFactor(centre.emissionRadius, centre.axialImpact, length(uCameraPosition))
+    : 0.0;
 
   // PHYSICS_SPEC 4.3: a shifted blackbody IS a blackbody at T' = gT. The g^3 (per band) and
   // g^4 (bolometric) are ALREADY contained in that substitution -- do not apply g again.
   // Chromaticity comes from the luminance-normalised table; brightness from sigma T'^4.
   float shiftedTemperature = 0.0;
   float luminance = 0.0;
-  if (hitDisk) {
-    float flux = novikovThorneFlux(emissionRadius);
+  if (centre.hitDisk) {
+    float flux = novikovThorneFlux(centre.emissionRadius);
     float temperature = uPeakTemperature * pow(max(flux, 0.0) / uPeakFlux, 0.25);
     shiftedTemperature = g * temperature;
     float relative = shiftedTemperature / uPeakTemperature;
@@ -246,34 +342,74 @@ void main() {
   }
 
   if (uMode == ${LENSING_CAPTURE_MASK_MODE}) {
-    // Capture mask: the shadow boundary with no star field to interfere with edge detection.
-    fragColor = vec4(vec3(captured ? 0.0 : 1.0), 1.0);
+    fragColor = vec4(vec3(centre.captured ? 0.0 : 1.0), 1.0);
     return;
   }
 
   if (uMode == ${LENSING_DISK_DIAGNOSTIC_MODE}) {
-    // Emission radius and g, each as a 16-bit pair, so the harness can compare the shader
-    // against the float64 model per pixel instead of eyeballing the picture.
-    // A zero radius means "no disk hit"; the inner edge is at the ISCO, so it is unambiguous.
-    if (!hitDisk) { fragColor = vec4(0.0); return; }
-    fragColor = vec4(encode16(emissionRadius / DIAG_MAX_RADIUS), encode16(g / DIAG_MAX_G));
+    if (!centre.hitDisk) { fragColor = vec4(0.0); return; }
+    fragColor = vec4(encode16(centre.emissionRadius / DIAG_MAX_RADIUS), encode16(g / DIAG_MAX_G));
     return;
   }
 
   if (uMode == ${LENSING_DISK_LUMINANCE_MODE}) {
-    // Pre-tone-map luminance and the shifted temperature, so a test can confirm the brightness
-    // really scales as g^4 and not g^8. That specific double-count is the error the 4.3 audit
-    // found, and an eye cannot tell the two apart.
-    if (!hitDisk) { fragColor = vec4(0.0); return; }
+    if (!centre.hitDisk) { fragColor = vec4(0.0); return; }
     fragColor = vec4(encode16(luminance / DIAG_MAX_LUM),
                      encode16(shiftedTemperature / (2.0 * uPeakTemperature)));
     return;
   }
 
   vec3 colour = vec3(0.0);
-  if (escaped) colour = starField(normalize(v));
 
-  if (hitDisk) {
+  if (centre.escaped) {
+    // --- Screen-space Jacobian, PHYSICS_SPEC 4.4 ---------------------------------------------
+    // Traced explicitly, NOT via dFdx/dFdy: the loop above breaks at a different iteration per
+    // pixel, and GLSL ES 3.00 section 8.9 leaves implicit derivatives undefined under
+    // non-uniform control flow. Only escaped pixels pay for the two extra rays.
+    // A forward neighbour may be captured or hit the disk near a silhouette. Falling back to a
+    // constant there made the estimate flip as the jitter moved the edge across the neighbour,
+    // which showed up as the worst pixels getting *worse*. Take the backward difference instead:
+    // both directions failing means an isolated escaped pixel, which does not occur in practice.
+    Trace forwardX = traceRay(ndc + vec2(ndcScale.x, 0.0));
+    vec3 dx;
+    bool haveX = true;
+    if (forwardX.escaped) {
+      dx = forwardX.escapeDirection - centre.escapeDirection;
+    } else {
+      Trace backwardX = traceRay(ndc - vec2(ndcScale.x, 0.0));
+      haveX = backwardX.escaped;
+      dx = centre.escapeDirection - backwardX.escapeDirection;
+    }
+
+    Trace forwardY = traceRay(ndc + vec2(0.0, ndcScale.y));
+    vec3 dy;
+    bool haveY = true;
+    if (forwardY.escaped) {
+      dy = forwardY.escapeDirection - centre.escapeDirection;
+    } else {
+      Trace backwardY = traceRay(ndc - vec2(0.0, ndcScale.y));
+      haveY = backwardY.escaped;
+      dy = centre.escapeDirection - backwardY.escapeDirection;
+    }
+
+    vec3 e1, e2;
+    tangentBasis(centre.escapeDirection, e1, e2);
+
+    if (haveX && haveY) {
+      mat2 jacobian = mat2(vec2(dot(dx, e1), dot(dx, e2)), vec2(dot(dy, e1), dot(dy, e2)));
+      float det = determinant(jacobian);
+      // A near-singular Jacobian means the map has collapsed one axis; the many-star limit with
+      // the larger axis as the footprint scale is the stable answer.
+      float area = abs(det) > 1e-20 ? abs(det) : max(dot(dx, dx), dot(dy, dy));
+      colour = abs(det) > 1e-20
+        ? starField(centre.escapeDirection, inverse(jacobian), e1, e2, area)
+        : meanStarRadiance() * area;
+    } else {
+      colour = meanStarRadiance() * max(dot(dx, dx), dot(dy, dy));
+    }
+  }
+
+  if (centre.hitDisk) {
     float lut = clamp(
       (shiftedTemperature - uLutMinTemperature) / (uLutMaxTemperature - uLutMinTemperature),
       0.0, 1.0);

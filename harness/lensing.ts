@@ -36,6 +36,7 @@ export interface HarnessRequest {
   diskOuterRadius?: number;
   diskEnabled?: boolean;
   mode?: LensingMode;
+  jitter?: readonly [number, number];
 }
 
 export interface ShadowReport {
@@ -82,6 +83,23 @@ export interface CrescentReport {
   recedingPixels: number;
 }
 
+export interface StabilityReport {
+  /** RMS per-pixel luminance standard deviation across sub-pixel jitters, in the rim annulus
+   * where the lensing map compresses hardest. This is the temporal-stability metric of §4.5. */
+  rimRms: number;
+  /** Same statistic over the whole frame, for context. */
+  frameRms: number;
+  /** Worst single pixel in the annulus. */
+  rimMax: number;
+  /** Mean luminance in the annulus. **The stability gate is unsound without this.** A blank
+   * frame has zero variance and would otherwise score perfectly; this is what stops "render
+   * nothing" from passing. Found by a mutation that made the kernel so narrow the rim went
+   * black and scored better than the correct filter. */
+  rimMean: number;
+  samples: number;
+  rimPixels: number;
+}
+
 export interface ExponentReport {
   /** d(log luminance)/d(log g), measured from mirror-image pixels. Must be 4, not 8. */
   exponent: number;
@@ -102,6 +120,7 @@ declare global {
       measureDisk(request: HarnessRequest): DiskReport;
       measureDopplerExponent(request: HarnessRequest): ExponentReport;
       measureCrescent(request: HarnessRequest): CrescentReport;
+    measureTemporalStability(request: HarnessRequest, samples?: number): StabilityReport;
     renderStars(request: HarnessRequest): void;
     };
   }
@@ -144,6 +163,7 @@ function draw(request: HarnessRequest, mode: LensingMode) {
     diskEnabled: request.diskEnabled ?? true,
     diskInnerRadius: request.diskInnerRadius ?? 3,
     diskOuterRadius: request.diskOuterRadius ?? 12,
+    jitter: request.jitter ?? [0, 0],
     mode,
   });
   renderer.render();
@@ -353,6 +373,84 @@ window.lensingHarness = {
       ratio: approachingMean / Math.max(1e-9, recedingMean),
       approachingPixels,
       recedingPixels,
+    };
+  },
+
+  /** Temporal-stability metric, PHYSICS_SPEC §4.5.
+   *
+   * Renders the same scene at a grid of sub-pixel jitter offsets and measures how much each
+   * pixel's luminance moves. Correct filtering makes a pixel the average over its footprint, so
+   * the value should be nearly invariant to where inside the pixel it is sampled; point sampling
+   * lands on a different star each time and swings wildly. The statistic is restricted to the
+   * annulus just outside the shadow, where the lensing map compresses hardest and aliasing is
+   * therefore worst.
+   */
+  measureTemporalStability(request, samples = 16) {
+    const grid = Math.round(Math.sqrt(samples));
+    const frames: Float64Array[] = [];
+    let width = 0;
+    let height = 0;
+
+    for (let i = 0; i < grid; i++) {
+      for (let j = 0; j < grid; j++) {
+        // Zero-mean offsets spanning one pixel.
+        const jitter: [number, number] = [
+          (i + 0.5) / grid - 0.5,
+          (j + 0.5) / grid - 0.5,
+        ];
+        const active = draw({ ...request, jitter }, 'stars');
+        const frame = active.readPixels();
+        width = frame.width;
+        height = frame.height;
+        const luminance = new Float64Array(width * height);
+        for (let p = 0; p < luminance.length; p++) {
+          const o = p * 4;
+          luminance[p] = 0.2126 * (frame.pixels[o] ?? 0)
+            + 0.7152 * (frame.pixels[o + 1] ?? 0)
+            + 0.0722 * (frame.pixels[o + 2] ?? 0);
+        }
+        frames.push(luminance);
+      }
+    }
+
+    const shadowPixels = predictedShadowRadiusPixels(
+      request.cameraDistance, request.fieldOfView, height,
+    );
+    const inner = shadowPixels * 1.02;
+    const outer = shadowPixels * 1.8;
+    const centreX = width / 2 - 0.5;
+    const centreY = height / 2 - 0.5;
+
+    let rimSquares = 0, rimPixels = 0, rimMax = 0, frameSquares = 0, framePixels = 0;
+    let rimSum = 0;
+    for (let row = 0; row < height; row++) {
+      for (let column = 0; column < width; column++) {
+        const index = row * width + column;
+        let sum = 0;
+        for (const frame of frames) sum += frame[index] ?? 0;
+        const mean = sum / frames.length;
+        let variance = 0;
+        for (const frame of frames) variance += ((frame[index] ?? 0) - mean) ** 2;
+        variance /= frames.length;
+
+        frameSquares += variance;
+        framePixels++;
+        const radius = Math.hypot(column - centreX, row - centreY);
+        if (radius >= inner && radius <= outer) {
+          rimSquares += variance;
+          rimSum += mean;
+          rimPixels++;
+          rimMax = Math.max(rimMax, Math.sqrt(variance));
+        }
+      }
+    }
+    return {
+      rimRms: Math.sqrt(rimSquares / Math.max(1, rimPixels)),
+      frameRms: Math.sqrt(frameSquares / Math.max(1, framePixels)),
+      rimMax,
+      rimMean: rimSum / Math.max(1, rimPixels),
+      samples: frames.length,
+      rimPixels,
     };
   },
 

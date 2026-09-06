@@ -49,6 +49,8 @@ export interface LensingParams {
   peakTemperature: number;
   /** Display exposure. Tone mapping is cosmetic and applied after all physical arithmetic. */
   exposure: number;
+  /** Sub-pixel sample offset in pixels. Diagnostics must leave this at [0, 0]. */
+  jitter: readonly [number, number];
 }
 
 /** Far enough out that the whole shadow and the first lensing ring sit comfortably in frame. */
@@ -78,6 +80,7 @@ export const DEFAULT_LENSING_PARAMS: LensingParams = {
   diskOuterRadius: DEFAULT_DISK_OUTER_RADIUS,
   peakTemperature: DEFAULT_PEAK_TEMPERATURE,
   exposure: DEFAULT_EXPOSURE,
+  jitter: [0, 0],
 };
 
 const UNIFORMS = [
@@ -98,6 +101,7 @@ const UNIFORMS = [
   'uColourTable',
   'uLutMinTemperature',
   'uLutMaxTemperature',
+  'uJitter',
 ] as const;
 
 const MODE_CODES: Record<LensingMode, number> = {
@@ -178,6 +182,7 @@ export class LensingRenderer {
     gl.uniform1i(u.uDiskEnabled, this.#params.diskEnabled ? 1 : 0);
     gl.uniform1f(u.uLutMinTemperature, LUT_MIN_TEMPERATURE);
     gl.uniform1f(u.uLutMaxTemperature, LUT_MAX_TEMPERATURE);
+    gl.uniform2f(u.uJitter, this.#params.jitter[0], this.#params.jitter[1]);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.#colourTable);
     gl.uniform1i(u.uColourTable, 0);

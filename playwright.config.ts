@@ -33,7 +33,7 @@ export default defineConfig({
     },
     {
       name: 'lensing',
-      testMatch: /lensing\.spec\.ts/,
+      testMatch: /(lensing|stability)\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${HARNESS_PORT}` },
     },
   ],
