@@ -886,6 +886,31 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 18 | Lamb shift 2S–2P | | ~1057.8 MHz total; Uehling term −27 MHz | reproduce breakdown |
 | 19 | Hafele–Keating asymmetry mechanism | $2R\Omega v$ Sagnac cross-term | east/west asymmetry sign | qualitative + sign |
 
+#### Clock calculator implementation conventions
+
+For static Schwarzschild clocks outside the horizon, §2.1 gives
+$d\tau/dt=\sqrt{1-r_s/r}$ and the lower/upper rate ratio is
+$\sqrt{(1-r_s/r_{lower})/(1-r_s/r_{upper})}$. The zero at the horizon is a
+**limit**, not a clock that can hover there: no static timelike observer exists at or inside
+$r_s$. The calculator uses $r>r_s$ only. These are rate comparisons, not a ray-traced view of
+received ticks; signal travel time is not included.
+
+For the GPS demonstration, retain order $c^{-2}$ in a spherical Earth model:
+
+$$\Delta\tau_{grav}/\Delta t = GM_\oplus(1/R_\oplus-1/r)/c^2,\qquad
+\Delta\tau_{kin}/\Delta t = -\big[GM_\oplus/r-(R_\oplus\Omega\cos\lambda)^2\big]/(2c^2).$$
+
+Satellite minus ground, circular orbit, Earth-centered nonrotating frame. Multiply by 86400
+seconds for the daily offset. This is an educational approximation, not the operational GPS
+clock model: omit oblateness, eccentricity, geoid corrections and signal-propagation corrections.
+Source: Neil Ashby (2003), *Relativity in the Global Positioning System*, §5,
+[doi:10.12942/lrr-2003-1](https://doi.org/10.12942/lrr-2003-1),
+[full text](https://pmc.ncbi.nlm.nih.gov/articles/PMC5253894/).
+Use $GM_\oplus=3.986004418\times10^{14}$ m³/s², $R_\oplus=6371000$ m,
+$\Omega=7.292115\times10^{-5}$ rad/s, $r_{GPS}=26562000$ m and conventional
+$g=9.80665$ m/s². The flight model below additionally assumes constant height, speed and latitude;
+its representative flight parameters are not a reconstruction of the measured trajectories.
+
 #### Hafele–Keating, stated so it can actually be asserted
 
 $$\boxed{\frac{\Delta\tau}{\tau} = \frac{gh}{c^2} - \frac{2R_\perp\Omega v_{\rm air}+v_{\rm air}^2}{2c^2}}$$
