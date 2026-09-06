@@ -25,7 +25,8 @@ The gate history below is kept as the record of what was actually verified, and 
 - **3 Playwright tests pass against the production build** (`vite preview` over `dist/`), not the dev server.
 - Existing Cloudflare tunnel untouched. Domain already uses the correct hyphen; no DNS action needed.
 - Gitleaks v8.24.3 Docker scan of Git history and source found no leaks. Owner explicitly approved using this pinned scanner.
-- GitHub Actions workflow authored (typecheck/lint/tests/Python/build/Playwright/axe/Gitleaks/Docker build); **remote execution not verified**.
+- GitHub Actions workflow (typecheck/lint/arch/tests/Python/build/Playwright/axe/Gitleaks/Docker
+  build) **verified green on remote CI**, actions pinned by commit SHA and gitleaks by digest.
 
 ## Phase 0 gates — all closed 2026-09-06
 
