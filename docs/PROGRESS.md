@@ -12,7 +12,7 @@ No playable simulation is shipped. Do not start Phase 1 until the remaining gate
 - Vite 7, React 19, TypeScript 5.9 strict / noUncheckedIndexedAccess, reproducible npm lockfile.
 - CODATA/reference constants in `src/core/units.ts`; hbar derived from exact h, solar GM kept separate from rounded solar mass.
 - In-place float64 RK4, velocity Verlet, Yoshida-4 with reusable scratch buffers and documented callback/aliasing contracts.
-- **17 Vitest tests pass:** convergence ratios, reversibility, negative Yoshida substep, non-autonomous RK4 stages, oscillator energy over 1,000 periods, circular/eccentric Newtonian closure, angular momentum, Schwarzschild circular effective-potential equilibrium, formal million-fold-c limit, dimension/alias validation, constants.
+- **29 Vitest tests pass:** convergence ratios, reversibility, negative Yoshida substep, non-autonomous RK4 stages, oscillator energy over 1,000 periods, circular/eccentric Newtonian closure, angular momentum, Schwarzschild circular effective-potential equilibrium, formal million-fold-c limit, dimension/alias validation, constants, fourth-order Kepler step-refinement at four (e, a) pairs, and the shell's lazy-route/storage tests.
 - **Typecheck and ESLint pass. Production build passes.**
 - All **32 Python reference benchmark checks pass**; these check formulas, not future simulation implementations.
 - Gallery with explicit unavailability state, routing/not-found handling, typed lazy sim registry, system/light/dark themes, keyboard skip navigation, responsive layout.
@@ -27,8 +27,28 @@ No playable simulation is shipped. Do not start Phase 1 until the remaining gate
 ## Next tasks — finish Phase 0
 
 1. Verify remote CI after push. `gh` is not authenticated; run `gh auth login` interactively if needed. SSH push capability is checked separately at session close; see session result below.
-2. Strengthen architecture enforcement: current ESLint prevents obvious core→React/ui/sims/app imports, but does not yet fully enforce cross-sim boundaries, transitive boundaries, or physical-constant centralization. Do this before adding the first sim.
-3. Add lazy-route fixture tests (successful/error loaders), storage-unavailable startup test, and numerical refinement coverage for Newtonian ellipses. Current Newtonian closure uses Yoshida at 4096 steps/orbit, error <1e-8; the million-fold-c limit is an algebraic force check, not a full GR orbit integration.
+2. ~~Strengthen architecture enforcement.~~ **DONE 2026-09-06, commit `1e13fe1`.** dependency-cruiser
+   (`npm run arch`, wired into CI) enforces BUILD_PLAN §5 on the resolved import graph with
+   `tsPreCompilationDeps`, so type-only imports count. Seven rules: core is framework-free
+   (transitive), sims are islands, sims may only reach core/ and ui/, only the registry knows sims,
+   ui does not depend upward, no cycles, no devDependencies in shipped code. **Each rule was
+   verified to fire against a deliberately violating fixture**, not trusted because the config
+   parsed — that is how the `sims → registry → other sim` backdoor was found and closed, and it
+   confirms a two-hop `core → hop → ui` leak is caught where the old ESLint rule missed it.
+   Constant centralization is `no-magic-numbers` over core/ and sims/, excluding units.ts and
+   tests. See `DECISIONS.md` for why app/ and ui/ are out of that rule's scope.
+3. ~~Add lazy-route fixture tests, storage-unavailable startup test, and Newtonian refinement
+   coverage.~~ **DONE 2026-09-06.** `src/app/App.test.tsx` (jsdom, opted in per-file so the core
+   suite stays in the fast node environment) covers a resolving lazy loader including the Suspense
+   fallback, a rejecting loader hitting the error boundary, registry entries rendering in the
+   gallery, and startup with `localStorage` throwing on both read and write. **All four were
+   mutation-checked**: breaking `getDerivedStateFromError` and the storage guard makes the
+   relevant tests fail, so they are not passing vacuously. `keplerReturnError` in
+   `integrators.test.ts` adds step-refinement coverage at (e, a) = (0, 1), (0.3, 1), (0.5, 2.5),
+   (0.7, 0.4): halving the step divides the closure error by 16.0 ± 5%, showing the residual is
+   truncation error rather than a wrong model, and the varying semi-major axis makes closure
+   itself a Kepler third-law check. The million-fold-c limit remains an algebraic force check,
+   not a full GR orbit integration.
 4. Complete visual inspection and asset cache/MIME verification against the deployed container. A standalone screenshot run could not launch Chromium in this environment; no screenshot was produced. The earlier Playwright suite passed. Resolve browser-launch prerequisites through the normal permission process.
 5. Consider stronger CI action/image digest pinning and a production-preview browser run (current E2E uses Vite dev). Validate full release gates before marking Phase 0 complete.
 6. Then begin Phase 1 with a careful primary-source audit of the rendering equations/normalization before implementing the shader. No Phase 1 files exist.
@@ -48,6 +68,7 @@ See `docs/DECISIONS.md`.
 npm ci
 npm run typecheck
 npm run lint
+npm run arch
 npm test
 npm run build
 npx playwright install chromium

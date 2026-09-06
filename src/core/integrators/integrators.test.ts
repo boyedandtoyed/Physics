@@ -121,3 +121,43 @@ it('rejects invalid dimensions and aliased state without modifying inputs', () =
   expect(q[0]).toBe(1);
   expect(() => createRK4(2).step(q, 0, 1, oscillator)).toThrow(RangeError);
 });
+
+/** One full orbit launched at periapsis, returning |state - initial| after the analytic period.
+ * PHYSICS_SPEC §6.3a: r_p = a(1-e), v_p = sqrt(mu(1+e)/(a(1-e))), T = 2*pi*sqrt(a^3/mu).
+ * Varying `semiMajor` makes closure itself a Kepler third-law assertion: if T did not scale as
+ * a^(3/2), the orbit would not return to its launch state at all.
+ */
+function keplerReturnError(e: number, steps: number, semiMajor: number, mu = 1) {
+  const periapsis = semiMajor * (1 - e);
+  const speed = Math.sqrt(mu * (1 + e) / periapsis);
+  const q = new Float64Array([periapsis, 0]);
+  const v = new Float64Array([0, speed]);
+  const initial = [periapsis, 0, 0, speed];
+  const solver = createYoshida4(2);
+  const dt = 2 * Math.PI * Math.sqrt(semiMajor ** 3 / mu) / steps;
+  for (let i = 0; i < steps; i++) {
+    solver.step(q, v, dt, (x, a) => {
+      const r = Math.hypot(x[0]!, x[1]!);
+      a[0] = -mu * x[0]! / r ** 3;
+      a[1] = -mu * x[1]! / r ** 3;
+    });
+  }
+  return Math.hypot(...[q[0]!, q[1]!, v[0]!, v[1]!].map((x, i) => x - initial[i]!));
+}
+
+describe.each([[0, 1], [0.3, 1], [0.5, 2.5], [0.7, 0.4]])(
+  'Newtonian ellipse, eccentricity %s at semi-major axis %s',
+  (e, semiMajor) => {
+    it('shrinks its closure error at fourth order under step refinement', () => {
+      // The point of this test: the residual is truncation error, not roundoff or a wrong model,
+      // so halving the step must divide it by 2^4. PHYSICS_SPEC §6.3a requires refinement
+      // evidence rather than a bare "closes to 1e-8" claim at one arbitrary step size.
+      const ratio = keplerReturnError(e, 1024, semiMajor) / keplerReturnError(e, 2048, semiMajor);
+      expect(ratio).toBeGreaterThan(16 * 0.95);
+      expect(ratio).toBeLessThan(16 * 1.05);
+    });
+    it('closes to a stated tolerance at a stated step count', () => {
+      expect(keplerReturnError(e, 8192, semiMajor)).toBeLessThan(1e-6);
+    });
+  },
+);
