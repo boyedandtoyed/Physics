@@ -25,15 +25,21 @@ export default defineConfig({
       timeout: 180_000,
     },
   ],
+  // These drive a raymarcher. On a CI runner with a couple of vCPUs and no GPU, WebGL falls back
+  // to SwiftShader on the CPU and a frame costs orders of magnitude more than it does on the
+  // development machine. The default 30 s timeout is a development-machine assumption, not a
+  // statement about the code: the app suite already reaches 23 s on two cores here.
   projects: [
     {
       name: 'app',
       testMatch: /(shell|sim)\.spec\.ts/,
+      timeout: 150_000,
       use: { baseURL: `http://127.0.0.1:${APP_PORT}` },
     },
     {
       name: 'lensing',
       testMatch: /(lensing|stability)\.spec\.ts/,
+      timeout: 600_000,
       use: { baseURL: `http://127.0.0.1:${HARNESS_PORT}` },
     },
   ],
