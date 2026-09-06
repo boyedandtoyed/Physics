@@ -2,10 +2,11 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 0 — Foundation, substantially implemented but NOT signed off.
-**Branch:** `feat/phase-0-foundation`.
+**Phase:** 0 — Foundation. **All five remaining gates now pass; Phase 0 is signed off.**
+**Branch:** `feat/phase-0-foundation`, merged to `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
-No playable simulation is shipped. Do not start Phase 1 until the remaining gates below pass.
+No playable simulation is shipped — that is Phase 1, which is now cleared to begin.
+The gate history below is kept as the record of what was actually verified, and how.
 
 ## Done and verified
 
@@ -26,9 +27,16 @@ No playable simulation is shipped. Do not start Phase 1 until the remaining gate
 - Gitleaks v8.24.3 Docker scan of Git history and source found no leaks. Owner explicitly approved using this pinned scanner.
 - GitHub Actions workflow authored (typecheck/lint/tests/Python/build/Playwright/axe/Gitleaks/Docker build); **remote execution not verified**.
 
-## Next tasks — finish Phase 0
+## Phase 0 gates — all closed 2026-09-06
 
-1. Verify remote CI after push. `gh` is not authenticated; run `gh auth login` interactively if needed. SSH push capability is checked separately at session close; see session result below.
+1. ~~Verify remote CI after push.~~ **DONE 2026-09-06.** `gh auth login` turned out to be
+   unnecessary: the repository is public, so run status reads from the unauthenticated REST API
+   (`/repos/boyedandtoyed/Physics/actions/runs`). Run `34018255845` on `3902b97` concluded
+   **success** with all 17 steps green, including `npm run arch`, Playwright against the
+   production build, both gitleaks scans under the pinned digest and read-only mount, and
+   `docker compose build`. Also worth recording: runs on `5c98d55` and `a7417ec` had **already
+   concluded success** before this session — the previous "remote execution not verified" note
+   was stale, not a failure.
 2. ~~Strengthen architecture enforcement.~~ **DONE 2026-09-06, commit `1e13fe1`.** dependency-cruiser
    (`npm run arch`, wired into CI) enforces BUILD_PLAN §5 on the resolved import graph with
    `tsPreCompilationDeps`, so type-only imports count. Seven rules: core is framework-free
@@ -75,7 +83,14 @@ No playable simulation is shipped. Do not start Phase 1 until the remaining gate
    `sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055`, with its repo mount
    made read-only to match the documented local command. Both scans were re-run locally against
    the pinned digest with the read-only mount and report no leaks.
-6. Then begin Phase 1 with a careful primary-source audit of the rendering equations/normalization before implementing the shader. No Phase 1 files exist.
+6. **NEXT — Phase 1.** Begin with a primary-source audit of the rendering equations and
+   normalization before writing any shader. Read PHYSICS_SPEC §2.3 (flat-Cartesian formulation,
+   the one to use), §4.2 (adaptive stepping), §4.3 (the g^3/g^4 colour pipeline), §4.4
+   (screen-space-Jacobian anisotropic sampling — retrofitting this is painful, do it from the
+   start), §4.6 (float32 near the horizon) and §6.5 (r_s = 1 in shaders, M = 1 in the core, with
+   the conversion in exactly one function — `massLengthToSchwarzschild` already exists).
+   Golden values to assert off the rendered frame: photon sphere 1.5 r_s, ISCO 3 r_s,
+   b_crit = 3*sqrt(3) M. No Phase 1 files exist yet.
 
 ## Decisions and specification clarifications
 
@@ -123,3 +138,35 @@ timeout. No tests remain failing. Live screenshot and remote CI remain unverifie
 **Push result:** SSH push succeeded to `origin/feat/phase-0-foundation` with implementation
 commits `3f7c5b0` and `5c98d55`. Git history was scanned after the implementation commit;
 no leaks found. GitHub CLI is unauthenticated, so remote CI status remains unverified.
+
+### 2026-09-06 — Phase 0 gates closed and signed off
+
+Closed all five outstanding gates in the order the previous session listed them, taking gate 2
+first because architecture enforcement is far cheaper to add before the first sim exists than
+after.
+
+Approach worth repeating: **no gate was accepted on the strength of a config parsing or a test
+passing.** Every dependency-cruiser rule was checked against a deliberately violating fixture,
+which is how the `sims -> registry -> other sim` backdoor surfaced; the new shell tests were
+mutation-checked by breaking `getDerivedStateFromError` and the storage guard to confirm they
+fail; and the Newtonian closure claim was replaced with step-refinement evidence rather than a
+single tolerance at one step size.
+
+Two real defects were found this way, neither previously known:
+
+1. KaTeX's `.ttf` fallbacks were served as `application/octet-stream` — nginx 1.28's `mime.types`
+   has no ttf/otf entry. Fixed in a scoped regex location; see `DECISIONS.md` for why not a
+   server-level `types` block.
+2. A sim could have reached every other sim transitively through the registry. Closed before any
+   sim exists to exploit it.
+
+One correction to the record: PROGRESS.md said remote CI execution was unverified. It had in fact
+already passed twice; the repository is public, so no `gh` authentication was ever needed to check.
+
+Environment note: Chromium launches here now, so the previously blocked screenshot run completed.
+Seven full-page captures across themes and viewports were inspected, with no page errors, failed
+requests or horizontal overflow. Screenshots are verification artifacts and are not committed.
+
+**Result:** typecheck, lint, arch, 29 unit tests, 32 Python benchmarks, production build, 3
+Playwright/axe tests against `dist/`, both gitleaks scans and `docker compose build` all pass
+locally and on remote CI (run `34018255845`, conclusion success).
