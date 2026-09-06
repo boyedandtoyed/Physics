@@ -12,7 +12,7 @@ decided, what is broken.
 
 **Phase:** 0 — Foundation. Not started.
 **Repo state:** Documentation only. No application code yet.
-**Deployed:** No.
+**Deployed:** Tunnel live at abstract-physics.binodtiwari.com (returns 502 until Phase 0 ships).
 
 ## What exists
 
@@ -45,20 +45,28 @@ decided, what is broken.
 6. CI: typecheck, lint, test, build, secret scan.
 7. Deploy. Verify `https://abstract-physics.binodtiwari.com` serves the shell.
 
+## Deployment status — DONE, ready to receive the app
+
+The host tunnel is set up and live as of 2026-09-06. **You do not need to configure Cloudflare.**
+
+- Tunnel `binod-home` (`cd90781c-9c68-42a4-a7ce-0f25e8defa1d`), running as an enabled systemd
+  service, config at `/etc/cloudflared/config.yml`.
+- `abstract-physics.binodtiwari.com` resolves and routes to `127.0.0.1:8080`.
+- It currently returns **502** — correct: the tunnel works, nothing is listening on 8080 yet.
+  **Phase 0 is done when that 502 becomes the app shell.**
+- Publish the container as `127.0.0.1:8080:80`. Port 8080 is this project's allocation; see the
+  port registry in `docs/DEPLOY.md` and do not take another site's port.
+- Do not create a tunnel, and do not put cloudflared in this project's compose file.
+
 ## Open questions for the owner
 
-1. **Hosting target confirmed:** the owner's own PC (`blind`, Linux), behind one shared
-   Cloudflare tunnel serving several subdomains of `binodtiwari.com`. This project gets port
-   **8080** and `abstract-physics.binodtiwari.com`.
-2. **Tunnel state investigated 2026-09-06:** `cloudflared` is installed but not logged in —
-   `~/.cloudflared/` has no `cert.pem` and no `config.yml`. The previous subdomains ran on a
-   retired dashboard-managed (token) tunnel. A fresh **locally-managed** tunnel is the chosen
-   setup; full step-by-step in `docs/DEPLOY.md`. **This host setup is owned by the project owner
-   and is not yet done** — until it is, there is nothing to deploy to.
-3. **Domain:** the original brief said `abstract_physics.binodtiwari.com` (underscore), which is
-   an invalid hostname. Settled as `abstract-physics.binodtiwari.com`.
-4. **Stale DNS:** CNAMEs from the retired subdomains may still exist in the `binodtiwari.com`
-   zone and will return error 1016. Owner to review and clean up.
+1. **Domain:** the original brief said `abstract_physics.binodtiwari.com` (underscore), an
+   invalid hostname. Settled as `abstract-physics.binodtiwari.com`. No action outstanding.
+2. **Apex site:** `binodtiwari.com` (the portfolio, previously on port 3000) is not currently
+   served — it was on the retired tunnel. Out of scope for this project unless the owner says
+   otherwise.
+3. **Old tunnel `d61228a8` is orphaned** and its dormant subdomains still CNAME to it. Cleanup
+   is the owner's, documented in `DEPLOY.md`.
 
 ## Decisions already made (see BUILD_PLAN for reasoning)
 
