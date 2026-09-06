@@ -7,8 +7,28 @@ one shell, each rigorous, each accessible.
 
 **Target:** `https://abstract-physics.binodtiwari.com` — Docker, behind a Cloudflare tunnel.
 
-**Status:** specification complete, implementation not started. See
-[`docs/PROGRESS.md`](docs/PROGRESS.md).
+**Status:** Phase 0 foundation shell deployed; numerical integrators tested. No playable
+simulations yet. See [`docs/PROGRESS.md`](docs/PROGRESS.md) for remaining release gates.
+
+## Local development
+
+Requires Node 20.19+ (Node 22 recommended) and npm.
+
+```sh
+npm ci
+npm run dev
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npx playwright install chromium
+npx playwright test
+python3 docs/verify_benchmarks.py
+```
+
+`docker compose up -d --build` publishes the site on `127.0.0.1:8080` through the
+existing host-owned tunnel. It is a live deployment, not just a development server.
+See `docs/DEPLOY.md`; do not add cloudflared to this stack.
 
 ## What makes it different
 
@@ -27,8 +47,9 @@ the calculation that settles it. See [`docs/PHYSICS_SPEC.md`](docs/PHYSICS_SPEC.
 Every simulation ships with the governing equations rendered on screen, its assumptions and
 limits of validity stated, and links to primary sources. Every published measured value the
 product touches — Mercury's perihelion precession at 42.98″/century, light deflection at 1.75″,
-the GPS clock offset at 38.5 μs/day, the Casimir force at 1.30 Pa across 100 nm — has a test
-asserting the code reproduces it.
+the GPS clock offset at 38.5 μs/day, the Casimir pressure magnitude at 13.001 Pa across 100 nm —
+will have an implementation test when its simulation ships. The existing Python script
+checks reference formulas; it is not a substitute for tests of each simulator.
 
 ## Repository map
 

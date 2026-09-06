@@ -22,7 +22,7 @@ Rules for using it:
 |---|---|---|
 | Speed of light | $c$ | 299 792 458 m/s (exact) |
 | Planck constant | $h$ | 6.626 070 15 ×10⁻³⁴ J·s (exact) |
-| Reduced Planck | $\hbar$ | 1.054 571 817×10⁻³⁴ J·s (exact) |
+| Reduced Planck | $\hbar$ | $h/(2\pi)$ exactly; 1.054 571 817×10⁻³⁴ J·s is a rounded decimal |
 | Elementary charge | $e$ | 1.602 176 634×10⁻¹⁹ C (exact) |
 | Boltzmann | $k_B$ | 1.380 649×10⁻²³ J/K (exact) |
 | Gravitational constant | $G$ | 6.674 30(15)×10⁻¹¹ m³ kg⁻¹ s⁻² |
@@ -341,6 +341,46 @@ scheme, not an ad-hoc step change.
 5. **Unstable spherical photon orbits in Kerr** (Teo 2003 $\Phi(r)$, $Q(r)$): errors *amplify*
    rather than cancel, so this is the worst-case accuracy probe. Assert $\Delta r/r < 10^{-6}$
    after $N$ orbits.
+
+### 6.3a Phase 0 numerical reference problems and test interpretation
+
+Finite-step methods have truncation error: “machine precision” in §6.3 means the
+analytic Newtonian limit, not exact numerical closure at arbitrary step size. Use
+step-halving to distinguish truncation error from roundoff. Kerr spherical-orbit
+checks require the Phase 4 model and are deferred until then, not passing placeholders.
+
+For the harmonic oscillator in dimensionless units, $q'=v$, $v'=-q$,
+$q(0)=1$, $v(0)=0$, the reference is $(q,v)=(\cos t,-\sin t)$ and
+$E=(q^2+v^2)/2$. Measure global convergence at fixed final time: ratios tend to
+16 for RK4/Yoshida and 4 for Verlet. Time reversal uses the same fixed number of
+steps with negative $\Delta t$; the $10^{-10}$ gate applies to the symplectic
+methods, not RK4. Source: Hairer, Lubich & Wanner, *Geometric Numerical Integration*,
+2nd ed. (Springer, 2006), chapters I and II,
+[doi:10.1007/3-540-30666-8](https://doi.org/10.1007/3-540-30666-8).
+
+For $y'=f(t,y)$, classical RK4 is
+$k_1=f(t,y)$, $k_2=f(t+h/2,y+hk_1/2)$,
+$k_3=f(t+h/2,y+hk_2/2)$, $k_4=f(t+h,y+hk_3)$,
+$y_{n+1}=y_n+h(k_1+2k_2+2k_3+k_4)/6$.
+Source: Butcher, *Numerical Methods for Ordinary Differential Equations*, 3rd ed.
+(Wiley, 2016), [doi:10.1002/9781119121534](https://doi.org/10.1002/9781119121534).
+
+Newtonian two-body tests use $\ddot{\mathbf r}=-\mu\mathbf r/r^3$,
+$T=2\pi\sqrt{a^3/\mu}$, specific energy $E=v^2/2-\mu/r$ and
+angular momentum $\mathbf L=\mathbf r\times\mathbf v$. For an ellipse launched
+at periapsis, $r_p=a(1-e)$ and $v_p=\sqrt{\mu(1+e)/(a(1-e))}$.
+Source: Murray & Dermott, *Solar System Dynamics* (1999), chapter 2,
+[doi:10.1017/CBO9781139174817](https://doi.org/10.1017/CBO9781139174817).
+These are test problems, not a shipped relativistic orbit model. Numerical closure
+must use a stated step size and tolerance and improve with refinement.
+
+For a radial test of §2.5, differentiating the specified effective potential gives
+$r''=-\mu/r^2+L^2/r^3-3\mu L^2/(c^2r^4)$, with $\phi'=L/r^2$.
+A circular orbit satisfies $L^2=\mu r^2/(r-3\mu/c^2)$. In $M=1$ units,
+use $r=10>r_{ISCO}$, $\mu=c=1$. In the formal Newtonian limit, replace
+$c$ by $10^6c$ and verify the relativistic force correction decreases by $10^{-12}$;
+combine this limit test with the independent Kepler closure tests above. These equations
+are algebraic consequences of §2.5, not an additional force model.
 
 ### 6.4 Horizon coordinate singularity
 
