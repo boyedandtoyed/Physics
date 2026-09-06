@@ -758,10 +758,28 @@ for a falling apple. But this is a statement about a limit, not a cause: both di
 the same curved geometry seen in different components. For light, the two contribute equally,
 which is exactly why starlight bends 1.75″ past the Sun instead of 0.875″."*
 
+#### The deflection as a function of speed — the formula the interactive needs
+
+An earlier revision gave the ratio table above but never the deflection itself, which is what the
+slider has to plot. It follows uniquely from what this section already asserts. The
+space-curvature contribution does not depend on the particle's speed, and the ratio of the two
+contributions is $(v/c)^2$, so with $\beta = v/c$:
+
+$$\boxed{\alpha(\beta) = \underbrace{\frac{2GM}{c^2b}\frac{1}{\beta^2}}_{\text{time curvature}} + \underbrace{\frac{2GM}{c^2b}}_{\text{space curvature}} = \frac{2GM}{c^2b}\left(1+\frac{1}{\beta^2}\right)}$$
+
+Both limits are already in this document and both must be **ASSERT**ed. As $\beta\to0$ the time
+term becomes $2GM/(bv^2)$, the Newtonian deflection — consistent with §7.4's statement that in the
+slow limit the entire effect comes from $g_{00}$. At $\beta=1$ the two terms are equal and sum to
+$4GM/(c^2b) = 1.7512″$ at the solar limb, matching §8 row 2, with the time-only half at
+$0.8756″$ and the ratio exactly 2.
+
+Note what the formula says that the table alone does not: **the space-curvature contribution is
+the same 0.8756″ for every speed**. It is the time contribution that blows up for slow particles,
+not the space contribution that vanishes.
+
 **Build this as an interactive:** a slider from "apple" to "light" that shows the two
-contributions to the deflection separately and their sum, converging on 0.875″ → 1.75″. This
-single interactive settles the question visually and is one of the strongest exhibits in the
-product.
+contributions separately and their sum, converging on 0.875″ → 1.75″. This single interactive
+settles the question visually and is one of the strongest exhibits in the product.
 
 #### Claim B: "The massive object is literally expanding/coming toward us, while its pull on the spacetime fabric keeps everything balanced."
 
@@ -792,6 +810,33 @@ Where the literal reading fails:
    immediately: two labs on opposite sides of the Earth would both have to "accelerate outward"
    forever without the Earth growing. That contradiction is exactly the tidal effect the
    analogy cannot represent.
+
+#### The four charts, explicitly
+
+An earlier revision named the four coordinate systems and the invariant but gave neither the
+transformations nor the trajectory, which is everything the module actually has to compute. For
+radial infall **from rest at infinity** (geometrized, $r_s = 2M$):
+
+$$\frac{dr}{d\tau} = -\sqrt{\frac{r_s}{r}}, \qquad \tau(r_0\to r) = \frac{2}{3}\frac{r_0^{3/2}-r^{3/2}}{\sqrt{r_s}}, \qquad \frac{dt}{d\tau} = \frac{1}{1-r_s/r}$$
+
+| Chart | Relation to $(t, r)$ | At the horizon |
+|---|---|---|
+| Schwarzschild | $(t, r)$ | $t \to \infty$ |
+| Gullstrand–Painlevé | $t_{ff} = t + \frac{r_s}{c}\left[2\sqrt{r/r_s} + \ln\left\|\frac{\sqrt{r/r_s}-1}{\sqrt{r/r_s}+1}\right\|\right]$; for this trajectory $t_{ff} = \tau$ | finite |
+| Eddington–Finkelstein | $v = t + r_*/c$, $\;r_* = r + r_s\ln\left\|r/r_s - 1\right\|$ | finite |
+| Kruskal–Szekeres | $T = \sqrt{r/r_s-1}\,e^{r/2r_s}\sinh\frac{ct}{2r_s}$, $\;X = \sqrt{r/r_s-1}\,e^{r/2r_s}\cosh\frac{ct}{2r_s}$, so $X^2-T^2 = (r/r_s-1)e^{r/r_s}$ | finite |
+
+**ASSERT** — this is the module's entire thesis, so it is a test, not a caption:
+
+- The **invariants agree in all four charts** to $10^{-10}$: the Kretschmann scalar
+  $K = 48M^2/r^6$ and the radial tidal component $-2M/r^3$ depend on $r$ alone, and $r$ is the
+  same areal radius in every chart.
+- **Proper time to the horizon is finite** — 14.4183 $r_s/c$ from $r_0 = 8r_s$ — while
+  **Schwarzschild $t$ diverges**. That single contrast is what "coordinate pictures are tools,
+  invariants are physics" means concretely.
+- The tidal component is **finite at the horizon** ($-1.0\,c^2/r_s^2$ for $M = r_s/2$) and
+  diverges only as $r\to0$. No uniform-expansion story reproduces a tidal field at all, which is
+  the panel that breaks Claim B's literal reading.
 
 **Build this as the "Interpretations" module** — one of the most valuable things in the product.
 Same Schwarzschild geometry, four coordinate systems (Schwarzschild, Gullstrand–Painlevé,
@@ -841,9 +886,34 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 18 | Lamb shift 2S–2P | | ~1057.8 MHz total; Uehling term −27 MHz | reproduce breakdown |
 | 19 | Hafele–Keating asymmetry mechanism | $2R\Omega v$ Sagnac cross-term | east/west asymmetry sign | qualitative + sign |
 
-Hafele–Keating physics to reproduce: $\dfrac{\Delta\tau}{\tau} = \dfrac{gh}{c^2} - \dfrac{2R\Omega v_{\rm ground}+v_{\rm ground}^2}{2c^2}$
-in the non-rotating ECI frame — the $2R\Omega v$ cross term is what makes east and west
-asymmetric.
+#### Hafele–Keating, stated so it can actually be asserted
+
+$$\boxed{\frac{\Delta\tau}{\tau} = \frac{gh}{c^2} - \frac{2R_\perp\Omega v_{\rm air}+v_{\rm air}^2}{2c^2}}$$
+
+in the non-rotating ECI frame, where $\Delta\tau$ is the flying clock minus the ground clock. The
+ground clock's own $(R_\perp\Omega)^2$ term cancels in that difference, leaving the cross term
+$2R_\perp\Omega v_{\rm air}$ — which is what makes east and west asymmetric.
+
+> **Notation trap, corrected.** An earlier revision wrote both terms with $v_{\rm ground}$. That
+> reads naturally as *the ground station's* speed $R_\perp\Omega$, and substituting it gives a
+> direction-independent constant: **the east/west asymmetry vanishes entirely**, which is the one
+> thing this benchmark exists to demonstrate. The velocity in both terms is the **aircraft's speed
+> over the ground**, signed positive eastward. $R_\perp = R_\oplus\cos(\text{latitude})$ is the
+> distance from the rotation axis, not the Earth's radius.
+
+**Flight parameters** — an earlier revision marked rows 8 and 9 "reproduce prediction" while
+giving no flight data, so they could not be asserted at all. Representative values for the 1971
+flights: $h \approx 8.9$ km, $v_{\rm air} \approx 265$ m/s, mid-latitude $\approx 50°$, elapsed
+41.2 h eastward and 48.6 h westward.
+
+**ASSERT** with those values: eastward $-44.5$ ns and westward $+256$ ns, both inside the
+published predictions of $-40\pm23$ ns and $+275\pm21$ ns. The result is genuinely sensitive to
+latitude (at the equator the eastward figure is $-90$ ns), so the test asserts the published
+*band*, not a single number — the flight profile is not reconstructible from the paper alone.
+
+**ASSERT** row 19 quantitatively rather than qualitatively: at these parameters the
+$2R_\perp\Omega v$ cross term is $2.25\times$ the $v^2$ term and reverses sign with direction,
+while $v^2$ does not. That ratio *is* the asymmetry mechanism.
 
 ---
 
