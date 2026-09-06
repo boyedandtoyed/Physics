@@ -13,6 +13,14 @@ import {
 import { HORIZON_RADIUS } from '../../../core/schwarzschild';
 import { cameraFrame } from '../model/camera';
 import {
+  ACCUMULATE_FRAGMENT_SHADER,
+  BLIT_FRAGMENT_SHADER,
+  createRenderTarget,
+  disposeRenderTarget,
+  haltonJitter,
+  type RenderTarget,
+} from '../../../core/gl/framebuffer';
+import {
   LENSING_CAPTURE_MASK_MODE,
   LENSING_DISK_DIAGNOSTIC_MODE,
   LENSING_DISK_LUMINANCE_MODE,
@@ -51,6 +59,13 @@ export interface LensingParams {
   exposure: number;
   /** Sub-pixel sample offset in pixels. Diagnostics must leave this at [0, 0]. */
   jitter: readonly [number, number];
+  /** Fraction of the canvas the lensing pass is rendered at, then bilinearly upsampled (§4.5).
+   * 0.5 is a quarter of the work. Diagnostics always render at 1.0 — the shadow gate measures a
+   * hard edge to sub-pixel accuracy and upsampling would soften exactly that. */
+  resolutionScale: number;
+  /** Average jittered frames while nothing changes. The history is discarded automatically on
+   * any parameter change; see `setParams`. */
+  accumulate: boolean;
 }
 
 /** Far enough out that the whole shadow and the first lensing ring sit comfortably in frame. */
@@ -81,6 +96,8 @@ export const DEFAULT_LENSING_PARAMS: LensingParams = {
   peakTemperature: DEFAULT_PEAK_TEMPERATURE,
   exposure: DEFAULT_EXPOSURE,
   jitter: [0, 0],
+  resolutionScale: 1,
+  accumulate: false,
 };
 
 const UNIFORMS = [
@@ -122,6 +139,11 @@ export class LensingRenderer {
   #vao: WebGLVertexArrayObject;
   #uniforms: Record<(typeof UNIFORMS)[number], WebGLUniformLocation>;
   #colourTable: WebGLTexture;
+  #blitProgram: WebGLProgram;
+  #accumulateProgram: WebGLProgram;
+  #scene?: RenderTarget;
+  #history: [RenderTarget?, RenderTarget?] = [undefined, undefined];
+  #frameIndex = 0;
   #params: LensingParams;
   #disposed = false;
 
@@ -140,12 +162,31 @@ export class LensingRenderer {
     if (!vao) throw new Error('Could not allocate a vertex array.');
     this.#vao = vao;
     this.#colourTable = createColourTexture(gl);
+    this.#blitProgram = createProgram(gl, FULLSCREEN_TRIANGLE_VERTEX_SHADER, BLIT_FRAGMENT_SHADER);
+    this.#accumulateProgram =
+      createProgram(gl, FULLSCREEN_TRIANGLE_VERTEX_SHADER, ACCUMULATE_FRAGMENT_SHADER);
   }
 
   setParams(next: Partial<LensingParams>): void {
     const merged = { ...this.#params, ...next };
     validate(merged);
+    // Any change other than the jitter invalidates the history. This is the precondition
+    // PHYSICS_SPEC §4.5 left unstated: without it the accumulator smears the previous camera's
+    // geometry across the new frame, which is the ghosting failure of every temporal method.
+    const changed = (Object.keys(merged) as (keyof LensingParams)[])
+      .some(key => key !== 'jitter' && merged[key] !== this.#params[key]);
     this.#params = merged;
+    if (changed) this.resetAccumulation();
+  }
+
+  /** Discard accumulated history. Called automatically by `setParams`. */
+  resetAccumulation(): void {
+    this.#frameIndex = 0;
+  }
+
+  /** Frames averaged into the current image. 0 means the next frame starts fresh. */
+  get accumulatedFrames(): number {
+    return this.#frameIndex;
   }
 
   getState(): Readonly<LensingParams> {
@@ -156,6 +197,88 @@ export class LensingRenderer {
     if (this.#disposed) throw new Error('This renderer has been disposed.');
     const gl = this.#gl;
     const { width, height } = gl.canvas;
+
+    // Diagnostic modes encode data, not colour. Averaging or bilinearly upsampling them would
+    // corrupt the encoded values, so they always render straight to the canvas at full scale.
+    const direct = this.#params.mode !== 'stars';
+    if (direct) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.#drawLensing(width, height, [0, 0]);
+      return;
+    }
+
+    const scale = this.#params.resolutionScale;
+    const passWidth = Math.max(1, Math.round(width * scale));
+    const passHeight = Math.max(1, Math.round(height * scale));
+    this.#ensureTargets(passWidth, passHeight);
+    const scene = this.#scene as RenderTarget;
+    const previous = this.#history[this.#frameIndex % 2] as RenderTarget;
+    const next = this.#history[(this.#frameIndex + 1) % 2] as RenderTarget;
+
+    const jitter = this.#params.accumulate
+      ? haltonJitter(this.#frameIndex)
+      : this.#params.jitter;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, scene.framebuffer);
+    this.#drawLensing(passWidth, passHeight, jitter);
+
+    let source = scene;
+    if (this.#params.accumulate) {
+      // 1/(n+1) is the running mean, so an unchanged scene converges to the supersampled image.
+      const blend = 1 / (this.#frameIndex + 1);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, next.framebuffer);
+      gl.viewport(0, 0, passWidth, passHeight);
+      gl.useProgram(this.#accumulateProgram);
+      gl.bindVertexArray(this.#vao);
+      this.#setTexture(this.#accumulateProgram, 'uCurrent', scene.texture, 0);
+      this.#setTexture(this.#accumulateProgram, 'uHistory', previous.texture, 1);
+      this.#setVec2(this.#accumulateProgram, 'uTargetSize', passWidth, passHeight);
+      this.#setFloat(this.#accumulateProgram, 'uBlend', this.#frameIndex === 0 ? 1 : blend);
+      gl.drawArrays(gl.TRIANGLES, 0, FULLSCREEN_TRIANGLE_VERTEX_COUNT);
+      source = next;
+      this.#frameIndex++;
+    }
+
+    // Present: bilinear upsample to the canvas.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, width, height);
+    gl.useProgram(this.#blitProgram);
+    gl.bindVertexArray(this.#vao);
+    this.#setTexture(this.#blitProgram, 'uSource', source.texture, 0);
+    this.#setVec2(this.#blitProgram, 'uTargetSize', width, height);
+    gl.drawArrays(gl.TRIANGLES, 0, FULLSCREEN_TRIANGLE_VERTEX_COUNT);
+    gl.bindVertexArray(null);
+  }
+
+  #ensureTargets(width: number, height: number): void {
+    const gl = this.#gl;
+    const stale = !this.#scene || this.#scene.width !== width || this.#scene.height !== height;
+    if (!stale) return;
+    for (const target of [this.#scene, ...this.#history]) {
+      if (target) disposeRenderTarget(gl, target);
+    }
+    this.#scene = createRenderTarget(gl, width, height);
+    this.#history = [createRenderTarget(gl, width, height), createRenderTarget(gl, width, height)];
+    this.#frameIndex = 0;
+  }
+
+  #setTexture(program: WebGLProgram, name: string, texture: WebGLTexture, unit: number): void {
+    const gl = this.#gl;
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(gl.getUniformLocation(program, name), unit);
+  }
+
+  #setVec2(program: WebGLProgram, name: string, x: number, y: number): void {
+    this.#gl.uniform2f(this.#gl.getUniformLocation(program, name), x, y);
+  }
+
+  #setFloat(program: WebGLProgram, name: string, value: number): void {
+    this.#gl.uniform1f(this.#gl.getUniformLocation(program, name), value);
+  }
+
+  #drawLensing(width: number, height: number, jitter: readonly [number, number]): void {
+    const gl = this.#gl;
     const { cameraDistance, inclination, azimuth } = this.#params;
     const { position, forward, right, up } = cameraFrame({
       distance: cameraDistance, inclination, azimuth,
@@ -182,11 +305,8 @@ export class LensingRenderer {
     gl.uniform1i(u.uDiskEnabled, this.#params.diskEnabled ? 1 : 0);
     gl.uniform1f(u.uLutMinTemperature, LUT_MIN_TEMPERATURE);
     gl.uniform1f(u.uLutMaxTemperature, LUT_MAX_TEMPERATURE);
-    gl.uniform2f(u.uJitter, this.#params.jitter[0], this.#params.jitter[1]);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.#colourTable);
-    gl.uniform1i(u.uColourTable, 0);
-
+    gl.uniform2f(u.uJitter, jitter[0], jitter[1]);
+    this.#setTexture(this.#program, 'uColourTable', this.#colourTable, 0);
     gl.drawArrays(gl.TRIANGLES, 0, FULLSCREEN_TRIANGLE_VERTEX_COUNT);
     gl.bindVertexArray(null);
   }
@@ -210,8 +330,13 @@ export class LensingRenderer {
     if (this.#disposed) return;
     const gl = this.#gl;
     gl.deleteProgram(this.#program);
+    gl.deleteProgram(this.#blitProgram);
+    gl.deleteProgram(this.#accumulateProgram);
     gl.deleteVertexArray(this.#vao);
     gl.deleteTexture(this.#colourTable);
+    for (const target of [this.#scene, ...this.#history]) {
+      if (target) disposeRenderTarget(gl, target);
+    }
     this.#disposed = true;
   }
 }
@@ -259,5 +384,8 @@ function validate(params: LensingParams): void {
   }
   if (!(params.peakTemperature > 0) || !(params.exposure > 0)) {
     throw new RangeError('Peak temperature and exposure must be positive.');
+  }
+  if (!(params.resolutionScale > 0) || params.resolutionScale > 1) {
+    throw new RangeError('Resolution scale must be within (0, 1].');
   }
 }

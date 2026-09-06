@@ -23,6 +23,7 @@ import {
 } from '../src/sims/blackhole-lensing/model/shadowMeasurement';
 import { traceCameraPixel } from '../src/sims/blackhole-lensing/model/rayTracer';
 import { novikovThorneTemperature, redshiftFactor } from '../src/core/schwarzschild';
+import { haltonJitter } from '../src/core/gl/framebuffer';
 
 export interface HarnessRequest {
   width: number;
@@ -37,6 +38,8 @@ export interface HarnessRequest {
   diskEnabled?: boolean;
   mode?: LensingMode;
   jitter?: readonly [number, number];
+  resolutionScale?: number;
+  accumulate?: boolean;
 }
 
 export interface ShadowReport {
@@ -100,6 +103,24 @@ export interface StabilityReport {
   rimPixels: number;
 }
 
+export interface SharpnessReport {
+  /** Mean over radial spokes of the steepest one-pixel luminance step across the shadow rim.
+   * Higher is sharper. Quantifies what resolution scaling costs at a hard edge (§4.5). */
+  edgeGradient: number;
+  spokes: number;
+}
+
+export interface AccumulationReport {
+  /** Max per-pixel difference between the accumulator and an explicit mean of the same jitters. */
+  convergenceError: number;
+  /** Max per-pixel difference between a post-camera-change frame and a fresh single frame.
+   * Non-zero would mean the history leaked across the change -- the ghosting §4.5 requires
+   * the implementation to prevent. */
+  ghostingError: number;
+  accumulatedFrames: number;
+  frames: number;
+}
+
 export interface ExponentReport {
   /** d(log luminance)/d(log g), measured from mirror-image pixels. Must be 4, not 8. */
   exponent: number;
@@ -121,6 +142,8 @@ declare global {
       measureDopplerExponent(request: HarnessRequest): ExponentReport;
       measureCrescent(request: HarnessRequest): CrescentReport;
     measureTemporalStability(request: HarnessRequest, samples?: number): StabilityReport;
+    measureEdgeSharpness(request: HarnessRequest): SharpnessReport;
+    measureAccumulation(request: HarnessRequest, frames?: number): AccumulationReport;
     renderStars(request: HarnessRequest): void;
     };
   }
@@ -164,6 +187,8 @@ function draw(request: HarnessRequest, mode: LensingMode) {
     diskInnerRadius: request.diskInnerRadius ?? 3,
     diskOuterRadius: request.diskOuterRadius ?? 12,
     jitter: request.jitter ?? [0, 0],
+    resolutionScale: request.resolutionScale ?? 1,
+    accumulate: request.accumulate ?? false,
     mode,
   });
   renderer.render();
@@ -452,6 +477,85 @@ window.lensingHarness = {
       samples: frames.length,
       rimPixels,
     };
+  },
+
+  /** Steepest radial luminance step across the shadow rim, averaged over spokes.
+   * PHYSICS_SPEC §4.5 requires the cost of resolution scaling at hard edges to be measured
+   * rather than assumed negligible; this is the measurement. */
+  measureEdgeSharpness(request) {
+    const active = draw(request, 'stars');
+    const { width, height, pixels } = active.readPixels();
+    const shadowPixels = predictedShadowRadiusPixels(
+      request.cameraDistance, request.fieldOfView, height,
+    );
+    const centreX = width / 2 - 0.5;
+    const centreY = height / 2 - 0.5;
+    const luminanceAt = (x: number, y: number) => {
+      const ix = Math.round(x), iy = Math.round(y);
+      if (ix < 0 || iy < 0 || ix >= width || iy >= height) return 0;
+      const o = (iy * width + ix) * 4;
+      return 0.2126 * (pixels[o] ?? 0) + 0.7152 * (pixels[o + 1] ?? 0) + 0.0722 * (pixels[o + 2] ?? 0);
+    };
+    const spokeCount = 180;
+    let total = 0, counted = 0;
+    for (let spoke = 0; spoke < spokeCount; spoke++) {
+      const angle = (spoke / spokeCount) * 2 * Math.PI;
+      const dx = Math.cos(angle), dy = Math.sin(angle);
+      let steepest = 0;
+      for (let r = shadowPixels * 0.8; r < shadowPixels * 1.35; r += 1) {
+        const step = Math.abs(luminanceAt(centreX + dx * (r + 1), centreY + dy * (r + 1))
+          - luminanceAt(centreX + dx * r, centreY + dy * r));
+        steepest = Math.max(steepest, step);
+      }
+      total += steepest;
+      counted++;
+    }
+    return { edgeGradient: total / Math.max(1, counted), spokes: counted };
+  },
+
+  /** Does the accumulator converge to the mean of its jitters, and does it discard history on a
+   * camera change? Both are PHYSICS_SPEC §4.5 requirements; the second was unstated before the
+   * audit and is the ghosting failure mode. */
+  measureAccumulation(request, frames = 8) {
+    const read = (active: LensingRenderer) => Float64Array.from(active.readPixels().pixels);
+
+    // Accumulate `frames` frames of an unchanging scene.
+    let accumulated: Float64Array | undefined;
+    let accumulatedFrames = 0;
+    for (let i = 0; i < frames; i++) {
+      const active = draw({ ...request, accumulate: true }, 'stars');
+      accumulated = read(active);
+      accumulatedFrames = active.accumulatedFrames;
+    }
+
+    // Explicit mean of the same Halton jitters, rendered one at a time.
+    const reference: Float64Array[] = [];
+    for (let i = 0; i < frames; i++) {
+      reference.push(read(draw({ ...request, accumulate: false, jitter: haltonJitter(i) }, 'stars')));
+    }
+    let convergenceError = 0;
+    if (accumulated && reference.length === frames) {
+      for (let p = 0; p < accumulated.length; p += 4) {
+        let mean = 0;
+        for (const frame of reference) mean += frame[p] ?? 0;
+        convergenceError = Math.max(
+          convergenceError, Math.abs((accumulated[p] ?? 0) - mean / frames),
+        );
+      }
+    }
+
+    // Ghosting: accumulate, then move the camera and take one frame. It must equal a fresh
+    // single frame of the new pose, not a blend with the old one.
+    for (let i = 0; i < frames; i++) draw({ ...request, accumulate: true }, 'stars');
+    const moved = { ...request, azimuth: (request.azimuth ?? 0) + 0.35 };
+    const afterChange = read(draw({ ...moved, accumulate: true }, 'stars'));
+    const fresh = read(draw({ ...moved, accumulate: false, jitter: haltonJitter(0) }, 'stars'));
+    let ghostingError = 0;
+    for (let p = 0; p < afterChange.length; p += 4) {
+      ghostingError = Math.max(ghostingError, Math.abs((afterChange[p] ?? 0) - (fresh[p] ?? 0)));
+    }
+
+    return { convergenceError, ghostingError, accumulatedFrames, frames };
   },
 
   renderStars(request) {

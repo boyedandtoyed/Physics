@@ -36,3 +36,41 @@ test('star-field sampling is temporally stable under sub-pixel jitter', async ({
   expect(report.rimRms).toBeLessThan(9);
   expect(report.frameRms).toBeLessThan(6);
 });
+
+test('resolution scaling costs sharpness at the shadow rim, and the cost is measured', async ({ page }) => {
+  // §4.5 previously called 0.5-0.7x upsampling "nearly free visually" on the grounds that the
+  // image is a smooth warped skybox. The star field is smooth; the shadow rim is not. This
+  // records what the trade actually costs instead of asserting it away.
+  await page.goto('/lensing-harness.html');
+  await page.waitForFunction(() => Boolean(window.lensingHarness));
+  const measure = (resolutionScale: number) => page.evaluate((req) => {
+    const harness = window.lensingHarness;
+    if (!harness) throw new Error('The lensing harness did not initialise.');
+    return harness.measureEdgeSharpness(req);
+  }, { ...SCENE, diskEnabled: true, resolutionScale });
+
+  const full = await measure(1);
+  const half = await measure(0.5);
+  console.log('edge sharpness:', JSON.stringify({ full, half, ratio: full.edgeGradient / half.edgeGradient }));
+
+  expect(full.edgeGradient).toBeGreaterThan(0);
+  // The point of the measurement: it is a real cost, not a negligible one.
+  expect(full.edgeGradient).toBeGreaterThan(half.edgeGradient * 1.15);
+});
+
+test('accumulation converges to the mean and discards history on a camera change', async ({ page }) => {
+  await page.goto('/lensing-harness.html');
+  await page.waitForFunction(() => Boolean(window.lensingHarness));
+  const report = await page.evaluate((req) => {
+    const harness = window.lensingHarness;
+    if (!harness) throw new Error('The lensing harness did not initialise.');
+    return harness.measureAccumulation(req, 8);
+  }, { ...SCENE, width: 300, height: 300, stepsPerRay: 300 });
+  console.log('accumulation:', JSON.stringify(report));
+
+  expect(report.accumulatedFrames).toBe(8);
+  // 8-bit readback of a half-float accumulator: a couple of levels is rounding, not drift.
+  expect(report.convergenceError).toBeLessThan(3);
+  // The reset requirement. Without it this would be a visible blend of the two camera poses.
+  expect(report.ghostingError).toBeLessThan(3);
+});

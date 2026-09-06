@@ -273,3 +273,40 @@ rather than the supersampled one.
 §4.5 now also requires temporal stability to be a *number* with a recorded baseline, and requires
 the guard to be verified by re-introducing point sampling — the same discipline that caught the
 `g` and flux-profile regressions in step 3.
+
+## 2026-09-06 — Step 4: what the §4.4/§4.5 measurements actually showed
+
+Every claim below is a measured number with a mutation that trips it, per §4.5's own ASSERT.
+
+**Anisotropic filtering works, and the gate needed two halves.** Baseline for the point-sampled
+cube-cell field on a fixed scene: rimRms **15.09**, frameRms **8.94**. After the rebuild: **6.81**
+and **3.97**.
+
+Verifying the guard taught me the gate was unsound. A mutation that narrowed the reconstruction
+kernel until the rim went black scored rimRms **1.78** — *better* than the correct filter — because
+a blank frame has nothing to vary. **A variance metric alone rewards rendering nothing.** The gate
+is now variance AND a minimum rim luminance, and each half is verified by the mutation that should
+trip it: the blank frame fails on rimMean 0.11, and dropping the many-star limit fails on rimRms
+11.87.
+
+**Resolution scaling is not "nearly free".** Steepest radial luminance step across the shadow rim:
+**110.6** at scale 1.0 against **51.6** at 0.5 — a **2.14×** loss of edge sharpness. The star field
+is smooth and upsamples well; the silhouette does not. Diagnostic modes therefore always render at
+scale 1.0 and bypass accumulation entirely — they encode data, not colour, and averaging or
+bilinearly filtering an encoded value corrupts it.
+
+**The accumulation reset is not optional.** With it, a frame taken after a camera change differs
+from a fresh frame by **0**. Without it, by **134** of 255. That is the ghosting the earlier §4.5
+described only implicitly by saying accumulation applies "when the camera is static".
+
+**Accumulation converges.** Against an explicit mean of the same Halton jitters, the accumulator
+differs by **0.75** of one 8-bit level — the buffer is half-float where the driver allows it,
+because averaging in 8-bit biases the result rather than converging to the supersampled image.
+
+**Star field rebuilt on equal-area cells.** Bands of equal d(cos theta) have equal solid angle, so
+giving each the same number of azimuthal cells makes every cell exactly 4*pi/(N*M) steradians. The
+old cube lattice varied several-fold in cell solid angle and was strongly anisotropic near the
+corners, which is what rendered distant stars as elongated blobs.
+
+Step 2 and 3 gates are unchanged throughout: shadow error 0.013354 px, disk agreement 2-3e-5,
+Doppler exponent 4.0019, crescent 3.02.
