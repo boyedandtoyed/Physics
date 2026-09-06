@@ -15,6 +15,14 @@ export class GlError extends Error {
 export interface ContextOptions {
   /** Needed to read pixels back after compositing; the acceptance harness depends on it. */
   preserveDrawingBuffer?: boolean;
+  /**
+   * Allocate a real alpha channel. **Required to read the alpha byte back.** With `alpha: false`
+   * the drawing buffer has no alpha and `readPixels` reports 255 for every pixel, which silently
+   * corrupts any diagnostic that packs data into that channel — it looked exactly like a ~1%
+   * physics discrepancy until the arithmetic was traced. Off by default: the shipped renderer
+   * wants an opaque buffer.
+   */
+  alpha?: boolean;
 }
 
 export function createContext(
@@ -22,7 +30,8 @@ export function createContext(
   options: ContextOptions = {},
 ): WebGL2RenderingContext {
   const gl = canvas.getContext('webgl2', {
-    alpha: false,
+    alpha: options.alpha ?? false,
+    premultipliedAlpha: false,
     antialias: false,
     depth: false,
     stencil: false,

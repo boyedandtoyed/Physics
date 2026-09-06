@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
-import type { HarnessRequest, ShadowReport } from '../harness/lensing';
+import type {
+  CrescentReport,
+  DiskReport,
+  ExponentReport,
+  HarnessRequest,
+  ShadowReport,
+} from '../harness/lensing';
 
 /** THE PHASE 1 ACCEPTANCE TEST (BUILD_PLAN §3).
  *
@@ -96,4 +102,89 @@ test('renders a lensed star field without errors', async ({ page }) => {
     return count;
   });
   expect(lit).toBeGreaterThan(0);
+});
+
+test.describe('accretion disk (§4.3)', () => {
+  const DISK: HarnessRequest = {
+    width: 700,
+    height: 700,
+    cameraDistance: 20,
+    fieldOfView: 60,
+    stepsPerRay: 500,
+    inclination: 0.2,
+  };
+
+  test('shader emission radius and redshift match the float64 model per pixel', async ({ page }) => {
+    const report: DiskReport = await page.evaluate((req) => {
+      const harness = window.lensingHarness;
+      if (!harness) throw new Error('The lensing harness did not initialise.');
+      return harness.measureDisk(req);
+    }, DISK);
+    console.log('disk agreement:', JSON.stringify(report));
+
+    expect(report.agreed).toBeGreaterThan(150);
+    // Disagreements are silhouette pixels where a float32 and a float64 ray fall on opposite
+    // sides of an edge. A handful is expected; a large fraction would mean a real divergence.
+    expect(report.disagreed / report.sampled).toBeLessThan(0.06);
+    // float32 vs float64 through a few hundred RK4 steps and a secant refinement. Both land
+    // near 1e-4; 1e-3 leaves room for driver differences without hiding a real divergence.
+    // These were 0.01 while the harness itself was broken -- the readback packed 16 bits into
+    // the alpha channel of a buffer created with alpha: false, so readPixels returned 255 and
+    // the corruption masqueraded as a ~1% physics error. See DECISIONS.md.
+    expect(report.radiusError95).toBeLessThan(1e-3);
+    expect(report.redshiftError95).toBeLessThan(1e-3);
+    expect(report.radiusErrorMax).toBeLessThan(5e-3);
+    expect(report.redshiftErrorMax).toBeLessThan(5e-3);
+    // Guards the Novikov-Thorne profile itself. Emission radius and g are unchanged by swapping
+    // in the Newtonian Shakura-Sunyaev flux law, so this is the only check that catches it.
+    expect(report.temperatureError95).toBeLessThan(2e-3);
+    expect(report.temperatureErrorMax).toBeLessThan(1e-2);
+  });
+
+  test('brightness scales as g^4, not g^8', async ({ page }) => {
+    // The §4.3 audit found the colour pipeline applying g twice. This measures the exponent off
+    // the rendered frame: mirror pixels sample the same emission radius, so the luminance ratio
+    // is purely (g_left/g_right)^n. Correct is 4; the double-counted pipeline reads 8.
+    const report: ExponentReport = await page.evaluate((req) => {
+      const harness = window.lensingHarness;
+      if (!harness) throw new Error('The lensing harness did not initialise.');
+      return harness.measureDopplerExponent(req);
+    }, DISK);
+    console.log('doppler exponent:', JSON.stringify(report));
+
+    expect(report.radiusLeft).toBeGreaterThan(0);
+    expect(report.radiusRight).toBeGreaterThan(0);
+    // Mirror pixels must land on the same radius, or the exponent measurement is meaningless.
+    expect(Math.abs(report.radiusLeft - report.radiusRight) / report.radiusLeft).toBeLessThan(0.01);
+    // Approaching side is the blueshifted one.
+    expect(report.gLeft).toBeGreaterThan(report.gRight);
+    expect(report.exponent).toBeGreaterThan(3.8);
+    expect(report.exponent).toBeLessThan(4.2);
+  });
+
+  test('physical mode renders a one-sided crescent, in the finished image', async ({ page }) => {
+    // Not a stylistic check. §4.3 and CLAUDE.md require the asymmetry to survive into what the
+    // user sees: DNGR softened it for the film, and we explicitly do not.
+    const report: CrescentReport = await page.evaluate((req) => {
+      const harness = window.lensingHarness;
+      if (!harness) throw new Error('The lensing harness did not initialise.');
+      return harness.measureCrescent(req);
+    }, { ...DISK, width: 600, height: 600, fieldOfView: 55, inclination: 0.08, stepsPerRay: 600 });
+    console.log('crescent:', JSON.stringify(report));
+
+    expect(report.approachingPixels).toBeGreaterThan(500);
+    expect(report.recedingPixels).toBeGreaterThan(500);
+    // Encoded sRGB, so this understates the linear ratio considerably.
+    expect(report.ratio).toBeGreaterThan(1.8);
+  });
+
+  test('the disk does not disturb the shadow measurement', async ({ page }) => {
+    // The shadow gate must keep holding with the disk present; the capture mask ignores it.
+    const report: ShadowReport = await page.evaluate((req) => {
+      const harness = window.lensingHarness;
+      if (!harness) throw new Error('The lensing harness did not initialise.');
+      return harness.measureShadow(req);
+    }, { ...DISK, width: 900, height: 900, inclination: 0 });
+    expect(report.errorPixels).toBeLessThan(1);
+  });
 });

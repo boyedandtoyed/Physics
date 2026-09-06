@@ -190,3 +190,47 @@ with the decomposition to 5e-16.
 
 Also corrected in passing: `verify_benchmarks.py` declared hbar as "exact", contradicting §1 and
 `units.ts`. It is now derived from the exact h as h/(2*pi).
+
+## 2026-09-06 — Disk correctness is measured off the frame, and each audit finding has a guard
+
+The §4.3 audit found two errors. Both are now caught by measurements taken from a real GPU frame,
+and both guards were verified by deliberately re-introducing the error:
+
+| Mutation | What the harness reads | Gate | Result |
+|---|---|---|---|
+| apply `g` a second time | Doppler exponent **7.998** | 4.0 ± 0.2 | fails |
+| Shakura–Sunyaev flux law | shifted-temperature error **29.8%** | < 0.2% | fails |
+| correct code | exponent 4.0019, temperature error 0.002% | — | passes |
+
+The exponent is measured, not inferred: mirror-image pixels sample the same emission radius, so
+the luminance ratio is purely `(g_left/g_right)^n`, and `n` is read straight off the frame.
+
+**The second guard exists because the first was not enough.** The Shakura–Sunyaev mutation
+initially passed every test: emission radius and `g` are identical whichever flux law is used, so
+only a comparison of the shifted temperature `g*T(r)` catches it. A guard for one finding is not a
+guard for the other.
+
+Alongside those, `measureDisk` compares the shader against the float64 model per pixel — emission
+radius, `g` and `g*T` — and agrees to ~3e-5 with zero hit/miss disagreements over 2500 samples.
+`measureCrescent` then checks the asymmetry survives the colour table and tone mapping into the
+finished image, because §4.3 requires physical mode to be the default and DNGR's softened,
+symmetric disk to be explicitly rejected.
+
+## 2026-09-06 — `alpha: false` silently corrupted the diagnostic readback
+
+Worth recording because it cost real time and mimicked a physics bug. The per-pixel comparison
+reported the emission radius agreeing to 2e-5 while `g` disagreed by 1.8% — a thousandfold
+mismatch that no float32 argument explains.
+
+The cause was the measuring apparatus, not the renderer. The diagnostic modes pack two 16-bit
+values across RGBA, the second spanning blue and **alpha**. The WebGL context was created with
+`alpha: false`, so the drawing buffer has no alpha channel and `readPixels` returns 255 for every
+pixel — destroying the low byte of the second value. That predicts an error of up to
+`4 * 255/65535 = 0.0156` in `g`, which is exactly what was observed.
+
+The tell was that the model was *exactly* antisymmetric across mirror pixels, as the geometry
+demands, while the shader was not. Symmetry that the physics guarantees is a good place to look
+when a discrepancy has no numerical explanation.
+
+`createContext` now takes an explicit `alpha` option, documented with this failure, and it stays
+off for the shipped renderer, which wants an opaque buffer.

@@ -9,7 +9,15 @@ import {
   impactParameterToFlatH,
   shadowAngularRadius,
 } from '../../../core/schwarzschild';
-import { adaptiveStep, traceRay, traceViewingAngle } from './rayTracer';
+import { redshiftFactor } from '../../../core/schwarzschild';
+import { maximumAxialImpact } from './camera';
+import {
+  DEFAULT_DISK,
+  adaptiveStep,
+  traceCameraPixel,
+  traceRay,
+  traceViewingAngle,
+} from './rayTracer';
 
 describe('Schwarzschild geometry in r_s = 1 units', () => {
   it('places the critical radii where PHYSICS_SPEC §2.4 requires', () => {
@@ -121,5 +129,81 @@ describe('null geodesic integration (§2.3)', () => {
     const b = impactParameter(distance, theta);
     expect(flatLaunchSine(distance, theta) * distance)
       .toBeCloseTo(impactParameterToFlatH(b, distance), 12);
+  });
+});
+
+describe('accretion disk (§4.3)', () => {
+  const POSE = { distance: 20, inclination: 0.2, azimuth: 0 };
+  const FOV = 60;
+  const hit = (ndcX: number, ndcY = 0) => traceCameraPixel(POSE, FOV, ndcX, ndcY, 1, DEFAULT_DISK);
+
+  it('brightens the side rotating toward the camera, not the other one', () => {
+    // Geometry, independent of this code's sign conventions: the disk spins about +y, so at +z
+    // its material moves along +x, i.e. toward a camera on +x. The camera basis has
+    // right = (0,0,-1), so +z lands on the LEFT of the image. Left must be blueshifted.
+    // Getting the backward-tracing sign wrong flips the crescent, and only a test framed in
+    // terms of the physical geometry catches that.
+    const left = hit(-0.45);
+    const right = hit(0.45);
+    expect(left.outcome).toBe('disk');
+    expect(right.outcome).toBe('disk');
+
+    const gLeft = redshiftFactor(left.emissionRadius!, left.axialImpactParameter!, POSE.distance);
+    const gRight = redshiftFactor(right.emissionRadius!, right.axialImpactParameter!, POSE.distance);
+    expect(gLeft).toBeGreaterThan(1);
+    expect(gRight).toBeLessThan(1);
+    // Mirror-symmetric pixels sample the same radius with opposite b_phi.
+    expect(left.emissionRadius!).toBeCloseTo(right.emissionRadius!, 6);
+    expect(left.axialImpactParameter!).toBeCloseTo(-right.axialImpactParameter!, 6);
+  });
+
+  it('keeps every emission radius inside the annulus it was given', () => {
+    let hits = 0;
+    for (let ndcX = -0.95; ndcX <= 0.95; ndcX += 0.05) {
+      for (const ndcY of [-0.3, 0, 0.3]) {
+        const result = hit(ndcX, ndcY);
+        if (result.outcome !== 'disk') continue;
+        hits++;
+        expect(result.emissionRadius!).toBeGreaterThanOrEqual(DEFAULT_DISK.innerRadius - 1e-9);
+        expect(result.emissionRadius!).toBeLessThanOrEqual(DEFAULT_DISK.outerRadius + 1e-9);
+        expect(Math.abs(result.axialImpactParameter!))
+          .toBeLessThanOrEqual(maximumAxialImpact(result.emissionRadius!) + 1e-9);
+      }
+    }
+    expect(hits).toBeGreaterThan(20);
+  });
+
+  it('shows no Doppler asymmetry when viewed face-on', () => {
+    // Face-on, the orbital velocity is perpendicular to every line of sight, so g must depend on
+    // emission radius alone. Any azimuthal variation here would mean a spurious Doppler term.
+    const faceOn = { distance: 20, inclination: Math.PI / 2, azimuth: 0 };
+    const samples: { radius: number; g: number }[] = [];
+    const imageRadius = 0.5;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * 2 * Math.PI;
+      const result = traceCameraPixel(
+        faceOn, FOV, imageRadius * Math.cos(angle), imageRadius * Math.sin(angle), 1, DEFAULT_DISK,
+      );
+      if (result.outcome === 'disk') {
+        samples.push({
+          radius: result.emissionRadius!,
+          g: redshiftFactor(result.emissionRadius!, result.axialImpactParameter!, faceOn.distance),
+        });
+      }
+    }
+    expect(samples.length).toBeGreaterThan(5);
+    const radii = samples.map(s => s.radius);
+    const gs = samples.map(s => s.g);
+    expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(1e-6);
+    expect(Math.max(...gs) - Math.min(...gs)).toBeLessThan(1e-6);
+    // And it is a redshift: gravitational plus transverse Doppler, with no approach term.
+    expect(gs[0]!).toBeLessThan(1);
+  });
+
+  it('leaves a hole where the ISCO is, rather than filling the centre', () => {
+    // The disk has an inner edge at the ISCO; the line of sight through the middle must not
+    // report a disk hit at some smaller radius.
+    const centre = traceCameraPixel(POSE, FOV, 0, 0, 1, DEFAULT_DISK);
+    expect(centre.outcome).toBe('captured');
   });
 });
