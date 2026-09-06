@@ -777,6 +777,46 @@ Note what the formula says that the table alone does not: **the space-curvature 
 the same 0.8756″ for every speed**. It is the time contribution that blows up for slow particles,
 not the space contribution that vanishes.
 
+##### The space coefficient is measured, not assumed: PPN $\gamma$
+
+The claim "the factor of 2 is a direct measurement of spatial curvature" is only worth making if
+the interactive can show the measurement. In the PPN formalism $\gamma$ is exactly the coefficient
+of the spatial-curvature term, and light deflection is
+
+$$\alpha_{\rm light} = \frac{1+\gamma}{2}\cdot\frac{4GM}{c^2b} = \underbrace{\frac{2GM}{c^2b}}_{\text{time}} + \underbrace{\gamma\,\frac{2GM}{c^2b}}_{\text{space}}$$
+
+so the boxed $\alpha(\beta)$ above generalizes, with the $\gamma$ attaching to the space term only:
+
+$$\boxed{\alpha(\beta,\gamma) = \frac{2GM}{c^2b}\left(\frac{1}{\beta^2}+\gamma\right)}$$
+
+General relativity predicts $\gamma=1$ exactly; Einstein's 1911 calculation is $\gamma=0$. The
+$\gamma$ coefficient of the light-deflection formula is standard PPN — Will, *The Confrontation
+between General Relativity and Experiment*, Living Rev. Relativity **17**, 4 (2014), §3.4.1,
+[doi:10.12942/lrr-2014-4](https://doi.org/10.12942/lrr-2014-4). The $\beta$-dependence is the
+section's own decomposition, unchanged. Cassini gives
+$\gamma-1=(2.1\pm2.3)\times10^{-5}$ (Bertotti, Iess & Tortora 2003), i.e. the space term is
+measured equal to the time term to about two parts in $10^5$. **ASSERT:** $\gamma=0$ reproduces
+0.8756″, $\gamma=1$ reproduces 1.7512″, and the Cassini bound admits no value outside
+$\pm0.0001″$ of 1.7512″.
+
+##### Where this formula stops being true — required in the UI
+
+$\alpha(\beta)$ is a **linearized, small-deflection** result, and the slow end of the slider
+violates it spectacularly. At the solar limb $2GM/c^2b = 4.2450\times10^{-6}$ rad, so
+$\alpha<0.01$ rad requires $\beta>0.0206$, i.e. $v>6180$ km/s. Taken literally at an apple's
+10 m/s the formula returns $\sim7.87\times10^{14}$ arcseconds — about $6.1\times10^{8}$ full turns, which
+is not a deflection at all. A 10 m/s particle aimed at the solar limb is simply captured; the
+Newtonian two-body problem, not a bending angle, describes it.
+
+This is not a reason to hide the slow end — it is the honest content of the exhibit. The correct
+statement is that the *ratio* $\text{space}/\text{time}=\beta^2$ holds throughout and is what the
+exhibit is about, while the *absolute* angle is meaningful only in the weak-deflection band. The UI
+must therefore mark the invalid band explicitly rather than plotting a number it knows is wrong.
+The exact Newtonian comparison for the time term is $\tan(\alpha/2)=GM/(bv^2)$, whose linearization
+is the $1/\beta^2$ term; **ASSERT** that the two agree to better than 1% for $\alpha<0.01$ rad and
+that they diverge by a factor of 2 at $\beta=9.542\times10^{-4}$ (ratio 1.88 at $\beta=10^{-3}$,
+135 at $\beta=10^{-4}$).
+
 **Build this as an interactive:** a slider from "apple" to "light" that shows the two
 contributions separately and their sum, converging on 0.875″ → 1.75″. This single interactive
 settles the question visually and is one of the strongest exhibits in the product.
