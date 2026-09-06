@@ -70,7 +70,32 @@ The $3GMu^2/c^2$ term is the entire GR correction and produces perihelion preces
 `starless` integrates a fictitious Newtonian system in flat 3-D Cartesian coordinates whose
 trajectories are *exactly* the Schwarzschild null geodesics:
 
-$$\ddot{\mathbf r} = -\frac{3}{2}h^2\frac{\hat{\mathbf r}}{r^5}, \qquad h^2 = |\mathbf r \times \mathbf v|^2 \;\text{(conserved, evaluated once at ray launch)}$$
+$$\boxed{\ddot{\mathbf r} = -3Mh^2\frac{\hat{\mathbf r}}{r^4} = -3Mh^2\frac{\mathbf r}{r^5}}, \qquad h^2 = |\mathbf r \times \mathbf v|^2 \;\text{(conserved, evaluated once at ray launch)}$$
+
+In $r_s=1$ normalization ($M=1/2$), which is what the shader uses (§6.5):
+$\;\ddot{\mathbf r} = -\tfrac32 h^2\hat{\mathbf r}/r^4 = -\tfrac32 h^2\mathbf r/r^5$.
+
+> **Transcription warning — this file previously had this equation wrong.** It read
+> $-\tfrac32 h^2\hat{\mathbf r}/r^5$, with a *unit* vector over $r^5$. `starless` writes the
+> force in code as `-1.5 * h2 * points / r**5`, where `points` is the position **vector**, so
+> that expression is $\hat{\mathbf r}/r^4$, not $\hat{\mathbf r}/r^5$. Copying it with a hat
+> loses a factor of $r$. The literal form is also dimensionally inconsistent, and it does not
+> reduce to §2.2.
+>
+> **Derivation (Binet).** For any central acceleration $a_r$ with $h=r^2\dot\phi$ conserved,
+> $u''+u = -a_r/(h^2u^2)$. Requiring §2.2's $u''+u = 3Mu^2$ gives $a_r = -3Mh^2u^4 = -3Mh^2/r^4$.
+> (Check the same identity against Kepler: $a_r=-GMu^2 \Rightarrow u''+u = GM/h^2$. ✓)
+>
+> **Verified numerically two independent ways**, in $r_s=1$ units, and both are regression
+> tests, not one-off checks:
+>
+> | Observable | As previously written | Corrected | Target |
+> |---|---|---|---|
+> | $b_{\rm crit}$ (capture threshold) | 1.732051 | **2.598076** | $3\sqrt3M = 2.598076$ |
+> | Deflection at $b=2000$ | $4.4\times10^{-7}$ | **0.00100074** | $4M/b = 0.001$ |
+>
+> The old form yields a shadow **33% too small**. Anyone implementing from the previous text
+> would have failed the §2.4 $b_{\rm crit}$ assertion with no clue why.
 
 Advantages: **no coordinate singularity at $r = 2M$ at all** (the flat metric is used; $r=2M$ is
 just a capture test), no orbital-plane rotation matrices, no turning-point sign flips, trivially

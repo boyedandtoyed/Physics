@@ -15,7 +15,9 @@ The gate history below is kept as the record of what was actually verified, and 
 - In-place float64 RK4, velocity Verlet, Yoshida-4 with reusable scratch buffers and documented callback/aliasing contracts.
 - **29 Vitest tests pass:** convergence ratios, reversibility, negative Yoshida substep, non-autonomous RK4 stages, oscillator energy over 1,000 periods, circular/eccentric Newtonian closure, angular momentum, Schwarzschild circular effective-potential equilibrium, formal million-fold-c limit, dimension/alias validation, constants, fourth-order Kepler step-refinement at four (e, a) pairs, and the shell's lazy-route/storage tests.
 - **Typecheck and ESLint pass. Production build passes.**
-- All **32 Python reference benchmark checks pass**; these check formulas, not future simulation implementations.
+- All **43 Python reference benchmark checks pass**; these check formulas, not future simulation
+  implementations. §2.4's critical radii are now *derived* by root-finding on the metric rather
+  than compared against themselves (see `DECISIONS.md`, Phase 1 source audit).
 - Gallery with explicit unavailability state, routing/not-found handling, typed lazy sim registry, system/light/dark themes, keyboard skip navigation, responsive layout.
 - Methodology page with lazy-loaded KaTeX and React Aria physics disclosure, assumptions and primary sources.
 - **3 Playwright tests pass**, including light/dark axe scans, keyboard disclosure, theme persistence, narrow-screen overflow check, system dark mode and not-found route. No page errors in tested flows.

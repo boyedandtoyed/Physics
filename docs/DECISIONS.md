@@ -79,3 +79,34 @@ Actions are referenced by commit SHA with the version in a trailing comment, and
 image digest. A mutable tag means a third party can change what executes against this workflow's
 token without any change landing in this repository. The gitleaks repo mount is read-only; a
 scanner needs no write access to what it scans.
+
+## 2026-09-06 — Phase 1 source audit: PHYSICS_SPEC §2.3 was wrong, and §2.4 was not asserted
+
+The audit BUILD_PLAN requires before writing shader code found two defects. Both would have
+surfaced later as a mysteriously failing acceptance test, which is exactly what the audit is for.
+
+**§2.3's flat-Cartesian force law was wrong.** It read
+$\ddot{\mathbf r} = -\tfrac32 h^2\hat{\mathbf r}/r^5$ — a *unit* vector over $r^5$. `starless`
+writes this in code as `-1.5 * h2 * points / r**5` where `points` is the position **vector**, so
+the expression is $\hat{\mathbf r}/r^4$. Transcribing it with a hat silently loses a factor of
+$r$. The literal form is dimensionally inconsistent and does not reduce to §2.2.
+
+The correct law is $\ddot{\mathbf r} = -3Mh^2\hat{\mathbf r}/r^4$, which is $-\tfrac32
+h^2\hat{\mathbf r}/r^4$ in the $r_s=1$ shader normalization. Derived from Binet
+($u''+u = -a_r/(h^2u^2)$, cross-checked against Kepler) and confirmed numerically two
+independent ways: the capture threshold gives $b_{\rm crit} = 2.598076$ against the required
+$3\sqrt3 M = 2.598076$ (the old form gave 1.732051, a shadow **33% too small**), and weak-field
+deflection converges to $4M/b$ as $b$ grows (the old form was off by two orders of magnitude).
+The Binet reduction is now a permanent check in `verify_benchmarks.py`.
+
+**§2.4's "ASSERT all of these" was not asserting anything.** The checks read
+`check("Photon sphere / M", 3.0, 3.0, ...)` — the expected value hardcoded on both sides of a
+comparison that cannot fail. Photon sphere, ISCO, $b_{\rm crit}$ and ISCO efficiency are now
+derived by root-finding on the metric: the photon sphere from $dV_{\rm photon}/dr = 0$,
+$b_{\rm crit}$ by minimising $b(r) = r/\sqrt{1-2M/r}$, the ISCO by minimising
+$L^2(r) = Mr^2/(r-3M)$, plus the marginally bound orbit, ISCO local velocity $c/2$ and specific
+energy $\sqrt{8/9}$. Verified by mutation: perturbing the photon potential or $L^2(r)$ fails six
+checks. Benchmark count went 32 -> 43.
+
+Consequence for Phase 1: implement the boxed §2.3 equation, not any remembered form of it, and
+treat $b_{\rm crit} = 3\sqrt3 M$ measured off the rendered frame as the acceptance test.

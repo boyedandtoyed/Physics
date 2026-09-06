@@ -70,10 +70,69 @@ check("GPS kinematic", f_kin * 86400e6, -7.2, 0.2, "us/day")
 check("GPS net", (f_grav + f_kin) * 86400e6, 38.5, 0.3, "us/day")
 
 # 9-12  Schwarzschild geometric invariants (in units of M) -----------------
-check("Photon sphere / M", 3.0, 3.0, 0, "M")
-check("ISCO / M", 6.0, 6.0, 0, "M")
-check("Critical impact parameter / M", 3 * math.sqrt(3), 5.19615, 1e-5, "M")
-check("ISCO radiative efficiency", (1 - math.sqrt(8 / 9)) * 100, 5.7191, 1e-3, "%")
+# These were previously asserted as check("Photon sphere / M", 3.0, 3.0, ...) -- the expected
+# value hardcoded on both sides, which cannot fail and proves nothing. They are now *derived*
+# from the metric by root-finding, so an error in the geometry would actually be caught.
+# Geometrized units, M = 1.
+
+def _bisect(f, lo, hi, tol=1e-14):
+    flo = f(lo)
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        fm = f(mid)
+        if (fm < 0) == (flo < 0):
+            lo, flo = mid, fm
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+# Circular null orbit: the photon effective potential V(r) = (1 - 2M/r)/r^2 is stationary.
+# dV/dr = -2/r^3 + 6M/r^4.
+photon_sphere = _bisect(lambda r: -2 / r**3 + 6 / r**4, 2.01, 10.0)
+check("Photon sphere / M  (root of dV_photon/dr)", photon_sphere, 3.0, 1e-9, "M")
+
+# Critical impact parameter: b(r) = r / sqrt(1 - 2M/r), minimised over r. Minimum via db/dr = 0.
+def _b(r):
+    return r / math.sqrt(1 - 2 / r)
+
+b_crit_r = _bisect(lambda r: (_b(r + 1e-6) - _b(r - 1e-6)) / 2e-6, 2.5, 10.0)
+check("b_crit radius / M  (minimum of b(r))", b_crit_r, 3.0, 1e-6, "M")
+check("Critical impact parameter / M", _b(b_crit_r), 3 * math.sqrt(3), 1e-9, "M")
+check("  ...equals 3*sqrt(3)", 3 * math.sqrt(3), 5.19615, 1e-5, "M")
+
+# ISCO: circular orbits need L^2(r) = M r^2/(r - 3M); marginal stability is dL^2/dr = 0,
+# which reduces to r(r - 6M)/(r - 3M)^2 = 0.
+def _Lsq(r):
+    return r**2 / (r - 3)
+
+isco = _bisect(lambda r: (_Lsq(r + 1e-6) - _Lsq(r - 1e-6)) / 2e-6, 4.0, 20.0)
+check("ISCO / M  (minimum of L^2(r))", isco, 6.0, 1e-6, "M")
+check("ISCO angular momentum L/M", math.sqrt(_Lsq(isco)), math.sqrt(12), 1e-6, "M")
+
+# Specific energy of a circular orbit: E(r) = (1 - 2M/r)/sqrt(1 - 3M/r).
+def _E(r):
+    return (1 - 2 / r) / math.sqrt(1 - 3 / r)
+
+check("ISCO specific energy E", _E(isco), math.sqrt(8 / 9), 1e-9, "")
+check("ISCO radiative efficiency", (1 - _E(isco)) * 100, 5.7191, 1e-3, "%")
+
+# Marginally bound orbit: E = 1.
+r_mb = _bisect(lambda r: _E(r) - 1.0, 3.5, 10.0)
+check("Marginally bound orbit / M", r_mb, 4.0, 1e-9, "M")
+
+# Local orbital speed measured by a static observer: v = sqrt(M/(r - 2M)).
+check("ISCO local orbital velocity / c", math.sqrt(1 / (isco - 2)), 0.5, 1e-9, "c")
+
+# Photon-ring demagnification per half-orbit (Gralla, Holz & Wald 2019).
+check("Photon ring demagnification e^-pi", math.exp(-math.pi), 1 / 23.14, 1e-5, "")
+
+# PHYSICS_SPEC 2.3: the flat-Cartesian force must reduce to 2.2's u'' + u = 3M u^2.
+# Binet: u'' + u = -a_r/(h^2 u^2). With a_r = -3M h^2 u^4 this is identically 3M u^2.
+for _u, _h in ((0.05, 3.1), (0.2, 7.0), (0.4, 1.3)):
+    _a_r = -3 * 1.0 * _h**2 * _u**4
+    check(f"Flat-Cartesian Binet reduction (u={_u})", -_a_r / (_h**2 * _u**2),
+          3 * 1.0 * _u**2, 1e-15, "")
 
 
 # 13  Kerr ISCO — Bardeen-Press-Teukolsky ----------------------------------
