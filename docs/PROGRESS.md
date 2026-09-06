@@ -2,7 +2,8 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 2 — Time and interpretations. **Audit done; implementation not started.**
+**Phase:** 2 — Time and interpretations. **Audit done; part 1's physics core is landed
+(`d28d97e`), 15 tests green; parts 2 and 3 are not started.**
 Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is signed off.
 **Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
@@ -75,15 +76,28 @@ through the public HTTPS host.
 
 ## Phase 2 — where to pick up
 
-**The audit is done (commit `4fa3b28`); no Phase 2 UI exists yet.** All the physics the three
-interactives need is now in `PHYSICS_SPEC.md` and asserted in `verify_benchmarks.py` (57 → 84
-checks), so implementation can start from tested formulae rather than from prose.
+**The audit is done (commit `4fa3b28`). Part 1's physics core is landed; no Phase 2 UI exists
+yet.** All the physics the three interactives need is in `PHYSICS_SPEC.md` and asserted in
+`verify_benchmarks.py` (57 → 84 checks), so implementation runs from tested formulae rather than
+from prose.
 
-**NEXT: part 1, the gravitational time dilation calculator and visualiser.** GPS, Hafele–Keating
-and near-horizon clocks. §8 rows 5–9 are all asserted now, including 8 and 9, which could not be
-asserted before the audit. Then part 2 (deflection decomposition, §7.4 Claim A), then part 3 (the
-Interpretations module, §7.4 Claim B). Parts 2 and 3 are the product's thesis made interactive and
-must carry the same measurement discipline as the raymarcher: part 2 asserts its two components
+> **Correction, 2026-09-06.** This section previously read "no Phase 2 UI exists yet" *and*
+> "implementation not started". The second half was false: the session that wrote it was killed by
+> a usage limit with `src/core/timeDilation.ts`, its 15 tests, the `units.ts` constants and the §8
+> conventions block finished but **uncommitted**. A later session found them in the working tree
+> and committed them unchanged as `d28d97e`. The lesson is the one BUILD_PLAN §9 already states and
+> that session did not follow: commit at every checkpoint, not at the end of a work item. Work that
+> exists only in the working tree is invisible to this file, and this file is what the next session
+> trusts.
+
+**DONE: part 1's physics core** (`src/core/timeDilation.ts`, `d28d97e`). Static Schwarzschild clock
+rates and their inverse, the GPS gravitational/kinematic split, and Hafele–Keating decomposed into
+its Sagnac cross term and quadratic term. 15 Vitest tests, all mutation-tested — see the gate table
+below. **Part 1's UI is not built.**
+
+**NEXT: part 2** (deflection decomposition, §7.4 Claim A), then **part 3** (the Interpretations
+module, §7.4 Claim B), then part 1's UI. Parts 2 and 3 are the product's thesis made interactive
+and must carry the same measurement discipline as the raymarcher: part 2 asserts its two components
 numerically, part 3 asserts the invariants agree across all four charts to a stated tolerance.
 
 The formulae and their tolerances are settled — see §8's Hafele–Keating block, §7.4 Claim A's
