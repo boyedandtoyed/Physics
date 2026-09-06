@@ -58,6 +58,16 @@ module.exports = {
       to: { path: '^src/(app|registry|sims)/' },
     },
     {
+      name: 'app-never-depends-on-the-test-harness',
+      comment:
+        'harness/ is the Phase 1 acceptance fixture. It may reach into sims/ — that is its whole '
+        + 'purpose, and it sits outside src/ so `only-the-registry-knows-sims` still holds for the '
+        + 'app — but nothing shipped may depend on it.',
+      severity: 'error',
+      from: { path: '^src/' },
+      to: { path: '^harness/' },
+    },
+    {
       name: 'no-circular',
       comment: 'A cycle means the layering above is already broken somewhere.',
       severity: 'error',

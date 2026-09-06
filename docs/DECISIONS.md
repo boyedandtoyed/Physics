@@ -110,3 +110,42 @@ checks. Benchmark count went 32 -> 43.
 
 Consequence for Phase 1: implement the boxed §2.3 equation, not any remembered form of it, and
 treat $b_{\rm crit} = 3\sqrt3 M$ measured off the rendered frame as the acceptance test.
+
+## 2026-09-06 — Ray launch uses the static observer's frame, not the raw pixel direction
+
+The naive reading of §2.3 is to launch the flat-Cartesian ray straight down the pixel direction
+with |v| = 1. That is wrong twice over, and both corrections were measured on a rendered frame:
+
+1. **Static-observer factor.** The pixel direction is a direction in the camera's *local
+   orthonormal frame*, so b = D sin(theta)/sqrt(1 - r_s/D). Dropping the square root puts the
+   shadow edge 2.63 px off at D = 20 in a 900 px frame — a clear acceptance-test failure.
+2. **h is not b.** Matching first integrals gives 1/h^2 = 1/b^2 + 2M/D^3. Worth 0.042% at
+   D = 20: below the one-pixel gate on its own, but exact and nearly free, so it is kept.
+
+Both were verified by mutation against the acceptance test rather than argued from the algebra
+alone. With both applied the measured shadow radius is 99.474 px against a predicted 99.487 px,
+an error of 0.013 px.
+
+## 2026-09-06 — The acceptance test measures a capture mask, and the measuring stick is itself tested
+
+Measuring the shadow edge against a star field means detecting "black hole" against "mostly black
+sky", which is not a robust edge. The shader therefore has a `capture-mask` mode: identical
+integration and identical launch conditions, differing only in the final colour assignment
+(escaped white, captured black). It is a diagnostic view, not a separate code path, so it cannot
+drift away from what the star-field mode renders.
+
+`measureShadowRadius` lives in the sim's model rather than inline in the Playwright spec, so it
+can be unit-tested against synthetic discs of exactly known radius. It recovers those to better
+than 0.5 px and refuses to report at all when the centre is not inside the shadow or the disc is
+clipped by the frame. A measurement routine nobody has checked is not evidence.
+
+## 2026-09-06 — The acceptance harness is a separate build, not a route
+
+The sim is not in `registry/sims.ts` and must not be until it is finished, but the acceptance
+test needs a real GPU frame from a real page. `harness/lensing.ts` plus `lensing-harness.html`
+provide one, built only when `PHYSICS_HARNESS=1`, which only Playwright's second web server sets.
+The shipped Docker image never contains it — verified by checking `dist/` after a normal build.
+
+It sits outside `src/` deliberately: that keeps `only-the-registry-knows-sims` true for
+everything in the app, and a new dependency-cruiser rule forbids anything under `src/` from
+importing the harness, so the fixture cannot leak into the product.

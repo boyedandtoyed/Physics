@@ -18,3 +18,4 @@ coverage/
 .DS_Store
 *.swp
 .idea/
+dist-harness/
