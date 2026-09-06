@@ -2,16 +2,19 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 1 — The black hole. Steps 1 and 2 of 5 are done and verified. Phase 0 is signed off
+**Phase:** 1 — The black hole. Steps 1, 2 and 3 of 5 are done and verified. Phase 0 is signed off
 and merged to `master`.
 **Branch:** `feat/phase-1-blackhole` (branched from `master` at `49a6bf2`).
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
 **The lensing sim is deliberately NOT in `registry/sims.ts`** and must not be until step 5 is
 finished — the gallery must not advertise an unfinished simulation.
 
-**The acceptance test passes:** shadow radius measured off a real GPU frame is 99.474 px against
-99.487 px predicted, an error of **0.013 px** against the one-pixel gate, holding across three
-camera distances and fields of view. Run it with `npx playwright test --project=lensing`.
+**The acceptance suite passes (8 tests).** Run it with `npx playwright test --project=lensing`.
+- Shadow radius off a real GPU frame: 99.474 px vs 99.487 px predicted, **0.013 px** error
+  against the one-pixel gate, holding across three camera distances and fields of view.
+- Disk: shader vs float64 model agree to **3e-5** on emission radius, g and g*T, with **zero**
+  hit/miss disagreements over 2500 sampled pixels.
+- Doppler exponent measured off the frame: **4.0019** (correct is 4; double-counting reads 8).
 
 ## Done and verified
 
@@ -20,8 +23,9 @@ camera distances and fields of view. Run it with `npx playwright test --project=
 - In-place float64 RK4, velocity Verlet, Yoshida-4 with reusable scratch buffers and documented callback/aliasing contracts.
 - **29 Vitest tests pass:** convergence ratios, reversibility, negative Yoshida substep, non-autonomous RK4 stages, oscillator energy over 1,000 periods, circular/eccentric Newtonian closure, angular momentum, Schwarzschild circular effective-potential equilibrium, formal million-fold-c limit, dimension/alias validation, constants, fourth-order Kepler step-refinement at four (e, a) pairs, and the shell's lazy-route/storage tests.
 - **Typecheck and ESLint pass. Production build passes.**
-- **44 Vitest tests and 7 Playwright tests pass** (4 of the latter are the lensing acceptance suite).
-- All **43 Python reference benchmark checks pass**; these check formulas, not future simulation
+- **72 Vitest tests and 11 Playwright tests pass** (8 of the latter are the lensing acceptance
+  suite: shadow radius, per-pixel disk agreement, the Doppler exponent, and the crescent).
+- All **57 Python reference benchmark checks pass**; these check formulas, not future simulation
   implementations. §2.4's critical radii are now *derived* by root-finding on the metric rather
   than compared against themselves (see `DECISIONS.md`, Phase 1 source audit).
 - Gallery with explicit unavailability state, routing/not-found handling, typed lazy sim registry, system/light/dark themes, keyboard skip navigation, responsive layout.
@@ -38,19 +42,12 @@ camera distances and fields of view. Run it with `npx playwright test --project=
 
 ## Phase 1 — where to pick up
 
-**NEXT: step 3, the accretion disk.** Do not skip ahead to step 4 or 5.
+**NEXT: step 4** — screen-space-Jacobian anisotropic star sampling (§4.4), resolution scaling and
+temporal accumulation (§4.5). Then step 5 (controls, KaTeX physics panel, keyboard camera,
+screen-reader summary), and only then register the sim.
 
-Before writing disk code, audit PHYSICS_SPEC §4.3 against its sources the same way §2.2–2.4 were
-audited — that audit found a wrong equation that would have silently failed the acceptance test.
-§4.3 needs: Novikov–Thorne / Shakura–Sunyaev T(r) with the inner-edge factor
-[1 - sqrt(r_in/r)]^(1/4), the fact that a Doppler-shifted blackbody is still a blackbody at
-T' = gT (so shift the temperature and look up a colour LUT rather than shifting spectra), the
-g^4 bolometric / g^3 per-band factor, and spectral radiance -> CIE XYZ -> sRGB. **Physical mode
-is the default; the one-sided crescent is correct output, not a bug** (§4.3, CLAUDE.md).
-
-Then step 4 (screen-space Jacobian anisotropic star sampling §4.4, resolution scaling, temporal
-accumulation), then step 5 (controls, KaTeX physics panel, keyboard camera, screen-reader
-summary), and only then register the sim.
+§4.4 is also where the **known star-field limitation** below should be fixed. Audit §4.4/§4.5
+against their sources first, as for §2.3 and §4.3 — both audits found real errors.
 
 ### Step 1 — primary-source audit *(done 2026-09-06, commit `08b0223`)*
 
@@ -65,6 +62,50 @@ normalization table. **Found two defects**; both are recorded in `DECISIONS.md`:
 - **§2.4's "ASSERT all of these" asserted nothing** — `check("Photon sphere / M", 3.0, 3.0, ...)`
   compared the expected value with itself. Now derived by root-finding on the metric. Mutating
   the photon potential or L^2(r) fails six checks. Benchmarks went 32 -> 43.
+
+### Step 3 — accretion disk *(done 2026-09-06, commits `8a8c45b`, `d1192ca`, `51bdfb9`)*
+
+**The §4.3 audit found two errors, both of the "renders convincingly, is wrong" kind.** Full
+detail in `DECISIONS.md`; the short version:
+
+1. **The colour pipeline applied `g` twice.** It said to shift the temperature to `T' = gT` *and*
+   multiply radiance by `g^4`. But `g^3 B_{nu/g}(T) = B_nu(gT)` identically — the substitution
+   *is* the `g^3`, and Stefan–Boltzmann makes it exactly `g^4` bolometrically. The literal
+   pipeline scales brightness as `g^8`. At the ISCO edge-on from 20 r_s the true crescent
+   contrast is **76.8**; double-counted it is **5899**.
+2. **The "Novikov–Thorne" profile was Shakura–Sunyaev**, i.e. Newtonian. That form over-radiates
+   by **43%** and implies **8.33%** radiative efficiency, contradicting §2.4's own asserted
+   **5.7191%** in the same document. §4.3 now carries the Page–Thorne integral and its
+   closed-form Schwarzschild specialisation, derived and confirmed against an independent
+   invariant: `int F_NT(r) E(r) r dr = 1 - sqrt(8/9)` to 1.8e-9.
+
+Smaller fixes: the bolometric relation confused flux with intensity; the `g_grav * Doppler`
+factorisation never stated that beta and n-hat must be in the *local static frame*, so §4.3 now
+gives a closed form for `g` needing no frame transformation; and `hbar` was declared exact.
+
+New code: `core/schwarzschild.ts` (NT flux, circular-orbit energy, `redshiftFactor`),
+`core/color/blackbody.ts` (Planck, Wyman/Sloan/Shirley CMF fits, CIE XYZ, linear sRGB),
+`model/camera.ts` (camera basis and launch, shared by CPU and shader), disk crossing with secant
+refinement in `model/rayTracer.ts`, and the disk in the shader.
+
+**Each audit finding has its own guard, and each was verified by re-introducing the error:**
+
+| Mutation | Measured | Gate | Result |
+|---|---|---|---|
+| apply `g` twice | exponent **7.998** | 4.0 ± 0.2 | fails |
+| Shakura–Sunyaev flux | temperature error **29.8%** | < 0.2% | fails |
+| none (correct) | exponent 4.0019, temp error 0.002% | — | passes |
+
+**One guard was not enough.** The Shakura–Sunyaev mutation initially passed everything, because
+emission radius and `g` are identical under either flux law. Only comparing `g*T(r)` catches it.
+
+Two corrections to my own work, both worth knowing about:
+- I asserted in the spec that the Planckian locus at 6504 K should hit sRGB's D65 white point. It
+  should not: D65 is a *daylight* illuminant ~0.0054 off the blackbody locus. The implementation
+  matches the published locus to 0.0001, and a test now pins the distinction.
+- The per-pixel comparison reported a 1.8% `g` error against a 2e-5 radius agreement. The cause
+  was the harness, not the renderer: diagnostics pack 16 bits across blue and **alpha**, and a
+  context created `alpha: false` makes `readPixels` return 255 for alpha. See `DECISIONS.md`.
 
 ### Step 2 — minimal correct raymarcher *(done 2026-09-06, commit `5908d25`)*
 
@@ -264,3 +305,24 @@ before its passing result was believed.
 
 Nothing is registered in the gallery. Steps 3 (disk), 4 (anisotropic sampling, resolution
 scaling, accumulation) and 5 (controls, physics panel, a11y) remain.
+
+### 2026-09-06 — Phase 1 step 3: the accretion disk
+
+Audited §4.3 before writing code, as instructed and as §2.3 had been. It found two errors again,
+and this time both were the kind that produce a beautiful, confident, wrong picture: a redshift
+factor applied twice (brightness scaling as g^8 instead of g^4, a crescent contrast of 5899
+instead of 76.8), and a Newtonian flux profile shipped under the Novikov-Thorne name, whose
+implied 8.33% radiative efficiency contradicted §2.4's own 5.7191% in the same file.
+
+The instruction to make disk correctness measurable before tuning appearance was the right call
+and paid off twice over. Building the guards surfaced that one guard did not cover the other
+finding — the Shakura-Sunyaev mutation sailed through every test until a shifted-temperature
+comparison was added — and it surfaced a bug in the measuring apparatus itself, where an
+`alpha: false` context corrupted the diagnostic readback and mimicked a 1% physics error for long
+enough to be worth documenting.
+
+Nothing was tuned for looks until all of that passed. Exposure and peak temperature are display
+parameters and are labelled as such.
+
+Still not registered in the gallery. Steps 4 (anisotropic sampling, resolution scaling,
+accumulation) and 5 (controls, physics panel, a11y) remain.
