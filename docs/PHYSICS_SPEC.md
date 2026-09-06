@@ -342,6 +342,38 @@ scheme, not an ad-hoc step change.
    rather than cancel, so this is the worst-case accuracy probe. Assert $\Delta r/r < 10^{-6}$
    after $N$ orbits.
 
+### 6.3a Phase 0 numerical reference problems and test interpretation
+
+Finite-step methods have truncation error: “machine precision” in §6.3 means the
+analytic Newtonian limit, not exact numerical closure at arbitrary step size. Use
+step-halving to distinguish truncation error from roundoff. Kerr spherical-orbit
+checks require the Phase 4 model and are deferred until then, not passing placeholders.
+
+For the harmonic oscillator in dimensionless units, $q'=v$, $v'=-q$,
+$q(0)=1$, $v(0)=0$, the reference is $(q,v)=(\cos t,-\sin t)$ and
+$E=(q^2+v^2)/2$. Measure global convergence at fixed final time: ratios tend to
+16 for RK4/Yoshida and 4 for Verlet. Time reversal uses the same fixed number of
+steps with negative $\Delta t$; the $10^{-10}$ gate applies to the symplectic
+methods, not RK4. Source: Hairer, Lubich & Wanner, *Geometric Numerical Integration*,
+2nd ed. (Springer, 2006), chapters I and II,
+[doi:10.1007/3-540-30666-8](https://doi.org/10.1007/3-540-30666-8).
+
+For $y'=f(t,y)$, classical RK4 is
+$k_1=f(t,y)$, $k_2=f(t+h/2,y+hk_1/2)$,
+$k_3=f(t+h/2,y+hk_2/2)$, $k_4=f(t+h,y+hk_3)$,
+$y_{n+1}=y_n+h(k_1+2k_2+2k_3+k_4)/6$.
+Source: Butcher, *Numerical Methods for Ordinary Differential Equations*, 3rd ed.
+(Wiley, 2016), [doi:10.1002/9781119121534](https://doi.org/10.1002/9781119121534).
+
+Newtonian two-body tests use $\ddot{\mathbf r}=-\mu\mathbf r/r^3$,
+$T=2\pi\sqrt{a^3/\mu}$, specific energy $E=v^2/2-\mu/r$ and
+angular momentum $\mathbf L=\mathbf r\times\mathbf v$. For an ellipse launched
+at periapsis, $r_p=a(1-e)$ and $v_p=\sqrt{\mu(1+e)/(a(1-e))}$.
+Source: Murray & Dermott, *Solar System Dynamics* (1999), chapter 2,
+[doi:10.1017/CBO9781139174817](https://doi.org/10.1017/CBO9781139174817).
+These are test problems, not a shipped relativistic orbit model. Numerical closure
+must use a stated step size and tolerance and improve with refinement.
+
 ### 6.4 Horizon coordinate singularity
 
 Options in ascending robustness: terminate at $r=r_+(1+\delta)$, $\delta\sim10^{-6}$ (simple,

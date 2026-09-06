@@ -10,9 +10,18 @@ decided, what is broken.
 
 ## Current status
 
-**Phase:** 0 — Foundation. Not started.
-**Repo state:** Documentation only. No application code yet.
-**Deployed:** Tunnel live at abstract-physics.binodtiwari.com (returns 502 until Phase 0 ships).
+**Phase:** 0 — Foundation. In progress (2026-09-06).
+**Repo state:** Strict Vite/React/TypeScript scaffold, float64 integrators, constants, and initial app shell implemented on `feat/phase-0-foundation`.
+**Verified:** 15 Vitest tests, typecheck, lint, production build; all 32 existing Python benchmark checks pass.
+**Deployed:** Not deployed yet. Docker daemon access verified; existing tunnel unchanged.
+
+### Active checkpoint
+- Implemented RK4, velocity Verlet, Yoshida-4 with reusable buffers, documented contracts, convergence/reversal/energy/Newtonian-orbit tests.
+- Added explicit numerical-test interpretation and cited reference problems in PHYSICS_SPEC §6.3a; Kerr tests remain Phase 4 work.
+- Initial responsive gallery, routing, theme, lazy registry contract and accessible KaTeX panel exist. Browser/axe checks, CI, Docker and deployment are next.
+- Remaining numerical gates: relativistic circular effective-potential test and explicit c→10^6 c limit regression; current orbit tests are Newtonian only.
+- Secret scanner not installed yet. No push until a successful scan.
+- Removed a pre-existing stale HEAD.lock with owner approval; no other lock files touched.
 
 ## What exists
 

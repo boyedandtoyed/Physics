@@ -1,6 +1,8 @@
 # secrets - never commit
-.env
-.env.*
+.env*
+*.txt
+playwright-report/
+test-results/
 *.pem
 *credentials*.json
 *api*.txt
