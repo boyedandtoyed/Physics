@@ -23,14 +23,29 @@ export interface OrbitLimits {
   maxInclination: number;
 }
 
+/**
+ * Controlled: the caller owns the pose.
+ *
+ * The alternative — the hook holding its own copy — gives every sim two sources of truth for the
+ * camera, one behind the sliders and one behind the mouse, which drift apart the moment both are
+ * used. The caller passes the current pose in and applies the deltas this hook reports.
+ */
 interface Options {
-  initial: OrbitPose;
+  pose: OrbitPose;
+  onChange: (next: OrbitPose) => void;
   limits: OrbitLimits;
-  /** Bumped to snap back to `initial`. */
-  resetToken?: number;
-  /** Slow idle rotation while playing and untouched — see `idleDriftRadiansPerSecond`. */
+  /** Slow idle rotation while playing and untouched. */
   idleDriftRadiansPerSecond?: number;
   playing?: boolean;
+  /**
+   * Applies one drift step, in radians of azimuth.
+   *
+   * Deliberately NOT routed through `onChange`: drift fires every frame, and a whole-pose write
+   * read-modify-writes state it does not own. That raced with Reset — the drift callback read the
+   * pre-reset pose, Reset committed, and the drift's write landed afterwards and restored the old
+   * camera. A delta applied with a functional update composes with whatever else changed.
+   */
+  onDrift?: (deltaAzimuthRadians: number) => void;
 }
 
 /** Radians of orbit per pixel dragged. Tuned so a full drag across a 1000px canvas is ~180°. */
@@ -47,7 +62,6 @@ const clamp = (value: number, low: number, high: number): number =>
   Math.min(high, Math.max(low, value));
 
 export interface OrbitControls {
-  pose: OrbitPose;
   /** Spread onto the canvas element. */
   handlers: {
     onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -57,39 +71,39 @@ export interface OrbitControls {
   };
   /** True while a drag is in progress — used to suppress the click that opens focus mode. */
   dragging: boolean;
+  /** Exposed so the caller can wire wheel zoom, which must be a non-passive native listener. */
+  zoomBy: (factor: number) => void;
 }
 
 export function useOrbitControls({
-  initial, limits, resetToken = 0, idleDriftRadiansPerSecond = 0, playing = true,
+  pose, onChange, limits, idleDriftRadiansPerSecond = 0, playing = true, onDrift,
 }: Options): OrbitControls {
-  const [pose, setPose] = useState<OrbitPose>(initial);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const [dragging, setDragging] = useState(false);
   const lastInput = useRef(0);
-  // `initial` is a fresh object every render; hold it in a ref so the reset effect depends on
-  // the token alone and does not fire on every parent render.
-  const home = useRef(initial);
-  home.current = initial;
-
-  useEffect(() => { setPose(home.current); }, [resetToken]);
+  // Latest pose and callback, so the idle-drift effect does not re-subscribe every frame.
+  const latest = useRef({ pose, onChange, onDrift });
+  latest.current = { pose, onChange, onDrift };
 
   const markInput = () => { lastInput.current = performance.now(); };
 
   const orbitBy = useCallback((deltaAzimuth: number, deltaInclination: number) => {
-    setPose(current => ({
+    const current = latest.current.pose;
+    latest.current.onChange({
       ...current,
       azimuth: current.azimuth + deltaAzimuth,
       inclination: clamp(
         current.inclination + deltaInclination, -limits.maxInclination, limits.maxInclination,
       ),
-    }));
+    });
   }, [limits.maxInclination]);
 
   const zoomBy = useCallback((factor: number) => {
-    setPose(current => ({
+    const current = latest.current.pose;
+    latest.current.onChange({
       ...current,
       distance: clamp(current.distance * factor, limits.minDistance, limits.maxDistance),
-    }));
+    });
   }, [limits.minDistance, limits.maxDistance]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -133,22 +147,22 @@ export function useOrbitControls({
    * off for IDLE_DELAY_MS after any input.
    */
   useEffect(() => {
-    if (!playing || idleDriftRadiansPerSecond === 0) return undefined;
+    if (!playing || idleDriftRadiansPerSecond === 0 || !onDrift) return undefined;
+    // Start the idle clock now, not at the epoch, or the drift begins the instant the page loads.
+    lastInput.current = performance.now();
     let frame = 0;
     let previous = performance.now();
     const tick = (now: number) => {
       const dt = (now - previous) / MILLISECONDS_PER_SECOND;
       previous = now;
       if (now - lastInput.current > IDLE_DELAY_MS && !drag.current) {
-        setPose(current => ({
-          ...current, azimuth: current.azimuth + idleDriftRadiansPerSecond * dt,
-        }));
+        latest.current.onDrift?.(idleDriftRadiansPerSecond * dt);
       }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, idleDriftRadiansPerSecond]);
+  }, [playing, idleDriftRadiansPerSecond, onDrift]);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const step = event.shiftKey ? KEY_ORBIT_STEP * 3 : KEY_ORBIT_STEP;
@@ -160,7 +174,6 @@ export function useOrbitControls({
       '+': () => zoomBy(1 / KEY_ZOOM_STEP),
       '=': () => zoomBy(1 / KEY_ZOOM_STEP),
       '-': () => zoomBy(KEY_ZOOM_STEP),
-      Home: () => setPose(home.current),
     };
     const action = actions[event.key];
     if (!action) return;
@@ -169,7 +182,7 @@ export function useOrbitControls({
     action();
   };
 
-  return { pose, handlers: { onPointerDown, onPointerMove, onPointerUp, onKeyDown }, dragging };
+  return { handlers: { onPointerDown, onPointerMove, onPointerUp, onKeyDown }, dragging, zoomBy };
 }
 
 /** Wheel zoom, attached natively so `preventDefault` works — React's onWheel is passive. */

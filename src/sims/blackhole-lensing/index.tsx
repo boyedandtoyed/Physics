@@ -1,6 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Switch } from 'react-aria-components';
 import { NumberSlider } from '../../ui/NumberSlider';
+import { SimStage, StageCanvas } from '../../ui/sim/SimStage';
+import { usePlaybackStore, usePresentation } from '../../ui/sim/playbackStore';
+import { useOrbitControls, useWheelZoom } from '../../ui/sim/useOrbitControls';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
 import {
   CRITICAL_IMPACT_PARAMETER,
@@ -55,6 +58,9 @@ const DEGRADE_FACTOR = 0.6;
 const UPGRADE_FACTOR = 1.6;
 const MIN_DEGRADE = 0.2;
 const INITIAL_DEGRADE = 0.28;
+const SIM_ID = 'blackhole-lensing';
+/** ~40 s for a full turn: present when you watch for it, never distracting. */
+const IDLE_DRIFT_RADIANS_PER_SECOND = 0.157;
 const FAST_FRAME_MS = 35;
 /** Ceiling on the backing store, so a hi-DPI display does not quietly quadruple the work. */
 const MAX_CANVAS_PIXELS = 1_200_000;
@@ -67,13 +73,12 @@ const DEFAULT_RESOLUTION_SCALE = 0.65;
  * (BUILD_PLAN §6: "responsive descriptions ... throttled"). */
 const ANNOUNCE_DELAY_MS = 600;
 const MAX_DEVICE_PIXEL_RATIO = 2;
-/** Arrow-key increment; Shift multiplies it. */
-const COARSE_NUDGE = 5;
 
 interface Controls {
   solarMasses: number;
   cameraDistance: number;
   inclinationDegrees: number;
+  azimuthDegrees: number;
   diskEnabled: boolean;
   stepsPerRay: number;
   cinematic: boolean;
@@ -86,6 +91,7 @@ const INITIAL: Controls = {
   solarMasses: DEFAULT_SOLAR_MASSES,
   cameraDistance: DEFAULT_DISTANCE,
   inclinationDegrees: DEFAULT_INCLINATION_DEGREES,
+  azimuthDegrees: 0,
   diskEnabled: true,
   stepsPerRay: DEFAULT_STEPS,
   cinematic: false,
@@ -117,6 +123,55 @@ export default function BlackHoleLensing() {
   const lockedRef = useRef(false);
   const [degradeTick, setDegradeTick] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
+  const presentation = usePresentation(SIM_ID);
+  const setGrain = usePlaybackStore(state => state.setGrain);
+  const setFocused = usePlaybackStore(state => state.setFocused);
+
+  // The orbit camera writes into `controls`, which stays the single source of truth: the sliders
+  // and the mouse move the same three numbers.
+  const orbitPose = useMemo(() => ({
+    distance: controls.cameraDistance,
+    inclination: controls.inclinationDegrees / DEGREES_PER_RADIAN,
+    azimuth: controls.azimuthDegrees / DEGREES_PER_RADIAN,
+  }), [controls.cameraDistance, controls.inclinationDegrees, controls.azimuthDegrees]);
+
+  const onOrbit = useCallback((next: { distance: number; inclination: number; azimuth: number }) => {
+    setControls(previous => ({
+      ...previous,
+      cameraDistance: next.distance,
+      inclinationDegrees: next.inclination * DEGREES_PER_RADIAN,
+      azimuthDegrees: next.azimuth * DEGREES_PER_RADIAN,
+    }));
+  }, []);
+
+  /** Drift adds to the azimuth and touches nothing else, so it composes with Reset and with a
+   * slider the user is dragging at the same moment. */
+  const onDrift = useCallback((deltaRadians: number) => {
+    setControls(previous => ({
+      ...previous,
+      azimuthDegrees: previous.azimuthDegrees + deltaRadians * DEGREES_PER_RADIAN,
+    }));
+  }, []);
+
+  const orbit = useOrbitControls({
+    pose: orbitPose,
+    onChange: onOrbit,
+    onDrift,
+    limits: {
+      minDistance: MIN_DISTANCE,
+      maxDistance: MAX_DISTANCE,
+      maxInclination: MAX_INCLINATION_DEGREES / DEGREES_PER_RADIAN,
+    },
+    // A slow viewpoint drift, not a physics animation. Yields to the user on any input.
+    idleDriftRadiansPerSecond: reducedMotion ? 0 : IDLE_DRIFT_RADIANS_PER_SECOND,
+    playing: presentation.playing,
+  });
+  useWheelZoom(canvasRef, orbit.zoomBy);
+
+  // Reset returns the camera and every control to where the sim opened.
+  useEffect(() => {
+    if (presentation.resetToken > 0) setControls(INITIAL);
+  }, [presentation.resetToken]);
 
   const scene: SceneState = useMemo(() => ({
     solarMasses: controls.solarMasses,
@@ -171,6 +226,8 @@ export default function BlackHoleLensing() {
     const params: Partial<LensingParams> = {
       cameraDistance: controls.cameraDistance,
       inclination: scene.inclination,
+      azimuth: controls.azimuthDegrees / DEGREES_PER_RADIAN,
+      grain: presentation.grain,
       diskEnabled: controls.diskEnabled,
       stepsPerRay: controls.stepsPerRay,
       cinematic: controls.cinematic ? 1 : 0,
@@ -184,7 +241,10 @@ export default function BlackHoleLensing() {
     // synchronously here blocks the main thread for as long as the frame takes — seconds on a
     // software renderer — which freezes input and assistive technology before the user can reach
     // a control. The page stays interactive; the image catches up.
+    // Paused means no frame is ever scheduled: the GPU goes idle rather than redrawing a static
+    // image forever. One frame is still drawn on entry so the canvas is never blank.
     let handle = 0;
+    let stopped = false;
     const deadline = performance.now() + ACCUMULATION_BUDGET_MS;
     const step = () => {
       const active = rendererRef.current;
@@ -207,14 +267,20 @@ export default function BlackHoleLensing() {
         return;
       }
       const converged = active.accumulatedFrames >= ACCUMULATION_TARGET;
-      if (reducedMotion || converged || frameMs > SLOW_FRAME_MS || performance.now() > deadline) {
+      if (
+        stopped || !presentation.playing || reducedMotion || converged
+        || frameMs > SLOW_FRAME_MS || performance.now() > deadline
+      ) {
         return;
       }
       handle = requestAnimationFrame(step);
     };
     handle = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(handle);
-  }, [controls, scene.inclination, reducedMotion, failure, degradeTick]);
+    return () => { stopped = true; cancelAnimationFrame(handle); };
+  }, [
+    controls, scene.inclination, reducedMotion, failure, degradeTick,
+    presentation.playing, presentation.grain, presentation.focused,
+  ]);
 
   // Throttled announcement of the numbers, so a slider drag produces one utterance, not fifty.
   useEffect(() => {
@@ -222,27 +288,28 @@ export default function BlackHoleLensing() {
     return () => clearTimeout(timer);
   }, [scene]);
 
-  const onCanvasKeyDown = useCallback((event: React.KeyboardEvent) => {
-    const nudge = event.shiftKey ? COARSE_NUDGE : 1;
-    const actions: Record<string, () => void> = {
-      ArrowLeft: () => set('inclinationDegrees',
-        Math.max(-MAX_INCLINATION_DEGREES, controls.inclinationDegrees - nudge)),
-      ArrowRight: () => set('inclinationDegrees',
-        Math.min(MAX_INCLINATION_DEGREES, controls.inclinationDegrees + nudge)),
-      ArrowUp: () => set('cameraDistance', Math.max(MIN_DISTANCE, controls.cameraDistance - nudge)),
-      ArrowDown: () => set('cameraDistance', Math.min(MAX_DISTANCE, controls.cameraDistance + nudge)),
-      Home: () => setControls(INITIAL),
-    };
-    const action = actions[event.key];
-    if (!action) return;
-    event.preventDefault();
-    action();
-  }, [controls.inclinationDegrees, controls.cameraDistance, set]);
+  /**
+   * Keyboard on the canvas: the orbit control owns the arrows and zoom, this owns Home and the
+   * expand shortcut. Composed rather than duplicated, so there is one place that moves a camera.
+   */
+  const onCanvasKeyDown = useCallback((event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (event.key === 'Home') {
+      event.preventDefault();
+      setControls(INITIAL);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setFocused(SIM_ID, true);
+      return;
+    }
+    orbit.handlers.onKeyDown(event);
+  }, [orbit, setFocused]);
 
   const km = (value: number) => `${value.toFixed(2)} km`;
 
   return (
-    <article className="lensing">
+    <article className="lensing sim-page">
       <header className="lensing-head">
         <p className="eyebrow">First experiment · Schwarzschild</p>
         <h1>When light meets a black hole.</h1>
@@ -252,29 +319,30 @@ export default function BlackHoleLensing() {
         </p>
       </header>
 
-      <div className="stage">
-        {failure ? (
-          <p className="stage-failure" role="alert">
-            This simulation needs WebGL2, which this browser did not provide. {failure}
-          </p>
-        ) : (
-          <canvas
-            ref={canvasRef}
-            className="stage-canvas"
-            tabIndex={0}
-            role="img"
-            aria-label={summary}
-            onKeyDown={onCanvasKeyDown}
-          />
-        )}
-        <p className="stage-help">
-          The view is keyboard-operable: focus it, then use the arrow keys to change inclination
-          and distance, Shift for larger steps, and Home to reset.
-        </p>
-        <p className="visually-hidden" aria-live="polite">{announcement}</p>
-      </div>
-
-      <section className="controls-grid" aria-label="Simulation controls">
+      <SimStage
+        simId={SIM_ID}
+        panelLabel="Controls"
+        canvas={
+          <StageCanvas simId={SIM_ID} dragging={orbit.dragging}>
+            {failure ? (
+              <p className="stage-failure" role="alert">
+                This simulation needs WebGL2, which this browser did not provide. {failure}
+              </p>
+            ) : (
+              <canvas
+                ref={canvasRef}
+                tabIndex={0}
+                role="img"
+                aria-label={summary}
+                {...orbit.handlers}
+                onKeyDown={onCanvasKeyDown}
+              />
+            )}
+            <p className="visually-hidden" aria-live="polite">{announcement}</p>
+          </StageCanvas>
+        }
+        controls={<>
+      <div className="controls-grid" aria-label="Simulation controls">
         <NumberSlider
           label="Mass" value={controls.solarMasses}
           onChange={v => set('solarMasses', v)}
@@ -318,16 +386,32 @@ export default function BlackHoleLensing() {
               : 'Physical mode. The one-sided crescent is the correct output.'}
           </p>
         </div>
-      </section>
+        <NumberSlider
+          label="Film grain" value={presentation.grain}
+          onChange={v => setGrain(SIM_ID, v)}
+          minValue={0} maxValue={1} step={0.01}
+          places={2}
+          hint="Non-physical. A display effect added after tone mapping, downstream of every
+                measured quantity; at 0 the image is bit-identical to one rendered without it."
+        />
+      </div>
 
-      <section className="readout" aria-label="Measured geometry">
+      <div className="readout" aria-label="Measured geometry">
         <dl>
           <div><dt>Event horizon</dt><dd>{km(figures.horizonKm)}<span>rₛ</span></dd></div>
           <div><dt>Photon sphere</dt><dd>{km(figures.photonSphereKm)}<span>1.5 rₛ</span></dd></div>
           <div><dt>Apparent shadow</dt><dd>{km(figures.shadowImpactParameterKm)}<span>2.598 rₛ</span></dd></div>
           <div><dt>ISCO</dt><dd>{km(figures.iscoKm)}<span>3 rₛ</span></dd></div>
         </dl>
-      </section>
+      </div>
+
+      <p className="stage-help">
+        Drag the view to orbit, scroll to zoom. From the keyboard: focus the canvas, then arrow
+        keys orbit, <kbd>+</kbd> and <kbd>−</kbd> zoom, and <kbd>Shift</kbd> takes larger steps.
+        Click the view to expand it.
+      </p>
+        </>}
+      >
 
       <MisconceptionsPanel items={[
         {
@@ -389,6 +473,7 @@ export default function BlackHoleLensing() {
         emission radius and redshift; and the measured brightness exponent is 4.00, not 8.
         {' '}ISCO {ISCO_RADIUS} rₛ, photon sphere {PHOTON_SPHERE_RADIUS} rₛ.
       </p>
+      </SimStage>
     </article>
   );
 }

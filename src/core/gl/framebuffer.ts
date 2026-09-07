@@ -86,13 +86,43 @@ export function haltonJitter(index: number): [number, number] {
   return [radical(index + 1, 2) - 0.5, radical(index + 1, 3) - 0.5];
 }
 
+/**
+ * Present pass: upsample the render target to the canvas, with optional film grain.
+ *
+ * Grain is a **display** effect and belongs here, after tone mapping and after every physical
+ * quantity has been computed -- it must never sit upstream of anything measured. `uGrain` is 0 by
+ * default and the addition is then exactly zero, so a frame rendered with grain off is
+ * bit-identical to one rendered before grain existed. That matters: the acceptance suite measures
+ * the shadow radius off this image.
+ *
+ * Diagnostic modes bypass this pass entirely (they encode data, not colour), so they can never
+ * pick up grain regardless of the setting.
+ */
 export const BLIT_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 uniform sampler2D uSource;
 uniform vec2 uTargetSize;
+/** 0 = off, and off is the default. Non-physical; labelled as such in the UI. */
+uniform float uGrain;
+/** Advances per frame so the grain resolves rather than sitting still like dirt on the lens. */
+uniform float uGrainSeed;
 out vec4 fragColor;
+
+/** Cheap per-pixel hash. Not a texture read: one fewer binding and no wrap artefacts. */
+float grainHash(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * 0.1031);
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+
 void main() {
-  fragColor = vec4(texture(uSource, gl_FragCoord.xy / uTargetSize).rgb, 1.0);
+  vec3 colour = texture(uSource, gl_FragCoord.xy / uTargetSize).rgb;
+  if (uGrain > 0.0) {
+    float n = grainHash(gl_FragCoord.xy + vec2(uGrainSeed, uGrainSeed * 1.7));
+    // Signed, zero-mean, so grain darkens and lightens equally and does not shift exposure.
+    colour += (n - 0.5) * uGrain * 0.16;
+  }
+  fragColor = vec4(colour, 1.0);
 }
 `;
 

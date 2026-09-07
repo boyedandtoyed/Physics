@@ -59,6 +59,9 @@ export interface LensingParams {
   exposure: number;
   /** Sub-pixel sample offset in pixels. Diagnostics must leave this at [0, 0]. */
   jitter: readonly [number, number];
+  /** Film grain applied in the present pass, 0 to 1. Non-physical; 0 by default. It is added
+   * after tone mapping and never touches a measured quantity. */
+  grain: number;
   /** Fraction of the canvas the lensing pass is rendered at, then bilinearly upsampled (§4.5).
    * 0.5 is a quarter of the work. Diagnostics always render at 1.0 — the shadow gate measures a
    * hard edge to sub-pixel accuracy and upsampling would soften exactly that. */
@@ -102,10 +105,14 @@ export const DEFAULT_LENSING_PARAMS: LensingParams = {
   peakTemperature: DEFAULT_PEAK_TEMPERATURE,
   exposure: DEFAULT_EXPOSURE,
   jitter: [0, 0],
+  grain: 0,
   resolutionScale: 1,
   accumulate: false,
   cinematic: 0,
 };
+
+/** Arbitrary odd stride so successive frames get uncorrelated grain rather than a slow crawl. */
+const GRAIN_SEED_STRIDE = 17;
 
 const UNIFORMS = [
   'uResolution',
@@ -254,6 +261,9 @@ export class LensingRenderer {
     gl.bindVertexArray(this.#vao);
     this.#setTexture(this.#blitProgram, 'uSource', source.texture, 0);
     this.#setVec2(this.#blitProgram, 'uTargetSize', width, height);
+    this.#setFloat(this.#blitProgram, 'uGrain', this.#params.grain);
+    // Tied to the accumulated frame count, not wall time: a paused image must not crawl.
+    this.#setFloat(this.#blitProgram, 'uGrainSeed', this.#frameIndex * GRAIN_SEED_STRIDE);
     gl.drawArrays(gl.TRIANGLES, 0, FULLSCREEN_TRIANGLE_VERTEX_COUNT);
     gl.bindVertexArray(null);
   }
@@ -412,6 +422,9 @@ function validate(params: LensingParams): void {
   }
   if (!(params.diskOuterRadius > params.diskInnerRadius)) {
     throw new RangeError('The disk outer radius must exceed the inner radius.');
+  }
+  if (!Number.isFinite(params.grain) || params.grain < 0 || params.grain > 1) {
+    throw new RangeError('Grain must lie in [0, 1].');
   }
   if (!(params.peakTemperature > 0) || !(params.exposure > 0)) {
     throw new RangeError('Peak temperature and exposure must be positive.');

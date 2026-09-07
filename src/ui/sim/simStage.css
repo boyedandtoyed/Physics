@@ -1,7 +1,19 @@
 /* The shared simulation stage: canvas left, controls right, drawer on narrow screens.
    Colours come from the shell's theme tokens; nothing here defines a colour of its own. */
 
-.sim-stage { display: grid; gap: 2.5rem; padding-top: 1.5rem; }
+/* A simulation page leads with the simulation. The gallery and prose pages keep the large
+   display heading; here the canvas has to be reachable without scrolling, so the header is
+   compact and the stage starts high. */
+.sim-page { padding-top: 1.5rem; }
+.sim-page > header, .sim-page > .sim-head { max-width: 52rem; }
+.sim-page h1 {
+  font-size: clamp(1.9rem, 3.1vw, 2.9rem);
+  line-height: 1.12; margin: 0.2rem 0 0.7rem;
+}
+.sim-page .intro { margin-bottom: 1.2rem; font-size: 1rem; }
+.sim-page .eyebrow { margin-bottom: 0.6rem; }
+
+.sim-stage { display: grid; gap: 2.5rem; padding-top: 0.5rem; }
 
 .stage-main {
   display: grid;
@@ -18,7 +30,7 @@
 .stage-surface > canvas,
 .stage-surface > .stage-svg {
   display: block; width: 100%; height: 100%;
-  min-height: min(68vh, 640px);
+  min-height: min(60vh, 620px);
   background: var(--panel);
   border: 1px solid var(--line); border-radius: 0.6rem;
   cursor: grab; touch-action: none;
@@ -30,7 +42,7 @@
 .stage-panel {
   display: grid; grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--line); border-radius: 0.6rem; background: var(--panel);
-  min-width: 0; max-height: min(68vh, 640px);
+  min-width: 0; max-height: min(60vh, 620px);
 }
 .stage-panel-head {
   display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between;
