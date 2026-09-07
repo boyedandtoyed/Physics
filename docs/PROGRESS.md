@@ -43,9 +43,15 @@ unstarted. Physics is unchanged throughout: no equation, constant or benchmark m
   wheel-zoom and a full keyboard path, controlled so the caller keeps one source of truth.
 - **Black hole sim** (commit `2fa8e93`). Full-canvas render, orbit camera, Play/Pause/Reset,
   film grain, click-to-expand. 9 new Playwright tests.
+- **Spacetime curvature view** (`/sims/spacetime-curvature`, commits `aefc08b` → `efa8c44`).
+  The Flamm paraboloid as an orbit-controlled WebGL2 wireframe with three camera presets, depth
+  cueing, and controls for the outer edge and vertical exaggeration. §2.1a was written first, with
+  the derivation and the three things popular treatments drop. `core/embedding.ts` (7 tests) and
+  `core/gl/matrix.ts` (9 tests) are new; the mesh tests (8) assert every vertex sits on the exact
+  embedding. 6 Playwright tests.
 
-**Still to do:** spacetime curvature grid, Gullstrand–Painlevé river view, and converting the
-three non-WebGL sims to the stage.
+**Still to do:** the Gullstrand–Painlevé river view, and converting the three non-WebGL sims
+(deflection, interpretations, time dilation) to the stage layout.
 
 **Four premises in the brief did not match the repo, and are recorded so they are not re-tried:**
 
