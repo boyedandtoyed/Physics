@@ -6,10 +6,27 @@
 merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
 signed off. **Next phase: 3 — orbits and precession (BUILD_PLAN §3).**
 **Branch:** `feat/phase-2-time`, branched from `master`.
-**Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
-**The lensing sim is registered and live.** Reachable from the Collection page at
-https://abstract-physics.binodtiwari.com/sims/blackhole-lensing, verified rendering end to end
-through the public HTTPS host.
+**Live:** https://abstract-physics.binodtiwari.com serves **all four simulations**, verified end
+to end through the public HTTPS host after the Phase 2 deploy: every sim rendered in both themes
+with **zero axe violations and zero console errors**, zero horizontal overflow at 390 px, the
+gallery listing four entries, and the skip link still first in tab order. Container
+`physics-web-1` healthy; the host-owned `cloudflared` systemd service was not touched.
+
+| Route | Live |
+|---|---|
+| `/` | 200, four simulations listed |
+| `/sims/blackhole-lensing` | 200, renders |
+| `/sims/time-dilation` | 200, renders |
+| `/sims/deflection-decomposition` | 200, renders |
+| `/sims/interpretations` | 200, renders |
+| `/method` | 200 |
+
+**One live-only finding, recorded in `DEPLOY.md`.** axe reported a `region` violation on every
+page through the tunnel that the identical container did not produce. Cloudflare injects a hidden
+anchor as the first child of `<body>` at the edge, which displaced the skip link from first
+position — and axe exempts a skip link only when it *is* first. The skip link now lives inside the
+header landmark, which makes it immune to whatever the edge puts in front of it. **Diff `curl` of
+the public host against `curl` of `127.0.0.1:8080` before assuming the app changed.**
 
 ### Phase 1 definition of done (BUILD_PLAN §3)
 

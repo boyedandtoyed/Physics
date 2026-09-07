@@ -107,10 +107,10 @@ const NEAREST_HEIGHT = 1e-6;
 
 /** Radii worth naming, all outside the horizon (PHYSICS_SPEC §2.4). */
 export const CLOCK_PRESETS: readonly ClockPreset[] = [
-  { id: 'near', label: 'Just outside', radius: HORIZON + NEAREST_HEIGHT, note: '1.000001 r_s' },
-  { id: 'photon', label: 'Photon sphere', radius: PHOTON_SPHERE_RADIUS, note: '1.5 r_s' },
-  { id: 'isco', label: 'ISCO', radius: ISCO_RADIUS, note: '3 r_s' },
-  { id: 'far', label: 'Far field', radius: FAR_FIELD_RADIUS, note: '1001 r_s' },
+  { id: 'near', label: 'Just outside', radius: HORIZON + NEAREST_HEIGHT, note: '1.000001 rₛ' },
+  { id: 'photon', label: 'Photon sphere', radius: PHOTON_SPHERE_RADIUS, note: '1.5 rₛ' },
+  { id: 'isco', label: 'ISCO', radius: ISCO_RADIUS, note: '3 rₛ' },
+  { id: 'far', label: 'Far field', radius: FAR_FIELD_RADIUS, note: '1001 rₛ' },
 ];
 
 /** The curve of dtau/dt against radius, sampled in log(r/r_s - 1). */
