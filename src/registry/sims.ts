@@ -37,4 +37,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Coordinate charts', 'Interpretations'],
     load: () => import('../sims/interpretations'),
   },
+  {
+    id: 'time-dilation',
+    title: 'Every clock is somewhere',
+    description:
+      'Gravitational time dilation, from a clock beside a black hole to the one in your pocket. '
+      + 'GPS, Hafele–Keating, and the near-horizon limit, each against its published value.',
+    tags: ['General relativity', 'Time dilation', 'GPS'],
+    load: () => import('../sims/time-dilation'),
+  },
 ];
