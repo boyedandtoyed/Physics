@@ -1,0 +1,18 @@
+# Staging: the release candidate, on 127.0.0.1:8082 and
+# https://staging-abstract-physics.binodtiwari.com.
+#
+# The point of this stack is that verification runs through the real Cloudflare edge — TLS
+# termination, HTTP/2, and the edge's HTML injection — rather than against localhost, where the
+# response is not byte-identical. A `region` accessibility violation caused by Cloudflare
+# injecting a hidden anchor into <body> was invisible to every local check and only appeared
+# through the tunnel; see DEPLOY.md.
+#
+# Separate compose project name so it never touches the production stack's containers.
+name: physics-staging
+
+services:
+  web:
+    image: physics-web:rc
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:80"

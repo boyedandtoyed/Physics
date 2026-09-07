@@ -1,6 +1,13 @@
+# Production. 127.0.0.1:8080, routed by the host cloudflared tunnel.
+#
+# This file deliberately has no `build:`. Promotion must ship the exact bytes that were verified
+# on staging, so `docker compose up -d` here can only ever start an already-built, already-tested
+# image. Building is done once, by scripts/release.sh, and the same image ID is promoted.
+name: physics
+
 services:
   web:
-    build: .
+    image: physics-web:live
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"
