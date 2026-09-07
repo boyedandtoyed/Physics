@@ -2,9 +2,9 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 2 — Time and interpretations. **Parts 2 and 3 are landed, green and deployed-ready.
-Part 1's physics core is landed; part 1's UI is the only Phase 2 item left.**
-Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is signed off.
+**Phase:** 2 — Time and interpretations. **COMPLETE.** All three parts are built, green,
+merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
+signed off. **Next phase: 3 — orbits and precession (BUILD_PLAN §3).**
 **Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
 **The lensing sim is registered and live.** Reachable from the Collection page at
@@ -102,11 +102,59 @@ Phase 2 gate table below.
 **DONE: part 3, the Interpretations module** (`/sims/interpretations`, commits `d8764db` →
 `43c75ec`). Four charts, one worldline, invariants recovered by four independent routes.
 
-**NEXT: part 1's UI** — the gravitational time-dilation calculator and visualiser. Its physics
-core (`src/core/timeDilation.ts`) is finished and mutation-tested; what remains is entirely UI,
-following the pattern the two Phase 2 exhibits now establish: a pure `description/` layer computing
-every displayed number, a `view/` layer that draws it, an e2e spec covering both themes, and a
-mutation harness in `docs/mutations/`.
+**DONE: part 1's UI, the time-dilation calculator** (`/sims/time-dilation`). Three sections over
+the untouched core: near-horizon static clocks with the rate curve and tick strip, GPS with its
+gain/loss split and the range-error consequence, and Hafele–Keating against its published bands.
+
+### Phase 2 definition of done (BUILD_PLAN §3)
+
+| Requirement | Verified | Verdict |
+|---|---|---|
+| Time-dilation calculator + visualiser: GPS, Hafele–Keating, near-horizon clocks | `/sims/time-dilation`, 32 display tests over a 16-test core | met |
+| Benchmarks §8.5–8.9 asserted | rows 5–7 at **+45.7 / −7.11 / +38.5 μs/day**; rows 8–9 inside **−40±23** and **+275±21 ns**; row 19 as the **2.25×** cross-to-quadratic ratio | met |
+| Deflection decomposition, 0.875″ → 1.75″ | `/sims/deflection-decomposition`, ratio **exactly 2**, space term constant across all fifteen decades | met |
+| Interpretations module, four charts, identical invariants | `/sims/interpretations`, four independent recoveries agreeing to **8.7e-15** against a 1e-10 gate | met |
+| Plus the tidal panel no "expansion" story reproduces | geodesic-deviation figure, 2:1 stretch-to-squeeze drawn to scale, **−1.0 c²/rₛ²** finite at the horizon | met |
+
+**Totals at Phase 2 close:** 238 Vitest, 40 Playwright (app) + 11 lensing acceptance, 84 Python
+benchmarks, **147 mutations across four harnesses, all killed.** Typecheck, ESLint, dependency
+rules and the production build are green.
+
+### Phase 2 part 1 gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| GPS gravitational | **+45.73 μs/day** (§8 row 5) | drop the 1/R − 1/r ordering | sign flips |
+| GPS kinematic | **−7.106 μs/day** (§8 row 6) | drop the ground-station term | −7.21 |
+| GPS net | **+38.62 μs/day** (§8 row 7) | sum instead of difference | fails |
+| Uncorrected position drift | **11.6 km/day** = c × net | drop the c | fails |
+| Ashby pre-launch offset cross-check | **4.4688e-10** vs published 4.4647e-10, **0.09%** high | detune up instead of down | 0.0091 Hz, caught |
+| Hafele–Keating eastward | **−44.5 ns**, inside −40±23 | swap the legs | outside |
+| Hafele–Keating westward | **+255.6 ns**, inside +275±21 | hardcode `insideBand: true` | caught by the predicate test |
+| Cross ÷ quadratic (§8 row 19) | **2.25×**, reverses sign | absolute value of v | asymmetry vanishes |
+| Near-horizon rate at 1.000001 rₛ | **9.999995e-4**, slowdown **1000.0005×** | rate as sqrt(d) not sqrt(d/(1+d)) | exactly 1000 |
+| tick marks vs label | **exact at 1, 28, 40** | draw count + 1 fenceposts | 41 under "40 ticks" |
+| Display-layer mutations killed | **36 / 36** | — | — |
+
+**What building part 1 found.** The new CLAUDE.md rule 3 earned itself immediately: the green
+suite passed while the page had three defects, all found by driving it.
+
+1. **The presets did not land on the radii they name.** "Photon sphere" routed through the integer
+   slider index and snapped to 1.50119 rₛ, reading 0.5778 instead of 0.5774. State is now the
+   exact value with the slider showing the nearest index.
+2. **The tick strip drew count + 1 marks under a label saying count** — 41 fenceposts for
+   "40 ticks" — and would have divided by zero at one tick.
+3. **All three Phase 2 sims scrolled sideways on a phone**, by 68, 7 and 205 px. Grid items default
+   to `min-width: auto`, so a `.physics-panel` holding a wide KaTeX display and a `.table-scroll`
+   holding a min-width table could not shrink and widened the whole page — their own `overflow-x`
+   containers were powerless. A slider thumb also overhung its track end by half its width. Both
+   were latent in the lensing sim and only triggered by longer content. The mobile e2e test
+   covered only the gallery; there is now a route-level guard over all four sims at 360 and 390 px.
+
+**And one in the tooling.** The mutation harness scored a *crash* as a survival: a mutation that
+throws at import time produces zero assertion results, and the scorer read "no failed assertions"
+as "survived". A crash is the most emphatic kill there is. Fixed in all four harnesses; all four
+re-run clean.
 
 ### Phase 2 part 3 gate table
 
