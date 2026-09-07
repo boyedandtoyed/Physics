@@ -23,6 +23,7 @@ import {
   gpsRadiusFromIndex,
   indexFromGpsRadius,
   indexFromLogHeight,
+  insideBand,
   logHeightFromIndex,
   offsetFrequency,
   radiusForRate,
@@ -54,6 +55,17 @@ describe('the near-horizon slider maps onto the physics', () => {
     }
     expect(indexFromLogHeight(-99)).toBe(0);
     expect(indexFromLogHeight(99)).toBe(HEIGHT_STEPS);
+  });
+
+  it('clamps an out-of-range index rather than extrapolating past the slider', () => {
+    // The endpoint guards exist for this. Without them the mapping runs off both ends, and the
+    // exact-endpoint behaviour they also provide is indistinguishable from the formula's.
+    expect(logHeightFromIndex(-5)).toBe(MIN_LOG_HEIGHT);
+    expect(logHeightFromIndex(-1e6)).toBe(MIN_LOG_HEIGHT);
+    expect(logHeightFromIndex(HEIGHT_STEPS + 5)).toBe(MAX_LOG_HEIGHT);
+    expect(logHeightFromIndex(1e6)).toBe(MAX_LOG_HEIGHT);
+    expect(gpsRadiusFromIndex(-5)).toBe(MIN_GPS_RADIUS);
+    expect(gpsRadiusFromIndex(GPS_RADIUS_STEPS + 5)).toBe(MAX_GPS_RADIUS);
   });
 
   it('reaches a clock running a thousand times slow at the near end', () => {
@@ -180,8 +192,11 @@ describe('GPS (§8 rows 5-7)', () => {
     // An independent check on sign and magnitude: the satellites are detuned before launch.
     expect(nominal.fractionalRate).toBeCloseTo(ASHBY_FRACTIONAL_RATE, 12);
     expect(Math.abs(nominal.fractionalRate / ASHBY_FRACTIONAL_RATE - 1)).toBeLessThan(1e-3);
-    // 10.23 MHz detuned by Ashby's fraction is the published 10.22999999543 MHz.
-    expect(offsetFrequency(ASHBY_FRACTIONAL_RATE)).toBeCloseTo(10.22999999543e6, 1);
+    // 10.23 MHz detuned by Ashby's fraction is the published 10.22999999543 MHz. The tolerance
+    // has to be tighter than the 0.0091 Hz between detuning down and detuning up, or the
+    // assertion cannot tell the sign of the correction — which is the whole point of quoting it.
+    expect(offsetFrequency(ASHBY_FRACTIONAL_RATE)).toBeCloseTo(10229999.99543, 4);
+    expect(offsetFrequency(ASHBY_FRACTIONAL_RATE)).toBeLessThan(10.23e6);
   });
 
   it('reports the altitude a reader can picture', () => {
@@ -225,6 +240,16 @@ describe('Hafele–Keating (§8 rows 8, 9, 19)', () => {
     expect(west.net).toBeCloseTo(256, -1);
     expect(east.net).toBeLessThan(0);
     expect(west.net).toBeGreaterThan(0);
+  });
+
+  it('checks the band on both sides, not just where the real legs happen to land', () => {
+    // Both real legs are inside, so `insideBand: true` would pass every test built on them.
+    expect(insideBand(-40, { value: -40, uncertainty: 23 })).toBe(true);
+    expect(insideBand(-63, { value: -40, uncertainty: 23 })).toBe(true);
+    expect(insideBand(-17, { value: -40, uncertainty: 23 })).toBe(true);
+    expect(insideBand(-63.01, { value: -40, uncertainty: 23 })).toBe(false);
+    expect(insideBand(-16.99, { value: -40, uncertainty: 23 })).toBe(false);
+    expect(insideBand(0, { value: 275, uncertainty: 21 })).toBe(false);
   });
 
   it('quotes the published predictions alongside, not instead of, the computed value', () => {

@@ -204,6 +204,17 @@ export interface FlightFigures extends FlightOffsets {
   crossToQuadratic: number;
 }
 
+/**
+ * Whether a computed offset lands inside a published prediction band.
+ *
+ * Exported and tested directly because `flightFigures` only ever produces the two real legs, both
+ * of which are inside — so a test built on it alone cannot tell this apart from `true`, and
+ * mutation testing said so.
+ */
+export function insideBand(net: number, predicted: { value: number; uncertainty: number }): boolean {
+  return Math.abs(net - predicted.value) <= predicted.uncertainty;
+}
+
 export function flightFigures(direction: FlightDirection): FlightFigures {
   const leg = direction === 'eastward' ? HAFELE_KEATING_EASTWARD : HAFELE_KEATING_WESTWARD;
   const offsets = hafeleKeating(leg);
@@ -212,7 +223,7 @@ export function flightFigures(direction: FlightDirection): FlightFigures {
     ...offsets,
     direction,
     predicted,
-    insideBand: Math.abs(offsets.net - predicted.value) <= predicted.uncertainty,
+    insideBand: insideBand(offsets.net, predicted),
     crossToQuadratic: Math.abs(offsets.sagnacCross) / offsets.quadratic,
   };
 }

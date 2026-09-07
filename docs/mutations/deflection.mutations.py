@@ -115,6 +115,13 @@ MUTATIONS = [
 ]
 
 def run_tests():
+    """Run the suite and report which tests failed.
+
+    A mutation that makes the suite CRASH — a throw at import or collection time — produces zero
+    assertion results, which an earlier version of this harness scored as "no failures", i.e. as a
+    survivor. That is exactly backwards: a crash is the most emphatic kill there is. The run's exit
+    code and test count are therefore both treated as evidence.
+    """
     r = subprocess.run(
         ['npx', 'vitest', 'run', 'src/core/deflection.test.ts', '--reporter=json',
          '--outputFile=' + str(ROOT / 'out.json')],
@@ -128,7 +135,10 @@ def run_tests():
         for t in suite.get('assertionResults', []):
             if t.get('status') == 'failed':
                 failed.append(t.get('title'))
-    return data.get('numTotalTests'), failed
+    total = data.get('numTotalTests') or 0
+    if not failed and (r.returncode != 0 or total == 0):
+        failed.append('<suite did not run: crashed at import or collection>')
+    return total, failed
 
 def main():
     only = sys.argv[1] if len(sys.argv) > 1 else None
