@@ -2,7 +2,8 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 2 — Time and interpretations. **COMPLETE.** All three parts are built, green,
+**Phase:** 3-Visual — 3D rendering and interaction overhaul. **IN PROGRESS** (see below).
+Phase 2 — Time and interpretations — is **COMPLETE.** All three parts are built, green,
 merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
 signed off. **Next phase: 3 — orbits and precession (BUILD_PLAN §3).**
 **Branch:** `feat/phase-2-time`, branched from `master`.
@@ -27,6 +28,55 @@ anchor as the first child of `<body>` at the edge, which displaced the skip link
 position — and axe exempts a skip link only when it *is* first. The skip link now lives inside the
 header landmark, which makes it immune to whatever the edge puts in front of it. **Diff `curl` of
 the public host against `curl` of `127.0.0.1:8080` before assuming the app changed.**
+
+### Phase 3-Visual — 3D rendering and interaction overhaul *(2026-09-07)* — IN PROGRESS
+
+A rendering and UX phase inserted ahead of BUILD_PLAN §3 (orbits and precession), which remains
+unstarted. Physics is unchanged throughout: no equation, constant or benchmark moves.
+
+**Landed**
+
+- **Shared stage** (`src/ui/sim/`, commit `5d4118d`). `SimStage` gives every sim a canvas-left /
+  panel-right layout with a bottom drawer under 900px, focus mode at 95vw × 95vh with the panel
+  floating over the canvas, and Escape/close to restore. `playbackStore` (zustand) holds
+  play/pause, a reset token, focus and grain, keyed by sim id. `useOrbitControls` is drag-rotate,
+  wheel-zoom and a full keyboard path, controlled so the caller keeps one source of truth.
+- **Black hole sim** (commit `2fa8e93`). Full-canvas render, orbit camera, Play/Pause/Reset,
+  film grain, click-to-expand. 9 new Playwright tests.
+
+**Still to do:** spacetime curvature grid, Gullstrand–Painlevé river view, and converting the
+three non-WebGL sims to the stage.
+
+**Four premises in the brief did not match the repo, and are recorded so they are not re-tried:**
+
+1. **WebGPU has never been implemented.** It exists only as a policy paragraph in BUILD_PLAN §4;
+   `core/gl/context.ts` calls `getContext('webgl2')` and nothing else. There is no WebGPU path to
+   "extend". Everything here is WebGL2, which is the mandatory fallback and what actually ships.
+2. **Zustand was not a dependency.** Added.
+3. **The Hawking and Casimir sims do not exist** — they are Phase 6. Particle effects for them
+   are not implementable, and CLAUDE.md forbids scaffolding future-phase folders, so this item is
+   **not done** and is not stubbed.
+4. **The star field already exists** (Phase 1: equal-area cells, anisotropic filtering, a
+   temporal-stability gate). Nothing to replace.
+
+**Two requested effects would have falsified measured physics and were implemented differently:**
+
+- **A ±2% shimmer on b_crit** would move the shadow edge about 2px and break the 0.013px
+  acceptance gate — the product's headline measured claim, and §8 row 12 marks b_crit *exact*.
+  The photon ring is emphasised at its fixed radius instead.
+- **A spinning disk azimuth and a drifting light source** have nothing to act on: the
+  Novikov–Thorne disk is axisymmetric, so rotating that uniform is unobservable, and a vacuum
+  Schwarzschild scene has no light source. Making either visible would need non-axisymmetric
+  structure that is not in PHYSICS_SPEC. The **camera** drifts instead, which is a viewpoint
+  change and claims nothing about the physics.
+
+Film grain defaults to 0 and is labelled non-physical, per CLAUDE.md's "never ship a cinematic
+mode as the default".
+
+**What driving the page caught that the green suite did not:** Reset looked fine and silently did
+nothing after any camera change. The idle drift wrote the whole camera pose every frame, so its
+callback could read the pre-reset pose, let Reset commit, and land afterwards restoring the old
+value. It applies a delta through a functional update now.
 
 ### Staging deploy path *(2026-09-07)* — one step outstanding
 
