@@ -113,7 +113,7 @@ export function RateCurve({ logHeight }: Props) {
         y={HEIGHT - AXIS_LABEL_GAP}
         textAnchor="middle"
       >
-        Height above the horizon, (r − r_s) / r_s
+        Height above the horizon, (r − rₛ) / rₛ
       </text>
     </svg>
   );

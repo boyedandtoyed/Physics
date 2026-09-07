@@ -18,6 +18,7 @@ import {
   formatMicroseconds,
   formatNanoseconds,
   formatRadius,
+  formatRadiusSpoken,
   formatRate,
   gpsFigures,
   gpsRadiusFromIndex,
@@ -275,9 +276,13 @@ describe('Hafele–Keating (§8 rows 8, 9, 19)', () => {
 
 describe('formatting survives the ranges these numbers actually cover', () => {
   it('keeps the radius readable at both ends of fifteen decades', () => {
-    expect(formatRadius(1 + 1e-6)).toBe('r_s + 1.00e-6 r_s');
-    expect(formatRadius(3)).toBe('3.000 r_s');
-    expect(formatRadius(1 + 1e6)).toBe('r_s + 1.00e+6 r_s');
+    expect(formatRadius(1 + 1e-6)).toBe('rₛ + 1.00e-6 rₛ');
+    expect(formatRadius(3)).toBe('3.000 rₛ');
+    expect(formatRadius(1 + 1e6)).toBe('rₛ + 1.00e+6 rₛ');
+    // The spoken form spells the unit out: a subscript glyph is silent or mis-read aloud.
+    expect(formatRadiusSpoken(3)).toBe('3.000 Schwarzschild radii');
+    expect(formatRadiusSpoken(1 + 1e-6)).toContain('one Schwarzschild radius plus');
+    expect(formatRadiusSpoken(3)).not.toContain('ₛ');
   });
 
   it('keeps the rate readable at both ends', () => {
@@ -308,6 +313,8 @@ describe('formatting survives the ranges these numbers actually cover', () => {
 describe('the spoken summaries carry the physics', () => {
   it('states the rate, the slowdown and the horizon caveat', () => {
     const text = describeClocks(0);
+    expect(text).toContain('Schwarzschild radii');
+    expect(text).not.toContain('ₛ');
     expect(text).toContain('times slow');
     expect(text).toContain('one year passes far away');
     expect(text).toContain('No static clock exists at or inside the horizon');

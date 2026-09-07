@@ -4,7 +4,7 @@
  * the same fact in the form people actually reason with. Static by construction — no animation,
  * so nothing here depends on motion the reader may have switched off.
  */
-import { clockFigures, formatRadius } from '../description/describeClocks';
+import { clockFigures, formatRadius, formatRadiusSpoken } from '../description/describeClocks';
 
 const WIDTH = 660;
 const HEIGHT = 118;
@@ -47,7 +47,7 @@ export function TickStrip({ logHeight }: Props) {
         role="img"
         aria-label={
           `Over the same stretch of far-away time, the distant clock ticks ${FAR_TICKS} times and `
-          + `the clock at ${formatRadius(figures.radius)} ticks ${deepTicks} times.`
+          + `the clock at ${formatRadiusSpoken(figures.radius)} ticks ${deepTicks} times.`
         }
       >
         <text className="tick-label" x={PAD_X} y={ROW_ONE - LABEL_LIFT}>

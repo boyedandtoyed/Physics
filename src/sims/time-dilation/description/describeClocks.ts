@@ -237,13 +237,23 @@ const EXPONENTIAL_BELOW = 1e-3;
 const NEAR_UNITY = 1e-6;
 const NEAR_UNITY_PLACES = 9;
 
-/** Readable across the fifteen decades the radius slider covers. */
+/** Readable across the fifteen decades the radius slider covers. Uses the subscript the rest of
+ * the product uses; `formatRadiusSpoken` is the version for the screen-reader summary, where a
+ * subscript glyph is either silent or read as a stray letter. */
 export function formatRadius(radius: number): string {
   const height = radius - HORIZON;
   if (height < EXPONENTIAL_BELOW || radius >= EXPONENTIAL_ABOVE) {
-    return `r_s + ${height.toExponential(2)} r_s`;
+    return `rₛ + ${height.toExponential(2)} rₛ`;
   }
-  return `${radius.toPrecision(SIGNIFICANT)} r_s`;
+  return `${radius.toPrecision(SIGNIFICANT)} rₛ`;
+}
+
+export function formatRadiusSpoken(radius: number): string {
+  const height = radius - HORIZON;
+  if (height < EXPONENTIAL_BELOW || radius >= EXPONENTIAL_ABOVE) {
+    return `one Schwarzschild radius plus ${height.toExponential(2)} Schwarzschild radii`;
+  }
+  return `${radius.toPrecision(SIGNIFICANT)} Schwarzschild radii`;
 }
 
 /** A rate that may be 0.001 or 0.9999995 — fixed notation loses one end or the other. */
@@ -291,7 +301,7 @@ export const formatNanoseconds = (value: number): string =>
 export function describeClocks(logHeight: number): string {
   const f = clockFigures(logHeight);
   return [
-    `Static clock at ${formatRadius(f.radius)}, outside the horizon.`,
+    `Static clock at ${formatRadiusSpoken(f.radius)}, outside the horizon.`,
     `It ticks at ${formatRate(f.rate)} of the rate of a clock at infinity, so it runs`
     + ` ${f.slowdown.toPrecision(SIGNIFICANT)} times slow.`,
     `While one year passes far away, ${formatElapsed(f.secondsPerFarYear)} pass here.`,

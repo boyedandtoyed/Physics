@@ -72,7 +72,7 @@
 }
 .crosscheck strong { color: var(--ink); }
 
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; min-width: 0; }
 .clocks table { border-collapse: collapse; width: 100%; min-width: 42rem; font-size: 0.88rem; }
 .clocks th, .clocks td {
   text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--line);

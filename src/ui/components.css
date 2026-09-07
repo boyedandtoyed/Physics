@@ -10,7 +10,7 @@
  */
 
 /* --- NumberSlider --- */
-.control { display: grid; gap: 0.35rem; }
+.control { display: grid; gap: 0.35rem; min-width: 0; }
 .control-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 .control-head [slot='output'], .control-head output {
   font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.9rem;
@@ -18,6 +18,10 @@
 .control-hint { color: var(--muted); font-size: 0.85rem; margin: 0; }
 .control .react-aria-SliderTrack {
   position: relative; height: 1.5rem; display: flex; align-items: center;
+  /* The thumb is centred on the track end, so half of it hangs outside at 0% and 100%. Inset the
+     track by that half-width and the overhang lands inside the control instead of widening the
+     page — it pushed the deflection sim 8px past the viewport at 390px. */
+  margin-inline: 0.55rem;
 }
 .control .react-aria-SliderTrack::before {
   content: ''; position: absolute; left: 0; right: 0; height: 4px;
@@ -39,7 +43,8 @@
 /* Layout shared by every sim's control block. */
 .controls-grid {
   display: grid; gap: 1.4rem 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  min-width: 0;
 }
 
 /* --- MisconceptionsPanel --- */
