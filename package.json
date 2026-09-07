@@ -20,7 +20,8 @@
     "react": "^19.1.1",
     "react-aria-components": "^1.21.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.18.3"
+    "react-router-dom": "^7.18.3",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

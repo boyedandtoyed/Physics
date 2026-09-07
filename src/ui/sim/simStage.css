@@ -1,0 +1,115 @@
+/* The shared simulation stage: canvas left, controls right, drawer on narrow screens.
+   Colours come from the shell's theme tokens; nothing here defines a colour of its own. */
+
+.sim-stage { display: grid; gap: 2.5rem; padding-top: 1.5rem; }
+
+.stage-main {
+  display: grid;
+  /* Canvas takes the majority; the panel is sized to hold a slider and its readout. */
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.stage-canvas-wrap { position: relative; min-width: 0; display: grid; }
+.stage-surface { position: relative; display: grid; min-width: 0; }
+/* The canvas fills the stage and is tall enough to read without scrolling, while still leaving
+   the page header visible so the reader knows where they are. */
+.stage-surface > canvas,
+.stage-surface > .stage-svg {
+  display: block; width: 100%; height: 100%;
+  min-height: min(68vh, 640px);
+  background: var(--panel);
+  border: 1px solid var(--line); border-radius: 0.6rem;
+  cursor: grab; touch-action: none;
+}
+.stage-surface > canvas:active { cursor: grabbing; }
+.stage-surface > canvas:focus-visible,
+.stage-surface > .stage-svg:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+.stage-panel {
+  display: grid; grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--line); border-radius: 0.6rem; background: var(--panel);
+  min-width: 0; max-height: min(68vh, 640px);
+}
+.stage-panel-head {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between;
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--line);
+}
+.stage-panel-head h2 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+.stage-panel-body { overflow-y: auto; padding: 1rem; display: grid; gap: 1.4rem; align-content: start; }
+
+.transport { display: flex; gap: 0.4rem; }
+.transport-button {
+  cursor: pointer; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 0.35rem;
+  background: var(--bg); color: var(--ink);
+}
+.transport-button:hover { border-color: var(--accent); }
+.transport-button[aria-pressed='true'] { background: var(--accent); color: var(--inverse); border-color: var(--accent); }
+.transport-button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.stage-close {
+  position: absolute; top: 0.75rem; right: 0.75rem; z-index: 3;
+  display: flex; align-items: center; gap: 0.5rem; cursor: pointer;
+  padding: 0.45rem 0.8rem; font-size: 0.82rem; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 0.35rem;
+  background: var(--bg); color: var(--ink);
+}
+.stage-close kbd {
+  font: inherit; font-size: 0.72rem; padding: 0.05rem 0.35rem;
+  border: 1px solid var(--line); border-radius: 0.2rem; color: var(--muted);
+}
+.stage-close:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* --- focus mode: the canvas fills the viewport, the panel floats over it --- */
+.sim-stage.is-focused {
+  position: fixed; inset: 0; z-index: 40;
+  padding: 2.5vh 2.5vw; margin: 0; gap: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+.sim-stage.is-focused .stage-main {
+  grid-template-columns: minmax(0, 1fr);
+  height: 95vh; width: 95vw;
+}
+.sim-stage.is-focused .stage-surface > canvas,
+.sim-stage.is-focused .stage-surface > .stage-svg {
+  min-height: 0; height: 100%; border-radius: 0.5rem;
+}
+.sim-stage.is-focused .stage-panel {
+  position: absolute; top: 1rem; right: 1rem; z-index: 2;
+  width: min(21rem, 42vw); max-height: min(86vh, 46rem);
+  /* Semi-transparent so the simulation stays visible behind the controls. */
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.28);
+}
+.sim-stage.is-focused .stage-prose { display: none; }
+
+@supports not (backdrop-filter: blur(6px)) {
+  .sim-stage.is-focused .stage-panel { background: var(--panel); }
+}
+
+.stage-prose { display: grid; gap: 3rem; }
+
+/* --- narrow screens: the panel becomes a bottom drawer --- */
+@media (max-width: 900px) {
+  .stage-main { grid-template-columns: minmax(0, 1fr); }
+  .stage-surface > canvas, .stage-surface > .stage-svg { min-height: min(52vh, 420px); }
+  .stage-panel {
+    max-height: min(46vh, 26rem);
+    /* Sits above the fold as a drawer rather than pushing the canvas off-screen. */
+    position: sticky; bottom: 0; z-index: 4;
+    box-shadow: 0 -6px 20px rgb(0 0 0 / 0.18);
+  }
+  .sim-stage.is-focused { padding: 0; }
+  .sim-stage.is-focused .stage-main { width: 100vw; height: 100vh; }
+  .sim-stage.is-focused .stage-panel {
+    position: absolute; inset: auto 0 0 0; width: 100%; max-height: 48vh; border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-panel, .stage-surface > canvas { transition: none; }
+}
