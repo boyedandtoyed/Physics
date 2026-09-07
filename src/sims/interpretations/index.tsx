@@ -115,6 +115,7 @@ export default function Interpretations() {
                 <strong>{chart.name}</strong>
                 <span className="panel-horizon-note">At the horizon: {chart.atHorizon}</span>
                 <span>{chart.character}</span>
+                {chart.windowNote ? <span className="panel-window-note">{chart.windowNote}</span> : null}
               </figcaption>
               <ChartPanel id={chart.id} properTime={tau} />
             </figure>

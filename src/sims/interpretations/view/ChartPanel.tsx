@@ -53,7 +53,6 @@ interface Curve {
   marker: { x: number; y: number } | null;
   /** Drawn where the horizon sits in this chart's coordinates. */
   horizon: 'vertical' | 'diagonal' | null;
-  note: string | null;
 }
 
 /**
@@ -93,7 +92,6 @@ function buildCurve(id: ChartId, properTime: number, startRadius: number): Curve
       yLabel: 'T',
       marker: inWindow ? { x: current.X, y: current.T } : null,
       horizon: 'diagonal',
-      note: 'The fall begins at X ≈ 1.4×10⁶, far outside this window.',
     };
   }
 
@@ -133,9 +131,6 @@ function buildCurve(id: ChartId, properTime: number, startRadius: number): Curve
     yLabel: id === 'schwarzschild' ? 't' : id === 'gullstrandPainleve' ? 't_ff' : 'v',
     marker: markerVisible ? { x: markerRadius, y: markerTime } : null,
     horizon: 'vertical',
-    note: id === 'schwarzschild'
-      ? 'The worldline runs off the top: t → ∞ at the horizon, so it never gets there.'
-      : null,
   };
 }
 
@@ -187,6 +182,17 @@ export function ChartPanel({ id, properTime, startRadius = DEFAULT_START_RADIUS 
       <text className="panel-axis" x={PAD_LEFT - AXIS_LABEL_INSET} y={PAD_TOP + AXIS_LABEL_DROP} textAnchor="end">
         {curve.yLabel}
       </text>
+      {!curve.marker && (
+        // Saying so beats a marker that has quietly disappeared, which reads as a bug.
+        <text
+          className="panel-offscreen"
+          x={(WIDTH + PAD_LEFT) / 2}
+          y={PAD_TOP + AXIS_LABEL_DROP}
+          textAnchor="middle"
+        >
+          event outside this window
+        </text>
+      )}
     </svg>
   );
 }

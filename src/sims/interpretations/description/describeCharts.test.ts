@@ -22,6 +22,15 @@ describe('the four charts', () => {
       expect(chart.atHorizon).toBe('finite');
     }
   });
+
+  it('explains, on the two panels that cannot show the whole worldline, why not', () => {
+    // Schwarzschild runs off the top; Kruskal's exterior is exponentially stretched. Both are
+    // physics rather than clipping, so both are stated rather than left as a gap.
+    const withNotes = CHARTS.filter(chart => chart.windowNote).map(chart => chart.id).sort();
+    expect(withNotes).toEqual(['kruskal', 'schwarzschild']);
+    expect(CHARTS.find(chart => chart.id === 'schwarzschild')?.windowNote).toContain('t → ∞');
+    expect(CHARTS.find(chart => chart.id === 'kruskal')?.windowNote).toContain('1.4×10⁶');
+  });
 });
 
 describe('the invariants agree at the same event, in all four charts', () => {

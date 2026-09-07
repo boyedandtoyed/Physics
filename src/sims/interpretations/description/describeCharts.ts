@@ -32,6 +32,8 @@ export interface ChartDefinition {
   atHorizon: string;
   /** One sentence on what this chart is for. */
   character: string;
+  /** Why part of the worldline is not in this panel, where that applies. */
+  windowNote?: string;
 }
 
 export const CHARTS: readonly ChartDefinition[] = [
@@ -41,6 +43,8 @@ export const CHARTS: readonly ChartDefinition[] = [
     timeLabel: 't',
     atHorizon: 't → ∞',
     character: 'The static picture. Nothing flows; the faller never arrives.',
+    windowNote: 'The worldline runs off the top: t → ∞ at the horizon, so in this chart it never '
+      + 'gets there.',
   },
   {
     id: 'gullstrandPainleve',
@@ -62,6 +66,8 @@ export const CHARTS: readonly ChartDefinition[] = [
     timeLabel: 'T',
     atHorizon: 'finite',
     character: 'The maximal extension. Light travels at 45° everywhere.',
+    windowNote: 'Kruskal stretches the distant exterior exponentially: the fall begins at '
+      + 'X ≈ 1.4×10⁶, far outside this window.',
   },
 ];
 
