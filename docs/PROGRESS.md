@@ -28,6 +28,43 @@ position — and axe exempts a skip link only when it *is* first. The skip link 
 header landmark, which makes it immune to whatever the edge puts in front of it. **Diff `curl` of
 the public host against `curl` of `127.0.0.1:8080` before assuming the app changed.**
 
+### Staging deploy path *(2026-09-07)* — one step outstanding
+
+Added before Phase 3 implementation, closing the gap flagged at the Phase 2 close: verification
+was running against the production host *after* deploying to it, so there was no point at which a
+release candidate could be checked through the real edge before the public saw it.
+
+**Done and verified:**
+
+- `docker-compose.yml` (production) has **no `build:`** — it can only start an already-built
+  image, so a promotion cannot quietly rebuild. `docker-compose.staging.yml` is a separate compose
+  project (`physics-staging`) on `127.0.0.1:8082`.
+- `scripts/release.sh build | stage | promote | rollback | status`. `promote` retags the image ID
+  staging is running and refuses if `physics-web:rc` is not that image, so a rebuild after staging
+  fails the promotion instead of shipping something the verification never covered.
+- `PHYSICS_EDGE_URL=<host> npx playwright test` runs the 40 app specs against a **deployed** host
+  with no local servers. Proven by running all 40 against production through the edge — all pass.
+- DNS: `cloudflared tunnel route dns binod-home staging-abstract-physics.binodtiwari.com` run;
+  CNAME created and confirmed reaching the tunnel (the hostname went 1033 → 404, i.e. it now
+  reaches us and falls through to the catch-all).
+- Staging container `physics-staging-web-1` healthy on 8082, serving `physics-web:rc-d7a1d40`.
+- Production untouched throughout: `physics-web:live` was tagged from the image the running
+  container already used, and 8080 and the live host returned 200 at every step.
+- `DEPLOY.md`: release section, both compose files, corrected "add a site" recipe, three new
+  troubleshooting rows. Port registry lists 8082 and corrects 8080's stale status.
+
+**OUTSTANDING — needs root, cannot be done from this session:** the ingress rule is not yet in
+`/etc/cloudflared/config.yml`, so `https://staging-abstract-physics.binodtiwari.com` currently
+returns the catch-all **404**. The exact block is validated (`cloudflared --config … tunnel
+ingress validate` → OK; prod matches rule #0, staging rule #1, dormant hosts the catch-all) and is
+mirrored in `~/.cloudflared/config.yml`. Apply with the command in the session summary — it backs
+up the old config and validates before restarting. Until then the release path works locally on
+8082; only the edge verification step is blocked.
+
+**Do not** remove the staging rule's position above the catch-all, and do not touch the dormant
+hostnames: they are absent from the ingress config entirely and their DNS still points at the
+retired tunnel `d61228a8-8e71-457b-988b-cbaacf646760`.
+
 ### Phase 1 definition of done (BUILD_PLAN §3)
 
 | Requirement | Measured | Verdict |
