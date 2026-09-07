@@ -37,6 +37,8 @@ export const STANDARD_GRAVITY = 9.806_65;
 export const GPS_ORBIT_RADIUS = 26_562_000;
 /** Seconds in a day, for expressing clock offsets per day. */
 export const SECONDS_PER_DAY = 86_400;
+/** Days in a Julian year, the IAU definition. Exact by convention. */
+export const DAYS_PER_JULIAN_YEAR = 365.25;
 export const SECONDS_PER_HOUR = 3600;
 export const NANOSECONDS_PER_SECOND = 1e9;
 export const MICROSECONDS_PER_SECOND = 1e6;
