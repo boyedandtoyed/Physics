@@ -113,7 +113,7 @@ export function RateCurve({ logHeight }: Props) {
         y={HEIGHT - AXIS_LABEL_GAP}
         textAnchor="middle"
       >
-        Height above the horizon, r − r_s
+        Height above the horizon, (r − r_s) / r_s
       </text>
     </svg>
   );
@@ -122,9 +122,9 @@ export function RateCurve({ logHeight }: Props) {
 const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 const DECIMAL_BASE = 10;
 
-/** "10⁻⁶ r_s" and so on, without nested tspans. */
+/** "10⁻⁶" and so on, without nested tspans. The axis label carries the unit, so the ticks are
+ * plain powers of ten — mixing "10⁻⁶" with "r_s" on one axis reads as two different quantities. */
 function formatDecade(exponent: number): string {
-  if (exponent === 0) return 'r_s';
   const sign = exponent < 0 ? '⁻' : '';
   const digits = String(Math.abs(exponent))
     .split('')

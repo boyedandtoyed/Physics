@@ -49,14 +49,21 @@ const ALTITUDE_FIGURES = 5;
 /** Ashby's offset is quoted to eleven decimal places; fewer hides the whole point. */
 const FREQUENCY_PLACES = 11;
 
+/** Green for a contribution that makes the flying clock gain, orange for one that costs it.
+ * Westward, the Sagnac contribution is a gain — colouring it as a loss would contradict the sign
+ * printed next to it. */
+const signClass = (value: number): string => (value >= 0 ? 'gain' : 'loss');
+
 export default function TimeDilation() {
-  const [heightStep, setHeightStep] = useState(indexFromLogHeight(DEFAULT_LOG_HEIGHT));
+  // State is the exact log-height, not the slider index. A preset must land ON the radius it
+  // names: routing "Photon sphere" through the integer index snaps it to 1.50119 r_s, which is
+  // not the photon sphere. The slider shows the nearest index; the value stays exact.
+  const [logHeight, setLogHeight] = useState(DEFAULT_LOG_HEIGHT);
   const [gpsStep, setGpsStep] = useState(indexFromGpsRadius(GPS_ORBIT_RADIUS));
   const [latitude, setLatitude] = useState(DEFAULT_LATITUDE);
   const [announcement, setAnnouncement] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const logHeight = logHeightFromIndex(heightStep);
   const clocks = useMemo(() => clockFigures(logHeight), [logHeight]);
   const gps = useMemo(
     () => gpsFigures(gpsRadiusFromIndex(gpsStep), latitude), [gpsStep, latitude],
@@ -106,8 +113,8 @@ export default function TimeDilation() {
         <div className="controls-grid">
           <NumberSlider
             label="Height above the horizon"
-            value={heightStep}
-            onChange={value => { setHeightStep(value); setFocus('clocks'); }}
+            value={indexFromLogHeight(logHeight)}
+            onChange={value => { setLogHeight(logHeightFromIndex(value)); setFocus('clocks'); }}
             minValue={0}
             maxValue={HEIGHT_STEPS}
             step={1}
@@ -123,7 +130,7 @@ export default function TimeDilation() {
                   key={preset.id}
                   className="preset"
                   onPress={() => {
-                    setHeightStep(indexFromLogHeight(Math.log10(preset.radius - 1)));
+                    setLogHeight(Math.log10(preset.radius - 1));
                     setFocus('clocks');
                   }}
                 >
@@ -261,8 +268,8 @@ export default function TimeDilation() {
               <tr>
                 <th scope="col">Direction</th>
                 <th scope="col">Altitude (gh/c²)</th>
-                <th scope="col">Sagnac cross term</th>
-                <th scope="col">v² term</th>
+                <th scope="col">Sagnac contribution</th>
+                <th scope="col">v² contribution</th>
                 <th scope="col">Net</th>
                 <th scope="col">Published prediction</th>
               </tr>
@@ -271,9 +278,15 @@ export default function TimeDilation() {
               {[east, west].map(leg => (
                 <tr key={leg.direction}>
                   <th scope="row">{leg.direction === 'eastward' ? 'Eastward' : 'Westward'}</th>
-                  <td className="gain">{formatNanoseconds(leg.gravitational)}</td>
-                  <td className="loss">{formatNanoseconds(-leg.sagnacCross)}</td>
-                  <td className="loss">{formatNanoseconds(-leg.quadratic)}</td>
+                  <td className={signClass(leg.gravitational)}>
+                    {formatNanoseconds(leg.gravitational)}
+                  </td>
+                  <td className={signClass(-leg.sagnacCross)}>
+                    {formatNanoseconds(-leg.sagnacCross)}
+                  </td>
+                  <td className={signClass(-leg.quadratic)}>
+                    {formatNanoseconds(-leg.quadratic)}
+                  </td>
                   <td><strong>{formatNanoseconds(leg.net)}</strong></td>
                   <td>
                     {leg.predicted.value} ± {leg.predicted.uncertainty} ns{' '}

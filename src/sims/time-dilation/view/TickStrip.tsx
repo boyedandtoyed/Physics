@@ -16,6 +16,7 @@ const LABEL_LIFT = 13;
 /** Ticks drawn for the far clock. The deep clock gets this many times its rate. */
 const FAR_TICKS = 40;
 const MIN_DEEP_TICKS = 1;
+const HALF_CELL = 0.5;
 
 interface Props {
   logHeight: number;
@@ -29,9 +30,12 @@ export function TickStrip({ logHeight }: Props) {
   // readout, so rounding here costs nothing and a blank strip would read as a bug.
   const deepTicks = Math.max(MIN_DEEP_TICKS, Math.round(FAR_TICKS * figures.rate));
 
+  // Exactly `count` marks, one centred in each of `count` equal cells. Drawing count + 1
+  // fenceposts would put 41 marks under a label reading "40 ticks", and would divide by zero at
+  // count = 1.
   const row = (count: number, y: number) =>
-    Array.from({ length: count + 1 }, (_, index) => {
-      const x = PAD_X + (span * index) / count;
+    Array.from({ length: count }, (_, index) => {
+      const x = PAD_X + (span * (index + HALF_CELL)) / count;
       return <line key={index} x1={x} x2={x} y1={y} y2={y + TICK_HEIGHT} />;
     });
 
