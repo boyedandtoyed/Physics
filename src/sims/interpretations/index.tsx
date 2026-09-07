@@ -111,13 +111,20 @@ export default function Interpretations() {
         <div className="panel-grid">
           {CHARTS.map(chart => (
             <figure key={chart.id} className="panel-card">
-              <figcaption>
+              {/* Header, chart, then prose. The header is a fixed two lines so the four charts
+                  line up across the row: a side-by-side comparison that is not side by side
+                  is asking the reader to do the work the layout should have done. */}
+              <figcaption className="panel-title">
                 <strong>{chart.name}</strong>
                 <span className="panel-horizon-note">At the horizon: {chart.atHorizon}</span>
-                <span>{chart.character}</span>
-                {chart.windowNote ? <span className="panel-window-note">{chart.windowNote}</span> : null}
               </figcaption>
               <ChartPanel id={chart.id} properTime={tau} />
+              <p className="panel-prose">
+                {chart.character}
+                {chart.windowNote
+                  ? <span className="panel-window-note">{chart.windowNote}</span>
+                  : null}
+              </p>
             </figure>
           ))}
         </div>

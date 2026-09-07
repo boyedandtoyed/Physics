@@ -28,8 +28,15 @@
   margin: 0; display: grid; gap: 0.6rem; align-content: start;
   padding: 1rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--panel);
 }
-.panel-card figcaption { display: grid; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
-.panel-card figcaption strong { color: var(--ink); font-size: 0.95rem; }
+.panel-title {
+  display: grid; gap: 0.25rem; font-size: 0.82rem; color: var(--muted);
+  /* Two lines, always, so every chart in the row starts at the same y. */
+  min-height: 3.1rem; align-content: start;
+}
+.panel-title strong { color: var(--ink); font-size: 0.95rem; }
+.panel-prose {
+  margin: 0; font-size: 0.82rem; color: var(--muted); display: grid; gap: 0.4rem;
+}
 .panel-horizon-note { color: var(--focus); font-weight: 600; font-size: 0.78rem; }
 .chart-panel { width: 100%; height: auto; display: block; }
 .panel-frame { fill: none; stroke: var(--line); stroke-width: 1; }
