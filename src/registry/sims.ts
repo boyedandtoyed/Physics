@@ -28,4 +28,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Light deflection', 'Interpretations'],
     load: () => import('../sims/deflection-decomposition'),
   },
+  {
+    id: 'interpretations',
+    title: 'One geometry, four pictures',
+    description:
+      'The same infall in Schwarzschild, Gullstrand–Painlevé, Eddington–Finkelstein and Kruskal '
+      + 'coordinates. Every picture disagrees; every invariant agrees to one part in 10¹⁰.',
+    tags: ['General relativity', 'Coordinate charts', 'Interpretations'],
+    load: () => import('../sims/interpretations'),
+  },
 ];

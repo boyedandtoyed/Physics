@@ -1,0 +1,80 @@
+/* Scoped to the Interpretations module. Colours come from the shell's theme tokens.
+   Styles for the shared ui/ components live in src/ui/components.css, not here. */
+
+.interpretations { display: grid; gap: 3rem; padding-bottom: 3rem; }
+.interp-head { max-width: 46rem; padding-top: 3rem; }
+.interp-head h1 { margin: 0.2rem 0 1.2rem; }
+.interp-head .intro { color: var(--muted); margin: 0; }
+.interpretations h2 { font-weight: 500; font-size: 1.15rem; margin: 0 0 1rem; }
+.section-intro { color: var(--muted); max-width: 48rem; margin: 0 0 1.4rem; }
+
+.event-figures { display: grid; gap: 1rem; margin: 0; align-content: start; }
+.event-figures div { display: grid; gap: 0.15rem; }
+.event-figures dt {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.event-figures dd {
+  margin: 0; font-size: 1.4rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.event-figures dd span {
+  display: block; font-family: inherit; font-size: 0.78rem; color: var(--muted);
+}
+
+.panel-grid {
+  display: grid; gap: 1.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.panel-card {
+  margin: 0; display: grid; gap: 0.6rem; align-content: start;
+  padding: 1rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--panel);
+}
+.panel-card figcaption { display: grid; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
+.panel-card figcaption strong { color: var(--ink); font-size: 0.95rem; }
+.panel-horizon-note { color: var(--focus); font-weight: 600; font-size: 0.78rem; }
+.chart-panel { width: 100%; height: auto; display: block; }
+.panel-frame { fill: none; stroke: var(--line); stroke-width: 1; }
+.panel-horizon { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 5 4; }
+.panel-horizon-faint { opacity: 0.4; }
+.panel-worldline { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.panel-marker { fill: var(--ink); stroke: var(--panel); stroke-width: 2; }
+.panel-axis { fill: var(--muted); font-size: 12px; }
+
+.table-scroll { overflow-x: auto; }
+.interpretations table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.88rem; }
+.interpretations th, .interpretations td {
+  text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.interpretations thead th {
+  font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); border-bottom-width: 2px;
+}
+.interpretations tbody th { font-weight: 600; }
+.agreement-note, .naive-note { margin: 1rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.agreement-note strong { color: var(--accent); }
+.naive-note strong { color: var(--focus); }
+
+.tidal-layout {
+  display: grid; gap: 2rem; align-items: start;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+}
+.tidal-figure { margin: 0; display: grid; gap: 0.7rem; }
+.tidal-diagram { width: 100%; height: auto; display: block; }
+.tidal-reference { fill: none; stroke: var(--line); stroke-dasharray: 3 4; }
+.tidal-ring { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0.5; }
+.tidal-particle { fill: var(--accent); }
+.tidal-arrow { stroke: var(--focus); stroke-width: 2; }
+.tidal-arrow-in { stroke: var(--ink); opacity: 0.65; }
+.tidal-label { fill: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.tidal-figure figcaption { color: var(--muted); font-size: 0.82rem; line-height: 1.6; }
+.tidal-layout p { color: var(--muted); margin: 0 0 1rem; }
+.tidal-verdict { color: var(--ink) !important; }
+
+.interpretations .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+@media (max-width: 780px) {
+  .interpretations { gap: 2.2rem; }
+  .interp-head { padding-top: 2rem; }
+  .tidal-layout { grid-template-columns: 1fr; }
+  .event-figures dd { font-size: 1.15rem; }
+}

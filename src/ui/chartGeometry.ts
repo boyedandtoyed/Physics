@@ -1,4 +1,7 @@
-/** Pure SVG scaling for the deflection chart.
+/** Pure SVG scaling, shared by every sim that draws a chart.
+ *
+ * Lives in ui/ rather than in a sim because sims must never import each other
+ * (BUILD_PLAN §5); the Interpretations module needs exactly this arithmetic.
  *
  * Separated and tested because an inverted or mis-scaled axis draws a perfectly plausible
  * picture and is silently wrong — the same failure mode the shadow-radius measurement exists to

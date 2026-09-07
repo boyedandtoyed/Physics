@@ -12,7 +12,7 @@ import {
   type CurvePoint,
 } from '../description/describeDeflection';
 import { MAX_LOG_BETA, MIN_LOG_BETA } from '../description/describeDeflection';
-import { decadeTicks, project, projectClamped, toPath, type Axis } from './chartGeometry';
+import { decadeTicks, project, projectClamped, toPath, type Axis } from '../../../ui/chartGeometry';
 
 const WIDTH = 720;
 const HEIGHT = 340;
