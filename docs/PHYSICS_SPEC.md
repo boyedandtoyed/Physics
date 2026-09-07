@@ -45,6 +45,47 @@ else in the codebase — this is enforced by lint rule.
 
 $$ds^2 = -\left(1-\frac{r_s}{r}\right)c^2dt^2 + \left(1-\frac{r_s}{r}\right)^{-1}dr^2 + r^2 d\Omega^2, \qquad r_s = \frac{2GM}{c^2}$$
 
+### 2.1a The embedding diagram — the "rubber sheet", and what it does not show
+
+Take the equatorial plane $\theta=\pi/2$ at constant Schwarzschild $t$. Its induced metric is
+
+$$d\sigma^2 = \frac{dr^2}{1-r_s/r} + r^2d\phi^2$$
+
+Embedding that surface in flat Euclidean 3-space in cylindrical coordinates, where the line
+element is $dz^2 + dr^2 + r^2d\phi^2$, requires
+
+$$\left(\frac{dz}{dr}\right)^2 + 1 = \frac{1}{1-r_s/r}
+\;\Longrightarrow\; \left(\frac{dz}{dr}\right)^2 = \frac{r_s}{r-r_s}
+\;\Longrightarrow\; \boxed{z(r) = 2\sqrt{r_s\,(r-r_s)}}$$
+
+the **Flamm paraboloid** (Flamm 1916; MTW §23.8; Carroll §5.7). **ASSERT** the embedding identity
+$(dz/dr)^2 + 1 = (1-r_s/r)^{-1}$ at several radii, and $z(r_s)=0$, $z(2r_s)=2r_s$, $z(10r_s)=6r_s$.
+The surface has a vertical tangent at the throat — $dz/dr\to\infty$ as $r\to r_s$ — and deepens
+without bound as $z\simeq 2\sqrt{r_s r}$, so any rendering necessarily truncates it at some outer
+radius, and must say so.
+
+**This is the most-abused picture in popular relativity, and the sim must not abuse it.** Three
+things are true of it and are routinely dropped:
+
+1. **It is a spatial slice, not spacetime.** It shows the curvature of space at one instant of
+   Schwarzschild coordinate time. The everyday falling it is usually invoked to explain comes
+   almost entirely from $g_{00}$, not from this surface: §7.4 gives the ratio of the spatial to
+   the temporal contribution as exactly $(v/c)^2$, which for a falling apple is $\sim10^{-15}$.
+   **The funnel is a picture of the part of the geometry that is not why things fall.**
+2. **The funnel is a property of the slicing, not of the geometry.** The same Schwarzschild
+   spacetime sliced at constant Gullstrand–Painlevé time $t_{ff}$ has spatial slices that are
+   **exactly flat Euclidean 3-space** (§5.2). A curved sheet and a flat sheet describe the same
+   spacetime. Nothing invariant distinguishes them; §7.4 Claim B makes the same point for the
+   river model.
+3. **Nothing rolls down it.** The usual "ball rolling into a well" reading needs an external
+   downward gravity to do the rolling, which is the thing being explained — the picture assumes
+   its own conclusion. Nor is the vertical direction $z$ a physical direction: it is an embedding
+   dimension with no counterpart in the spacetime.
+
+**Required UI label:** *"A spatial slice at constant Schwarzschild time, embedded in a flat space
+for viewing. The vertical direction is not a direction you can move in, and the same geometry is
+exactly flat when sliced by a free-faller's clock."*
+
 ### 2.2 Null geodesics — the equation the raymarcher integrates
 
 Spherical symmetry ⇒ every ray is planar. With $u \equiv 1/r$ and impact parameter
