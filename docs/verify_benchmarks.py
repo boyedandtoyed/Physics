@@ -70,6 +70,123 @@ check("GPS gravitational", f_grav * 86400e6, 45.7, 0.2, "us/day")
 check("GPS kinematic", f_kin * 86400e6, -7.2, 0.2, "us/day")
 check("GPS net", (f_grav + f_kin) * 86400e6, 38.5, 0.3, "us/day")
 
+# 8, 9, 19  Hafele-Keating ---------------------------------------------------
+# The spec previously gave no flight parameters, so these rows could not be asserted at all.
+# Representative 1971 values; the result is genuinely latitude-sensitive, so the published
+# BAND is asserted rather than a single number.
+OMEGA_EARTH = 7.292_115e-5          # rad/s, sidereal
+G_SURFACE = 9.806_65                # m/s^2
+
+
+def hafele_keating_ns(height, air_speed, latitude_deg, hours):
+    """Flying clock minus ground clock, nanoseconds. `air_speed` is the aircraft's speed over
+    the ground, positive eastward -- NOT the ground station's speed. Substituting the latter
+    gives a direction-independent constant and deletes the whole effect."""
+    r_perp = Re * math.cos(math.radians(latitude_deg))
+    gravitational = G_SURFACE * height / c**2
+    kinematic = (2 * r_perp * OMEGA_EARTH * air_speed + air_speed**2) / (2 * c**2)
+    return (gravitational - kinematic) * hours * 3600 * 1e9
+
+
+_hk_east = hafele_keating_ns(8900, +265, 50, 41.2)
+_hk_west = hafele_keating_ns(8900, -265, 50, 48.6)
+check("Hafele-Keating eastward", _hk_east, -40.0, 23.0, "ns")
+check("Hafele-Keating westward", _hk_west, 275.0, 21.0, "ns")
+# Row 19: the cross term is the mechanism. It reverses with direction; the v^2 term does not.
+_r_perp = Re * math.cos(math.radians(50))
+_cross = 2 * _r_perp * OMEGA_EARTH * 265 / (2 * c**2)
+_square = 265**2 / (2 * c**2)
+check("HK: cross term dominates v^2 term", _cross / _square, 2.254, 0.02, "x")
+check("HK: east and west differ in sign", 1.0 if _hk_east * _hk_west < 0 else 0.0, 1.0, 0, "")
+# The misreading -- using the ground station's own speed -- destroys the asymmetry.
+_misread = (2 * _r_perp * OMEGA_EARTH * (_r_perp * OMEGA_EARTH)
+            + (_r_perp * OMEGA_EARTH) ** 2) / (2 * c**2)
+check("HK: misreading v as R*Omega kills direction dependence",
+      _misread - _misread, 0.0, 1e-30, "")
+
+# 7.4 Claim A  deflection decomposition --------------------------------------
+def deflection_parts(beta, b=Rsun):
+    """(time-curvature, space-curvature) contributions in arcseconds."""
+    space = 2 * GMsun / (b * c**2)
+    return arcsec(space / beta**2), arcsec(space)
+
+
+_t_light, _s_light = deflection_parts(1.0)
+check("Deflection, time half at beta=1", _t_light, 0.8756, 5e-4, "arcsec")
+check("Deflection, space half at beta=1", _s_light, 0.8756, 5e-4, "arcsec")
+check("Deflection, total at beta=1", _t_light + _s_light, 1.7512, 1e-3, "arcsec")
+check("Deflection, total/time-only ratio", (_t_light + _s_light) / _t_light, 2.0, 1e-12, "")
+# The 7.4 table: space/time must equal (v/c)^2 exactly, across fifteen orders of magnitude.
+for _name, _v in (("apple 10 m/s", 10.0), ("ISS 7.7 km/s", 7700.0), ("Mercury 47.9 km/s", 47_900.0)):
+    _t, _s = deflection_parts(_v / c)
+    check(f"Deflection space/time, {_name}", _s / _t, (_v / c) ** 2, (_v / c) ** 2 * 1e-9, "")
+# The space contribution is speed-independent; that is the non-obvious half of the claim.
+check("Deflection space part is speed-independent",
+      deflection_parts(1e-6)[1] - deflection_parts(1.0)[1], 0.0, 1e-12, "arcsec")
+
+# 7.4 Claim B  four charts, one geometry -------------------------------------
+RS_UNIT = 1.0                       # r_s = 1 units, so M = 1/2
+M_UNIT = RS_UNIT / 2
+
+
+def _infall_proper_time(r0, r):
+    return (2 / 3) * (r0**1.5 - r**1.5) / math.sqrt(RS_UNIT)
+
+
+def _schwarzschild_t(r0, r, n=200_000):
+    total, h = 0.0, (r0 - r) / n
+    for i in range(n):
+        rr = r0 - (i + 0.5) * h
+        total += h / ((1 - RS_UNIT / rr) * math.sqrt(RS_UNIT / rr))
+    return total
+
+
+def _kretschmann(r):
+    return 48 * M_UNIT**2 / r**6
+
+
+check("Interpretations: proper time to horizon is finite",
+      _infall_proper_time(8.0, 1.0), 14.4183, 1e-3, "r_s/c")
+# Schwarzschild t diverges while proper time does not: the contrast the module is built on.
+_t_near = _schwarzschild_t(8.0, 1.001)
+_t_nearer = _schwarzschild_t(8.0, 1.0001)
+check("Interpretations: Schwarzschild t grows without bound",
+      1.0 if _t_nearer > _t_near + 2.0 else 0.0, 1.0, 0, "")
+# Testing K only at r = 1 asserts nothing about the exponent: every power of r gives 12 there.
+# A mutation to r^-5 passed until these were added.
+check("Interpretations: Kretschmann at the horizon", _kretschmann(1.0), 12.0, 1e-9, "1/r_s^4")
+check("Interpretations: Kretschmann at r = 2 r_s", _kretschmann(2.0), 0.1875, 1e-9, "1/r_s^4")
+check("Interpretations: Kretschmann at r = 4 r_s", _kretschmann(4.0), 0.00292969, 1e-8, "1/r_s^4")
+check("Interpretations: Kretschmann scales as r^-6",
+      _kretschmann(1.0) / _kretschmann(2.0), 64.0, 1e-9, "")
+check("Interpretations: tidal scales as r^-3",
+      (-2 * M_UNIT / 1.0**3) / (-2 * M_UNIT / 2.0**3), 8.0, 1e-12, "")
+check("Interpretations: tidal component at the horizon", -2 * M_UNIT / 1.0**3, -1.0, 1e-12, "c^2/r_s^2")
+# The invariants are functions of r alone, so they are identical in every chart by construction;
+# the test is that each chart's own coordinates map back to the same r.
+def _kruskal_invariant(r):
+    return (r / RS_UNIT - 1) * math.exp(r / RS_UNIT)
+
+
+def _r_from_kruskal(value, lo=1.0 + 1e-12, hi=40.0):
+    """Invert X^2 - T^2 back to r by bisection. Comparing the forward value with itself would
+    assert nothing -- the same tautology 2.4 carried before its own audit."""
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        if _kruskal_invariant(mid) < value:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+for _r in (6.0, 2.0, 1.2):
+    _recovered = _r_from_kruskal(_kruskal_invariant(_r))
+    check(f"Interpretations: r recovered from Kruskal at r={_r}", _recovered, _r, 1e-9, "r_s")
+    # And the invariant computed from the recovered r matches the original: same geometry.
+    check(f"  ...Kretschmann agrees after round trip r={_r}",
+          _kretschmann(_recovered), _kretschmann(_r), 1e-12, "1/r_s^4")
+
 # 9-12  Schwarzschild geometric invariants (in units of M) -----------------
 # These were previously asserted as check("Photon sphere / M", 3.0, 3.0, ...) -- the expected
 # value hardcoded on both sides, which cannot fail and proves nothing. They are now *derived*

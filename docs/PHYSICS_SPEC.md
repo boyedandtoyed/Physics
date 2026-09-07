@@ -758,10 +758,68 @@ for a falling apple. But this is a statement about a limit, not a cause: both di
 the same curved geometry seen in different components. For light, the two contribute equally,
 which is exactly why starlight bends 1.75″ past the Sun instead of 0.875″."*
 
+#### The deflection as a function of speed — the formula the interactive needs
+
+An earlier revision gave the ratio table above but never the deflection itself, which is what the
+slider has to plot. It follows uniquely from what this section already asserts. The
+space-curvature contribution does not depend on the particle's speed, and the ratio of the two
+contributions is $(v/c)^2$, so with $\beta = v/c$:
+
+$$\boxed{\alpha(\beta) = \underbrace{\frac{2GM}{c^2b}\frac{1}{\beta^2}}_{\text{time curvature}} + \underbrace{\frac{2GM}{c^2b}}_{\text{space curvature}} = \frac{2GM}{c^2b}\left(1+\frac{1}{\beta^2}\right)}$$
+
+Both limits are already in this document and both must be **ASSERT**ed. As $\beta\to0$ the time
+term becomes $2GM/(bv^2)$, the Newtonian deflection — consistent with §7.4's statement that in the
+slow limit the entire effect comes from $g_{00}$. At $\beta=1$ the two terms are equal and sum to
+$4GM/(c^2b) = 1.7512″$ at the solar limb, matching §8 row 2, with the time-only half at
+$0.8756″$ and the ratio exactly 2.
+
+Note what the formula says that the table alone does not: **the space-curvature contribution is
+the same 0.8756″ for every speed**. It is the time contribution that blows up for slow particles,
+not the space contribution that vanishes.
+
+##### The space coefficient is measured, not assumed: PPN $\gamma$
+
+The claim "the factor of 2 is a direct measurement of spatial curvature" is only worth making if
+the interactive can show the measurement. In the PPN formalism $\gamma$ is exactly the coefficient
+of the spatial-curvature term, and light deflection is
+
+$$\alpha_{\rm light} = \frac{1+\gamma}{2}\cdot\frac{4GM}{c^2b} = \underbrace{\frac{2GM}{c^2b}}_{\text{time}} + \underbrace{\gamma\,\frac{2GM}{c^2b}}_{\text{space}}$$
+
+so the boxed $\alpha(\beta)$ above generalizes, with the $\gamma$ attaching to the space term only:
+
+$$\boxed{\alpha(\beta,\gamma) = \frac{2GM}{c^2b}\left(\frac{1}{\beta^2}+\gamma\right)}$$
+
+General relativity predicts $\gamma=1$ exactly; Einstein's 1911 calculation is $\gamma=0$. The
+$\gamma$ coefficient of the light-deflection formula is standard PPN — Will, *The Confrontation
+between General Relativity and Experiment*, Living Rev. Relativity **17**, 4 (2014), §3.4.1,
+[doi:10.12942/lrr-2014-4](https://doi.org/10.12942/lrr-2014-4). The $\beta$-dependence is the
+section's own decomposition, unchanged. Cassini gives
+$\gamma-1=(2.1\pm2.3)\times10^{-5}$ (Bertotti, Iess & Tortora 2003), i.e. the space term is
+measured equal to the time term to about two parts in $10^5$. **ASSERT:** $\gamma=0$ reproduces
+0.8756″, $\gamma=1$ reproduces 1.7512″, and the Cassini bound admits no value outside
+$\pm0.0001″$ of 1.7512″.
+
+##### Where this formula stops being true — required in the UI
+
+$\alpha(\beta)$ is a **linearized, small-deflection** result, and the slow end of the slider
+violates it spectacularly. At the solar limb $2GM/c^2b = 4.2450\times10^{-6}$ rad, so
+$\alpha<0.01$ rad requires $\beta>0.0206$, i.e. $v>6180$ km/s. Taken literally at an apple's
+10 m/s the formula returns $\sim7.87\times10^{14}$ arcseconds — about $6.1\times10^{8}$ full turns, which
+is not a deflection at all. A 10 m/s particle aimed at the solar limb is simply captured; the
+Newtonian two-body problem, not a bending angle, describes it.
+
+This is not a reason to hide the slow end — it is the honest content of the exhibit. The correct
+statement is that the *ratio* $\text{space}/\text{time}=\beta^2$ holds throughout and is what the
+exhibit is about, while the *absolute* angle is meaningful only in the weak-deflection band. The UI
+must therefore mark the invalid band explicitly rather than plotting a number it knows is wrong.
+The exact Newtonian comparison for the time term is $\tan(\alpha/2)=GM/(bv^2)$, whose linearization
+is the $1/\beta^2$ term; **ASSERT** that the two agree to better than 1% for $\alpha<0.01$ rad and
+that they diverge by a factor of 2 at $\beta=9.542\times10^{-4}$ (ratio 1.88 at $\beta=10^{-3}$,
+135 at $\beta=10^{-4}$).
+
 **Build this as an interactive:** a slider from "apple" to "light" that shows the two
-contributions to the deflection separately and their sum, converging on 0.875″ → 1.75″. This
-single interactive settles the question visually and is one of the strongest exhibits in the
-product.
+contributions separately and their sum, converging on 0.875″ → 1.75″. This single interactive
+settles the question visually and is one of the strongest exhibits in the product.
 
 #### Claim B: "The massive object is literally expanding/coming toward us, while its pull on the spacetime fabric keeps everything balanced."
 
@@ -792,6 +850,113 @@ Where the literal reading fails:
    immediately: two labs on opposite sides of the Earth would both have to "accelerate outward"
    forever without the Earth growing. That contradiction is exactly the tidal effect the
    analogy cannot represent.
+
+#### The four charts, explicitly
+
+An earlier revision named the four coordinate systems and the invariant but gave neither the
+transformations nor the trajectory, which is everything the module actually has to compute. For
+radial infall **from rest at infinity** (geometrized, $r_s = 2M$):
+
+$$\frac{dr}{d\tau} = -\sqrt{\frac{r_s}{r}}, \qquad \tau(r_0\to r) = \frac{2}{3}\frac{r_0^{3/2}-r^{3/2}}{\sqrt{r_s}}, \qquad \frac{dt}{d\tau} = \frac{1}{1-r_s/r}$$
+
+| Chart | Relation to $(t, r)$ | At the horizon |
+|---|---|---|
+| Schwarzschild | $(t, r)$ | $t \to \infty$ |
+| Gullstrand–Painlevé | $t_{ff} = t + \frac{r_s}{c}\left[2\sqrt{r/r_s} + \ln\left\|\frac{\sqrt{r/r_s}-1}{\sqrt{r/r_s}+1}\right\|\right]$; for this trajectory $t_{ff} = \tau$ | finite |
+| Eddington–Finkelstein | $v = t + r_*/c$, $\;r_* = r + r_s\ln\left\|r/r_s - 1\right\|$ | finite |
+| Kruskal–Szekeres | $T = \sqrt{r/r_s-1}\,e^{r/2r_s}\sinh\frac{ct}{2r_s}$, $\;X = \sqrt{r/r_s-1}\,e^{r/2r_s}\cosh\frac{ct}{2r_s}$, so $X^2-T^2 = (r/r_s-1)e^{r/r_s}$ | finite |
+
+##### The trajectory in closed form, and each chart's time origin
+
+The table gives the transformations but not $t(r)$ along the worldline, which is what the module
+must actually evaluate. It follows from the two first integrals above. With $x=r/r_s$ and
+$w=\sqrt{x}$,
+
+$$\frac{dt}{dr}=-\frac{\sqrt{r/r_s}}{1-r_s/r}=-\frac{r_s\,w^3}{w^2-1}\cdot\frac{1}{r_s},\qquad
+\int\frac{w^4}{w^2-1}\,dw = \frac{w^3}{3}+w+\frac12\ln\left|\frac{w-1}{w+1}\right|$$
+
+$$\boxed{t(r) = t(r_0) - r_s\Big[F(w)-F(w_0)\Big],\qquad F(w)\equiv\tfrac23w^3+2w+\ln\left|\tfrac{w-1}{w+1}\right|}$$
+
+The $\ln(w-1)$ term is what sends $t\to+\infty$ at the horizon. The tortoise coordinate carries
+the *same* logarithm with the opposite sign, so it cancels in $v=t+r_*$ and Eddington–Finkelstein
+is regular there — that cancellation, not a numerical accident, is why the chart works.
+Substituting $F$ into the GP transformation likewise cancels both the $2w$ and the logarithm and
+leaves $t_{ff}=\tfrac23 r_s(w_0^3-w^3)=\tau$: **in GP coordinates the free-faller's time
+coordinate is its own proper time**, exactly, given the origin $t_{ff}(r_0)=0$.
+
+Each chart's time origin is a convention and none of the invariants depend on it. The module fixes
+$t(r_0)=0$ and $t_{ff}(r_0)=\tau(r_0)=0$, and says so in the UI, because a reader comparing two
+panels will otherwise read the offset as physics.
+
+##### Kruskal must be carried in null coordinates, not as $(T,X)$
+
+$$V \equiv X+T = e^{v/2r_s},\qquad U \equiv X-T = e^{-u/2r_s},\qquad u\equiv t-r_*,\ v\equiv t+r_*$$
+
+so that $UV = e^{r_*/r_s} = (r/r_s-1)e^{r/r_s}$, which is $X^2-T^2$ written without a subtraction.
+
+This is not a stylistic preference. $X$ and $T$ are each $\tfrac12(V\pm U)$, and $V/U$ runs over
+about eleven orders of magnitude along an infall from $8r_s$, so over most of the trajectory $X$
+and $T$ agree to within one part in $10^8$ and $X^2-T^2$ loses almost all of its significant
+figures.
+
+**The normalisation.** Shifting the Schwarzschild time origin is a boost of the Kruskal plane: it
+multiplies $V$ and divides $U$, leaving $UV$ and every invariant untouched. Any choice is equally
+correct and they are not equally usable. The module anchors $V=1$ at the horizon crossing, which
+has two virtues: the interesting stretch of the worldline lands at order unity and is plottable,
+and — because $v(r)-v(r_s)$ does not depend on the time origin — the resulting chart is
+**canonical**, the same whatever $r_0$ is. The distant exterior becomes the ill-conditioned end
+instead. That is unavoidable: the boost moves the problem, it never removes it.
+
+Measured in float64 with that normalisation: $X^2-T^2$ has a relative error of $7\times10^{-9}$ at
+$r=8\,r_s$ and $8\times10^{-11}$ at $6\,r_s$ — breaching the $10^{-10}$ gate — while the product
+$UV$ holds $1\times10^{-15}$ at the same points and stays inside $6\times10^{-12}$ everywhere down
+to $r=1.00001\,r_s$. **The product $UV$ is what the module uses.** This is the same discipline §6
+applies to the shader: work in the variable that does not cancel.
+
+Inverting for the areal radius is then exact via the Lambert $W$ function:
+
+$$(r/r_s-1)e^{r/r_s-1}=UV/e \;\Longrightarrow\; \boxed{r = r_s\left[1+W_0(UV/e)\right]}$$
+
+with $UV\ge0$ outside the horizon, so the principal branch applies and Newton–Halley converges to
+machine precision. **ASSERT** that $r$ recovered this way matches the trajectory's own $r$ to
+$10^{-12}$ at every sampled event.
+
+##### The comparison must be made at the same EVENTS, not the same coordinate values
+
+This is the one methodological trap in the module, and getting it wrong would make the central
+test pass for the wrong reason. $K=48M^2/r^6$ and the tidal component $-2M/r^3$ are functions of
+the areal radius $r$ alone, and $r$ is a coordinate in three of the four charts. Comparing the
+four charts *at the same $r$* is therefore a tautology: it compares a number with itself and
+would pass no matter how badly the transformations were implemented. It is the same defect as the
+$r=1\,r_s$ Kretschmann check found in this document's own fifth audit.
+
+The comparison that means something: take a **physical event** on the worldline, labelled by the
+free-faller's proper time $\tau$; express it in each of the four charts; then recover the
+invariants **from each chart's own coordinates by that chart's own route** — root-finding $t(r)$
+for Schwarzschild, $\tau$ for GP, $v(r)$ for Eddington–Finkelstein, and $W_0(UV/e)$ for Kruskal —
+and require the four answers to agree.
+
+**ASSERT**, and this is what makes the module honest rather than decorative:
+
+- At every sampled event the four recovered radii agree to $10^{-12}$ and the four Kretschmann
+  scalars and tidal components agree to $10^{-10}$.
+- **The naive comparison disagrees, by a lot.** Evaluating the three time-like coordinates at the
+  same numerical *value* $13\,r_s/c$ lands on three different events — $r = 3.5339$, $2.1386$ and
+  $6.4395\,r_s$ respectively — whose Kretschmann scalars differ by a factor of **745**. The module
+  shows this side by side with the correct comparison; a test asserts the ratio, so that a future
+  refactor which quietly starts comparing coordinate values instead of events fails loudly.
+
+**ASSERT** — this is the module's entire thesis, so it is a test, not a caption:
+
+- The **invariants agree in all four charts** to $10^{-10}$: the Kretschmann scalar
+  $K = 48M^2/r^6$ and the radial tidal component $-2M/r^3$ depend on $r$ alone, and $r$ is the
+  same areal radius in every chart.
+- **Proper time to the horizon is finite** — 14.4183 $r_s/c$ from $r_0 = 8r_s$ — while
+  **Schwarzschild $t$ diverges**. That single contrast is what "coordinate pictures are tools,
+  invariants are physics" means concretely.
+- The tidal component is **finite at the horizon** ($-1.0\,c^2/r_s^2$ for $M = r_s/2$) and
+  diverges only as $r\to0$. No uniform-expansion story reproduces a tidal field at all, which is
+  the panel that breaks Claim B's literal reading.
 
 **Build this as the "Interpretations" module** — one of the most valuable things in the product.
 Same Schwarzschild geometry, four coordinate systems (Schwarzschild, Gullstrand–Painlevé,
@@ -841,9 +1006,75 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 18 | Lamb shift 2S–2P | | ~1057.8 MHz total; Uehling term −27 MHz | reproduce breakdown |
 | 19 | Hafele–Keating asymmetry mechanism | $2R\Omega v$ Sagnac cross-term | east/west asymmetry sign | qualitative + sign |
 
-Hafele–Keating physics to reproduce: $\dfrac{\Delta\tau}{\tau} = \dfrac{gh}{c^2} - \dfrac{2R\Omega v_{\rm ground}+v_{\rm ground}^2}{2c^2}$
-in the non-rotating ECI frame — the $2R\Omega v$ cross term is what makes east and west
-asymmetric.
+#### Clock calculator implementation conventions
+
+For static Schwarzschild clocks outside the horizon, §2.1 gives
+$d\tau/dt=\sqrt{1-r_s/r}$ and the lower/upper rate ratio is
+$\sqrt{(1-r_s/r_{lower})/(1-r_s/r_{upper})}$. The zero at the horizon is a
+**limit**, not a clock that can hover there: no static timelike observer exists at or inside
+$r_s$. The calculator uses $r>r_s$ only. These are rate comparisons, not a ray-traced view of
+received ticks; signal travel time is not included.
+
+For the GPS demonstration, retain order $c^{-2}$ in a spherical Earth model:
+
+$$\Delta\tau_{grav}/\Delta t = GM_\oplus(1/R_\oplus-1/r)/c^2,\qquad
+\Delta\tau_{kin}/\Delta t = -\big[GM_\oplus/r-(R_\oplus\Omega\cos\lambda)^2\big]/(2c^2).$$
+
+Satellite minus ground, circular orbit, Earth-centered nonrotating frame. Multiply by 86400
+seconds for the daily offset. This is an educational approximation, not the operational GPS
+clock model: omit oblateness, eccentricity, geoid corrections and signal-propagation corrections.
+Source: Neil Ashby (2003), *Relativity in the Global Positioning System*, §5,
+[doi:10.12942/lrr-2003-1](https://doi.org/10.12942/lrr-2003-1),
+[full text](https://pmc.ncbi.nlm.nih.gov/articles/PMC5253894/).
+Use $GM_\oplus=3.986004418\times10^{14}$ m³/s², $R_\oplus=6371000$ m,
+$\Omega=7.292115\times10^{-5}$ rad/s, $r_{GPS}=26562000$ m and conventional
+$g=9.80665$ m/s². The flight model below additionally assumes constant height, speed and latitude;
+its representative flight parameters are not a reconstruction of the measured trajectories.
+
+**Why it matters, stated so the calculator can show it.** GPS positioning is pseudoranging: the
+receiver multiplies a clock difference by $c$. An uncorrected clock offset therefore appears
+directly as a range error,
+
+$$\Delta s = c\,\Delta\tau_{\rm net},$$
+
+so the net $+38.6$ μs/day computed above becomes **11.6 km/day** of position drift. **ASSERT**
+this as $c$ times the net offset, not as an independently remembered number. Ashby (2003) §1 makes
+the same point: the satellite clocks are deliberately offset in rate before launch — their
+proper frequency is set to 10.22999999543 MHz rather than 10.23 MHz — precisely because the effect
+is far too large to leave uncorrected. That factory offset is an independent check on the sign
+and magnitude: Ashby's fractional rate correction is $4.4647\times10^{-10}$, and
+$10.23\,\text{MHz}\times(1-4.4647\times10^{-10}) = 10.22999999543$ MHz, the published value
+exactly. The spherical-Earth model here gives $4.4688\times10^{-10}$ — high by **0.09%**, which is
+the geoid correction this approximation drops, and is the right size for that omission.
+
+#### Hafele–Keating, stated so it can actually be asserted
+
+$$\boxed{\frac{\Delta\tau}{\tau} = \frac{gh}{c^2} - \frac{2R_\perp\Omega v_{\rm air}+v_{\rm air}^2}{2c^2}}$$
+
+in the non-rotating ECI frame, where $\Delta\tau$ is the flying clock minus the ground clock. The
+ground clock's own $(R_\perp\Omega)^2$ term cancels in that difference, leaving the cross term
+$2R_\perp\Omega v_{\rm air}$ — which is what makes east and west asymmetric.
+
+> **Notation trap, corrected.** An earlier revision wrote both terms with $v_{\rm ground}$. That
+> reads naturally as *the ground station's* speed $R_\perp\Omega$, and substituting it gives a
+> direction-independent constant: **the east/west asymmetry vanishes entirely**, which is the one
+> thing this benchmark exists to demonstrate. The velocity in both terms is the **aircraft's speed
+> over the ground**, signed positive eastward. $R_\perp = R_\oplus\cos(\text{latitude})$ is the
+> distance from the rotation axis, not the Earth's radius.
+
+**Flight parameters** — an earlier revision marked rows 8 and 9 "reproduce prediction" while
+giving no flight data, so they could not be asserted at all. Representative values for the 1971
+flights: $h \approx 8.9$ km, $v_{\rm air} \approx 265$ m/s, mid-latitude $\approx 50°$, elapsed
+41.2 h eastward and 48.6 h westward.
+
+**ASSERT** with those values: eastward $-44.5$ ns and westward $+256$ ns, both inside the
+published predictions of $-40\pm23$ ns and $+275\pm21$ ns. The result is genuinely sensitive to
+latitude (at the equator the eastward figure is $-90$ ns), so the test asserts the published
+*band*, not a single number — the flight profile is not reconstructible from the paper alone.
+
+**ASSERT** row 19 quantitatively rather than qualitatively: at these parameters the
+$2R_\perp\Omega v$ cross term is $2.25\times$ the $v^2$ term and reverses sign with direction,
+while $v^2$ does not. That ratio *is* the asymmetry mechanism.
 
 ---
 

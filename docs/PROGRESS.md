@@ -2,9 +2,10 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 1 — The black hole. **COMPLETE.** All five steps done, verified, merged to `master`
-(`7bd6e70`) and deployed. Phase 0 is signed off.
-**Branch:** `feat/phase-1-blackhole`, merged. Next work starts a Phase 2 branch from `master`.
+**Phase:** 2 — Time and interpretations. **COMPLETE.** All three parts are built, green,
+merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
+signed off. **Next phase: 3 — orbits and precession (BUILD_PLAN §3).**
+**Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
 **The lensing sim is registered and live.** Reachable from the Collection page at
 https://abstract-physics.binodtiwari.com/sims/blackhole-lensing, verified rendering end to end
@@ -73,9 +74,193 @@ through the public HTTPS host.
 
 ## Phase 1 — where to pick up
 
-**NEXT: Phase 2** — time dilation, the deflection decomposition (§7.4 Claim A) and the
-Interpretations module (§7.4 Claim B). Audit the relevant spec sections first: four audits have
-now found four sets of real errors in that document, so assume a fifth will too.
+## Phase 2 — where to pick up
+
+**The audit is done (commit `4fa3b28`). Part 1's physics core is landed; no Phase 2 UI exists
+yet.** All the physics the three interactives need is in `PHYSICS_SPEC.md` and asserted in
+`verify_benchmarks.py` (57 → 84 checks), so implementation runs from tested formulae rather than
+from prose.
+
+> **Correction, 2026-09-06.** This section previously read "no Phase 2 UI exists yet" *and*
+> "implementation not started". The second half was false: the session that wrote it was killed by
+> a usage limit with `src/core/timeDilation.ts`, its 15 tests, the `units.ts` constants and the §8
+> conventions block finished but **uncommitted**. A later session found them in the working tree
+> and committed them unchanged as `d28d97e`. The lesson is the one BUILD_PLAN §9 already states and
+> that session did not follow: commit at every checkpoint, not at the end of a work item. Work that
+> exists only in the working tree is invisible to this file, and this file is what the next session
+> trusts.
+
+**DONE: part 1's physics core** (`src/core/timeDilation.ts`, `d28d97e`). Static Schwarzschild clock
+rates and their inverse, the GPS gravitational/kinematic split, and Hafele–Keating decomposed into
+its Sagnac cross term and quadratic term. 16 Vitest tests, all mutation-tested — see the gate table
+below. **Part 1's UI is not built.**
+
+**DONE: part 2, the deflection decomposition interactive** (`/sims/deflection-decomposition`,
+commits `dc52dfa` → `3dc64ab`). Core, figures, chart geometry, view, 8 Playwright tests. See the
+Phase 2 gate table below.
+
+**DONE: part 3, the Interpretations module** (`/sims/interpretations`, commits `d8764db` →
+`43c75ec`). Four charts, one worldline, invariants recovered by four independent routes.
+
+**DONE: part 1's UI, the time-dilation calculator** (`/sims/time-dilation`). Three sections over
+the untouched core: near-horizon static clocks with the rate curve and tick strip, GPS with its
+gain/loss split and the range-error consequence, and Hafele–Keating against its published bands.
+
+### Phase 2 definition of done (BUILD_PLAN §3)
+
+| Requirement | Verified | Verdict |
+|---|---|---|
+| Time-dilation calculator + visualiser: GPS, Hafele–Keating, near-horizon clocks | `/sims/time-dilation`, 32 display tests over a 16-test core | met |
+| Benchmarks §8.5–8.9 asserted | rows 5–7 at **+45.7 / −7.11 / +38.5 μs/day**; rows 8–9 inside **−40±23** and **+275±21 ns**; row 19 as the **2.25×** cross-to-quadratic ratio | met |
+| Deflection decomposition, 0.875″ → 1.75″ | `/sims/deflection-decomposition`, ratio **exactly 2**, space term constant across all fifteen decades | met |
+| Interpretations module, four charts, identical invariants | `/sims/interpretations`, four independent recoveries agreeing to **8.7e-15** against a 1e-10 gate | met |
+| Plus the tidal panel no "expansion" story reproduces | geodesic-deviation figure, 2:1 stretch-to-squeeze drawn to scale, **−1.0 c²/rₛ²** finite at the horizon | met |
+
+**Totals at Phase 2 close:** 238 Vitest, 40 Playwright (app) + 11 lensing acceptance, 84 Python
+benchmarks, **147 mutations across four harnesses, all killed.** Typecheck, ESLint, dependency
+rules and the production build are green.
+
+### Phase 2 part 1 gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| GPS gravitational | **+45.73 μs/day** (§8 row 5) | drop the 1/R − 1/r ordering | sign flips |
+| GPS kinematic | **−7.106 μs/day** (§8 row 6) | drop the ground-station term | −7.21 |
+| GPS net | **+38.62 μs/day** (§8 row 7) | sum instead of difference | fails |
+| Uncorrected position drift | **11.6 km/day** = c × net | drop the c | fails |
+| Ashby pre-launch offset cross-check | **4.4688e-10** vs published 4.4647e-10, **0.09%** high | detune up instead of down | 0.0091 Hz, caught |
+| Hafele–Keating eastward | **−44.5 ns**, inside −40±23 | swap the legs | outside |
+| Hafele–Keating westward | **+255.6 ns**, inside +275±21 | hardcode `insideBand: true` | caught by the predicate test |
+| Cross ÷ quadratic (§8 row 19) | **2.25×**, reverses sign | absolute value of v | asymmetry vanishes |
+| Near-horizon rate at 1.000001 rₛ | **9.999995e-4**, slowdown **1000.0005×** | rate as sqrt(d) not sqrt(d/(1+d)) | exactly 1000 |
+| tick marks vs label | **exact at 1, 28, 40** | draw count + 1 fenceposts | 41 under "40 ticks" |
+| Display-layer mutations killed | **36 / 36** | — | — |
+
+**What building part 1 found.** The new CLAUDE.md rule 3 earned itself immediately: the green
+suite passed while the page had three defects, all found by driving it.
+
+1. **The presets did not land on the radii they name.** "Photon sphere" routed through the integer
+   slider index and snapped to 1.50119 rₛ, reading 0.5778 instead of 0.5774. State is now the
+   exact value with the slider showing the nearest index.
+2. **The tick strip drew count + 1 marks under a label saying count** — 41 fenceposts for
+   "40 ticks" — and would have divided by zero at one tick.
+3. **All three Phase 2 sims scrolled sideways on a phone**, by 68, 7 and 205 px. Grid items default
+   to `min-width: auto`, so a `.physics-panel` holding a wide KaTeX display and a `.table-scroll`
+   holding a min-width table could not shrink and widened the whole page — their own `overflow-x`
+   containers were powerless. A slider thumb also overhung its track end by half its width. Both
+   were latent in the lensing sim and only triggered by longer content. The mobile e2e test
+   covered only the gallery; there is now a route-level guard over all four sims at 360 and 390 px.
+
+**And one in the tooling.** The mutation harness scored a *crash* as a survival: a mutation that
+throws at import time produces zero assertion results, and the scorer read "no failed assertions"
+as "survived". A crash is the most emphatic kill there is. Fixed in all four harnesses; all four
+re-run clean.
+
+### Phase 2 part 3 gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| Proper time to horizon from 8 rₛ | **14.4183 rₛ/c** (§7.4) | drop the −rₛ^{3/2} term | 15.08 |
+| Schwarzschild t at the horizon | **∞** | drop the log in F(w) | finite |
+| Invariant agreement, 4 charts, same event | **≤ 8.7e-15** (gate 1e-10) | any transformation error | ≫ gate |
+| Areal radius agreement, 4 charts | **< 1e-12** | Lambert argument UV instead of UV/e | fails |
+| Wrong comparison (same coordinate value 13) | **745×** spread in K | — asserted as a guard | — |
+| K, tidal at the horizon | **12**, **−1.0** | wrong power of r | fails at 4 radii |
+| Kruskal UV vs exact | **≤ 6e-12** worst | X²−T² instead | 7e-9 at r = 8 rₛ |
+| infall mutations killed | **37 / 37** | — | — |
+| Tests | 204 Vitest, 27 Playwright (app) | — | — |
+
+**The methodological point, recorded because it is the thing most likely to be undone later.**
+K = 48M²/r⁶ and the tidal component depend on the areal radius *alone*, and r is a coordinate in
+three of the four charts. Comparing the charts at the same r compares a number with itself and
+passes however wrong the transformations are — the same defect as the r = 1 rₛ Kretschmann check
+found in the Phase 2 audit. The module therefore compares at the same physical **events**, labelled
+by the faller's proper time, and each chart recovers r through its own inverse: a root-find on
+t(r), proper time, a root-find on v(r), and W₀(UV/e). The constraint is expressed in the types —
+a route's `fromCoordinates` is handed only its own chart's coordinates, never the radius. Beside
+it, the module *shows* the wrong comparison and a test asserts its 745× spread, so the correct one
+cannot quietly become vacuous.
+
+**What building part 3 found:**
+
+1. **The Kruskal panel rendered empty**, and no unit test would have caught it. With the time
+   origin at r₀ the whole worldline sits between X ≈ 10⁴ and 10⁶. The plane is now anchored at
+   V = 1 at the horizon crossing — a boost, so every invariant is untouched — which also turns out
+   to make the chart *canonical*, independent of r₀.
+2. **X² − T² cannot carry this calculation.** X and T agree to one part in 10⁸ over most of the
+   trajectory. The boost moves the ill-conditioning between the ends but never removes it; only
+   the product UV is accurate at both. Asserted arithmetically.
+3. **Two equivalent mutants** in the first mutation run pointed at dead code rather than weak
+   tests: a redundant +∞ branch that also wrongly returned a number inside the horizon, and a
+   direction auto-detection that always computed the same answer. Both deleted, the properties
+   they assumed asserted directly.
+4. **`chartGeometry` had to move to `ui/`** — sims must never import each other. The
+   dependency-cruiser rule was verified to actually fire by reintroducing the violation.
+
+### Phase 2 gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| Light deflection, solar limb | **1.7512″** (§8 row 2) | drop the space term | 0.8756″ |
+| Time-only (Einstein 1911) | **0.8756″** | γ on the time term instead | ratio ≠ 2 |
+| Deflection ratio | **exactly 2** (§8 row 3) | `1/β` instead of `1/β²` | slope −1 |
+| Space term across the slider | **constant 0.8756″** | make it ∝ β² | fails at 6 speeds |
+| Time term log-log slope | **−2.000000000** | any wrong exponent | slope ≠ −2 |
+| Linearisation vs exact Newtonian | **<0.02%** at α = 0.01 rad | drop the half-angle | factor 2 |
+| Weak-deflection threshold | **β = 0.0206**, v = 6178 km/s | ignore the constant space term | 0.0206 → 0.0206 fails |
+| time-dilation mutations killed | **45 / 45** | — | — |
+| deflection mutations killed | **29 / 29** | — | — |
+| Tests | 158 Vitest, 18 Playwright (app) | — | — |
+
+**What building part 2 found, beyond its own physics.** Three defects that one sim had been
+hiding, all now fixed in the shared layer rather than worked around locally:
+
+1. **Shared components had no styles of their own.** `NumberSlider`'s track and thumb and
+   `MisconceptionsPanel`'s list and “Myth” tag lived in `lensing.css`. The second sim to use them
+   shipped a slider with no visible track. Now `src/ui/components.css`.
+2. **The misconceptions trigger button failed WCAG AA in dark mode** (4.46:1) — it had no
+   background reset and fell back to the UA grey. The lensing sim passed axe only because its
+   heading is 24px and so qualifies for the 3:1 large-text threshold.
+3. **The site chrome's `header`/`footer` selectors were unscoped**, so both sims' semantic
+   `<header>` inherited `display:flex` and a border-bottom and laid their title block out as a
+   wrapping row. Now `.site-header` / `.site-footer`.
+
+And two of my own, found by driving the page rather than by any test:
+
+4. **γ = 0 hung the tab.** The space contribution is exactly zero there, `log10(0)` is `-Infinity`,
+   and the decade-tick loop counted upwards from it forever. Axis helpers now refuse a non-finite
+   axis; the chart drops a line it cannot draw and says so.
+5. **The slider could not reach its own top.** React Aria snaps to a grid anchored at the minimum,
+   so with a float step the exhibit opened at β = 0.9844 instead of at light — the single value it
+   exists to show. It moves in integer indices now, with both endpoints pinned.
+
+**The lesson for the remaining sims:** typecheck, lint and unit tests were green through all five.
+Only rendering the page and reading the screenshot found 3, 4 and 5.
+
+The formulae and their tolerances are settled — see §8's Hafele–Keating block, §7.4 Claim A's
+boxed α(β), and §7.4 Claim B's four-chart table. What remains is entirely UI and its tests.
+
+### Phase 2 audit findings *(2026-09-06, commit `4fa3b28`)*
+
+Fifth audit, fifth set of findings. None was a wrong number; three were **omissions that make a
+stated ASSERT impossible**, which in a document whose rule is "every value marked ASSERT must have
+a corresponding test" is its own kind of error.
+
+1. **§8 rows 8–9 could not be asserted at all** — published predictions given, no flight
+   parameters, and the answer is strongly latitude-dependent. Added representative 1971 values;
+   they land at −44.5 ns and +256 ns, inside the published −40±23 and +275±21 bands.
+2. **A notation trap that deletes the effect.** Both kinematic terms were written with
+   `v_ground`, which reads as *the ground station's* speed RΩ. Substituting that gives a
+   direction-independent constant and the east/west asymmetry vanishes — the one thing rows 8, 9
+   and 19 exist to show. Now `v_air`, with R the distance from the rotation axis.
+3. **§7.4 Claim A gave the ratio table but never α(v)**, which is what the slider plots. It
+   follows uniquely from the section's own assertions, and says something the table does not: the
+   space-curvature contribution is the same 0.8756″ at *every* speed.
+4. **§7.4 Claim B named four charts without their transformations.** Added, with the radial-infall
+   trajectory and the module's thesis turned into assertions.
+5. **A weak test of my own, caught by mutation.** The first Kretschmann check tested only
+   r = 1 rₛ, where every power of r gives 12, so a mutation to r⁻⁵ passed — the same tautology
+   §2.4 carried before its own audit. Now checked at three radii plus the scaling law.
 
 **One known limitation carried forward**, recorded in full in `DECISIONS.md`: the disk outer-edge
 step cap trades radius agreement (2.0e-5 → 4.1e-4) for artefact removal and is float32-fragile for
@@ -435,3 +620,23 @@ by giving those projects a realistic timeout.
 Merged to `master` at `7bd6e70`, container rebuilt, and the live site verified end to end: the
 Collection page lists the simulation, the link resolves, and the canvas renders through the public
 HTTPS host.
+
+### 2026-09-06 — Phase 1 landed; Phase 2 audited
+
+Phase 1 merged at `7bd6e70`, container rebuilt, live site verified end to end through the public
+HTTPS host: the Collection page lists the simulation, the link resolves, the canvas renders.
+
+Then audited the Phase 2 sections before writing any Phase 2 code, as with every prior step. The
+pattern held for a fifth time. Nothing was numerically wrong this time; three sections named an
+ASSERT while omitting what the assertion needs, and one carried a notation ambiguity whose natural
+misreading removes the effect being demonstrated.
+
+The finding worth carrying forward is the one against myself. My first Kretschmann check tested a
+single radius at which every exponent gives the same answer, so a deliberately wrong power passed
+it. I only found that because I wrote the mutation — the check read perfectly well. That is now
+three separate occasions in this project where writing the mutation, not writing the test, is what
+exposed a bad gate.
+
+Stopped here rather than starting part 1: the audit is a complete, coherent unit with everything
+green, and beginning a three-part interactive at the end of a long session would have left a
+half-built stage. All formulae and tolerances the three parts need are now settled and tested.

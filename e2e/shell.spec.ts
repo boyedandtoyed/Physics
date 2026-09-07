@@ -39,3 +39,34 @@ test('mobile layout, system theme, reduced motion and not-found route', async ({
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nothing at these coordinates.');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
+
+/** Every sim route, at a narrow viewport, must not scroll horizontally.
+ *
+ * The previous mobile check covered only the gallery, and three sims shipped with the page 50 to
+ * 200 pixels wider than the viewport: a KaTeX display and a min-width table were widening their
+ * grid track (grid items default to min-width:auto, so their own overflow-x containers could not
+ * shrink), and a slider thumb overhung the track end by half its width. This is a route-level
+ * guard so the next sim cannot reintroduce any of it.
+ */
+const SIM_ROUTES = [
+  '/sims/blackhole-lensing',
+  '/sims/time-dilation',
+  '/sims/deflection-decomposition',
+  '/sims/interpretations',
+];
+
+for (const width of [360, 390]) {
+  test(`no sim scrolls horizontally at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    for (const route of SIM_ROUTES) {
+      await page.goto(route);
+      // Let the lazy chunk and KaTeX settle; both are what widened the page.
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await page.waitForTimeout(400);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `${route} overflows by ${overflow}px at ${width}px`).toBeLessThanOrEqual(0);
+    }
+  });
+}

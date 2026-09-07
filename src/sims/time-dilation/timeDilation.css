@@ -1,0 +1,97 @@
+/* Scoped to the time-dilation calculator. Colours come from the shell's theme tokens.
+   Styles for the shared ui/ components live in src/ui/components.css, not here. */
+
+.clocks { display: grid; gap: 3rem; padding-bottom: 3rem; }
+.clocks-head { max-width: 46rem; padding-top: 3rem; }
+.clocks-head h1 { margin: 0.2rem 0 1.2rem; }
+.clocks-head .intro { color: var(--muted); margin: 0; }
+.clocks h2 { font-weight: 500; font-size: 1.15rem; margin: 0 0 1rem; }
+.clocks .section { display: grid; gap: 1.4rem; }
+.section-intro { color: var(--muted); max-width: 48rem; margin: 0; }
+
+.figures {
+  display: grid; gap: 1rem 2rem; margin: 0; padding: 0;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+.figures div { display: grid; gap: 0.15rem; }
+.figures dt {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.figures dd {
+  margin: 0; font-size: 1.45rem; font-family: Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+.figures dd span {
+  display: block; font-family: inherit; font-size: 0.78rem; color: var(--muted);
+}
+.figures dd.gain { color: var(--accent); }
+.figures dd.loss { color: var(--focus); }
+
+.preset-label { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.preset-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.preset {
+  display: grid; gap: 0.1rem; text-align: left; cursor: pointer;
+  padding: 0.5rem 0.85rem; border: 1px solid var(--line); border-radius: 0.35rem;
+  background: var(--bg); color: var(--ink); font-size: 0.85rem;
+}
+.preset span { font-size: 0.72rem; color: var(--muted); }
+.preset:hover { border-color: var(--accent); }
+.preset:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+.rate-curve, .tick-strip { width: 100%; height: auto; display: block; }
+.curve-grid { stroke: var(--line); stroke-width: 1; opacity: 0.55; }
+.curve-tick, .curve-axis-label { fill: var(--muted); font-size: 12px; }
+.curve-line { fill: none; stroke: var(--accent); stroke-width: 3; }
+.curve-horizon { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 5 4; }
+.curve-marker { fill: var(--ink); stroke: var(--bg); stroke-width: 2; }
+
+.tick-figure { margin: 0; display: grid; gap: 0.7rem; }
+.tick-label { fill: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
+.tick-marks line { stroke-width: 2; }
+.tick-far line { stroke: var(--ink); opacity: 0.75; }
+.tick-deep line { stroke: var(--accent); }
+.tick-figure figcaption { color: var(--muted); font-size: 0.82rem; line-height: 1.6; }
+
+.split-bar {
+  display: flex; height: 3rem; border: 1px solid var(--line); border-radius: 0.4rem;
+  overflow: hidden; background: var(--panel);
+}
+.split-gain, .split-loss {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.76rem; font-weight: 600; overflow: hidden; white-space: nowrap;
+  transition: width 120ms linear;
+}
+.split-gain { background: var(--accent); color: var(--inverse); }
+.split-loss { background: var(--panel); color: var(--ink); border-left: 1px solid var(--line); }
+.split-gain span, .split-loss span { padding-inline: 0.5rem; }
+
+.crosscheck {
+  margin: 0; padding: 1rem 1.2rem; border-radius: 0.4rem;
+  border: 1px solid var(--line); background: var(--panel);
+  font-size: 0.88rem; line-height: 1.65; color: var(--muted);
+}
+.crosscheck strong { color: var(--ink); }
+
+.table-scroll { overflow-x: auto; min-width: 0; }
+.clocks table { border-collapse: collapse; width: 100%; min-width: 42rem; font-size: 0.88rem; }
+.clocks th, .clocks td {
+  text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.clocks thead th {
+  font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); border-bottom-width: 2px;
+}
+.clocks tbody th { font-weight: 600; }
+.clocks td.gain { color: var(--accent); }
+.clocks td.loss { color: var(--focus); }
+.inside { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.outside { color: var(--focus); font-weight: 600; white-space: nowrap; }
+
+.clocks .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+@media (max-width: 700px) {
+  .clocks { gap: 2.2rem; }
+  .clocks-head { padding-top: 2rem; }
+  .figures dd { font-size: 1.15rem; }
+}

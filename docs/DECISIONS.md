@@ -410,3 +410,44 @@ assumes between its endpoints.
 
 Not implemented now: Phase 1 is landing, the artefact is gone, and the agreement figure is inside
 its gate with margin. Recorded so the next pass changes the approach rather than the constants.
+
+## 2026-09-06 — Phase 2 audit: three things missing, one notation trap, one of my own
+
+Fifth audit, and the pattern held. None of these is a wrong number; three are **omissions that
+make the stated ASSERT impossible**, which is its own kind of error in a document whose rule is
+"every value marked ASSERT must have a corresponding test".
+
+**1. §8 rows 8 and 9 could not be asserted at all.** They are marked "reproduce prediction" and
+give the published −40±23 ns and +275±21 ns, but no flight parameters — and the result is strongly
+latitude-dependent, so the numbers are unreachable without them. Added representative 1971 values
+(h ≈ 8.9 km, 265 m/s, mid-latitude ≈ 50°, 41.2 h east / 48.6 h west), which land at −44.5 ns and
++256 ns, both inside the published bands. The test asserts the *band*, not a point value, because
+the flight profile is not reconstructible from the paper.
+
+**2. A notation trap that deletes the effect.** §8 wrote both kinematic terms with
+`v_ground`, which reads naturally as *the ground station's* speed RΩ. Substituting that gives a
+direction-independent constant — **the east/west asymmetry vanishes entirely**, which is the one
+thing rows 8, 9 and 19 exist to demonstrate. The velocity is the aircraft's speed over the ground,
+now written `v_air` and stated explicitly, and R is the distance from the rotation axis,
+R⊕cos(latitude), not the Earth's radius. A test asserts that the misreading kills the asymmetry.
+
+**3. §7.4 Claim A gave the ratio table but never the deflection.** The interactive has to plot
+α(v), which the section never writes. It follows uniquely from what the section already asserts:
+α(β) = (2GM/bc²)(1 + 1/β²). Verified against §7.4's own table across fifteen orders of magnitude
+in β, and against §8 row 2 at β = 1. Worth stating because the formula says something the table
+does not: **the space-curvature contribution is the same 0.8756″ at every speed** — it is the time
+contribution that diverges for slow particles, not the space contribution that vanishes.
+
+**4. §7.4 Claim B named the four charts but gave no transformations.** Added GP, ingoing
+Eddington–Finkelstein and Kruskal–Szekeres explicitly, with the radial-infall trajectory, and
+turned the module's thesis into assertions: proper time to the horizon is finite (14.4183 r_s/c
+from 8 r_s) while Schwarzschild t diverges, and the invariants agree because they are functions of
+the areal radius alone.
+
+**5. A weak test of my own, caught by mutation.** The first version of the Kretschmann check
+tested only r = 1 r_s — where every power of r gives 12, so a mutation to r⁻⁵ passed — and its
+"round trip" compared the mutated function with itself, which is the same tautology §2.4 carried
+before its own audit. Now checked at three radii plus the r⁻⁶ scaling; the mutation fails three
+ways. **Writing the mutation is what found it. The check looked perfectly reasonable.**
+
+Benchmarks: 57 → 84.

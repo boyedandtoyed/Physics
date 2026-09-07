@@ -19,4 +19,31 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Schwarzschild', 'Gravitational lensing'],
     load: () => import('../sims/blackhole-lensing'),
   },
+  {
+    id: 'deflection-decomposition',
+    title: 'Does time dilation cause gravity?',
+    description:
+      'The claim is exactly half right, and the half is measurable. Light deflection at the solar '
+      + 'limb, split into the 0.8756″ from curved time and the 0.8756″ from curved space.',
+    tags: ['General relativity', 'Light deflection', 'Interpretations'],
+    load: () => import('../sims/deflection-decomposition'),
+  },
+  {
+    id: 'interpretations',
+    title: 'One geometry, four pictures',
+    description:
+      'The same infall in Schwarzschild, Gullstrand–Painlevé, Eddington–Finkelstein and Kruskal '
+      + 'coordinates. Every picture disagrees; every invariant agrees to one part in 10¹⁰.',
+    tags: ['General relativity', 'Coordinate charts', 'Interpretations'],
+    load: () => import('../sims/interpretations'),
+  },
+  {
+    id: 'time-dilation',
+    title: 'Every clock is somewhere',
+    description:
+      'Gravitational time dilation, from a clock beside a black hole to the one in your pocket. '
+      + 'GPS, Hafele–Keating, and the near-horizon limit, each against its published value.',
+    tags: ['General relativity', 'Time dilation', 'GPS'],
+    load: () => import('../sims/time-dilation'),
+  },
 ];

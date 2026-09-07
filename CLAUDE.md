@@ -9,7 +9,7 @@ Read, in order: `docs/PROGRESS.md` → `docs/BUILD_PLAN.md` → `docs/PHYSICS_SP
 `PROGRESS.md` tells you what previous sessions actually finished. **Trust it. Do not rebuild
 completed work.** Verify quickly by running the tests, then move on to the next unstarted task.
 
-## The three rules that matter most
+## The four rules that matter most
 
 **1. Physics accuracy is the product.** Every simulation is driven by the real equations in
 `docs/PHYSICS_SPEC.md`, at the stated level of approximation, with that approximation visible in
@@ -28,7 +28,30 @@ there: take the parts that map onto real formalisms seriously, show where each b
 give the number that breaks it. Where a popular framing is wrong, don't omit it — show it,
 label it as a myth, and show the calculation.
 
-**3. Leave the repo green and the handoff current.** Follow the checkpoint protocol in
+**3. A green suite is not evidence that a page works.** Typecheck, lint and unit tests cannot
+see a rendered page, and in this repo they have repeatedly failed to. **Any change touching UI
+is not done until it has been loaded in a real browser and driven.** The mandatory checks, all
+of them, every time:
+
+- **Load the actual page** — the production build (`npm run build && npm run preview`), not the
+  dev server, and not a jsdom test standing in for it.
+- **Both themes.** Light and dark. A contrast failure exists in exactly one of them.
+- **Exercise every control to its limits**, including both endpoints and any value that makes a
+  term zero, infinite, or degenerate. A slider is not verified until you have pressed Home and
+  End on it and confirmed the readout is the value you intended.
+- **Read the console.** Zero errors and zero warnings. Capture `pageerror` too.
+- **Look at a screenshot of the result.** Not a DOM assertion about it — the image.
+
+Then encode what you found as an e2e test so it stays fixed.
+
+This rule is written from six defects that shipped past a fully green suite in one session: an
+infinite tick loop that hung the tab when a series went to zero (`log10(0)`), a chart panel that
+rendered completely empty, a slider that could not reach its own endpoint and so opened on the
+wrong value, two shared `ui/` components with no styles of their own, and a WCAG AA contrast
+failure visible only in dark mode. Every one was invisible to `npm test` and obvious within
+seconds of looking at the page.
+
+**4. Leave the repo green and the handoff current.** Follow the checkpoint protocol in
 `docs/BUILD_PLAN.md` §9. Commit often. Update `docs/PROGRESS.md` as you go. Stop taking on new
 work at ~20% of remaining budget, then land, document, commit, and push. Never end a session
 with a broken build.
