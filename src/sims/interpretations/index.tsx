@@ -88,7 +88,7 @@ export default function Interpretations() {
             minValue={0}
             maxValue={SLIDER_STEPS}
             step={1}
-            format={() => `τ = ${tau.toFixed(TIME_PLACES)} r_s/c`}
+            format={() => `τ = ${tau.toFixed(TIME_PLACES)} rₛ/c`}
             hint={'Proper time along the worldline. This is a physical label for an event, not a '
               + 'coordinate: it means the same thing in all four charts, which is exactly why the '
               + 'comparison is made against it.'}
@@ -96,11 +96,11 @@ export default function Interpretations() {
           <dl className="event-figures">
             <div>
               <dt>Areal radius</dt>
-              <dd>{formatRadius(readings.radius)}<span>r_s</span></dd>
+              <dd>{formatRadius(readings.radius)}<span>rₛ</span></dd>
             </div>
             <div>
               <dt>Proper time to the horizon</dt>
-              <dd>{total.toFixed(4)}<span>r_s/c — finite</span></dd>
+              <dd>{total.toFixed(4)}<span>rₛ/c — finite</span></dd>
             </div>
           </dl>
         </div>
@@ -201,7 +201,7 @@ export default function Interpretations() {
               {naive.rows.map(row => (
                 <tr key={row.chart}>
                   <th scope="row">{row.chart}</th>
-                  <td>r = {row.radius.toFixed(4)} r_s</td>
+                  <td>r = {row.radius.toFixed(4)} rₛ</td>
                   <td>{formatInvariant(row.kretschmann)}</td>
                 </tr>
               ))}
@@ -256,7 +256,7 @@ export default function Interpretations() {
             + 'physically observable meaning.”',
           figures: [
             { label: 'River speed at the horizon', value: 'exactly c' },
-            { label: 'Kretschmann K there', value: '12 c⁴/r_s⁴ — finite' },
+            { label: 'Kretschmann K there', value: '12 c⁴/rₛ⁴ — finite' },
             { label: 'Charts that disagree about the flow', value: 'all four' },
             { label: 'Invariants that disagree', value: 'none' },
           ],
@@ -280,10 +280,10 @@ export default function Interpretations() {
           reality: 'That is one chart’s statement, not a fact about the faller. Schwarzschild t '
             + 'does diverge — the panel shows the worldline running off the top — and a distant '
             + 'observer does see the infalling image redden and dim without limit. But the '
-            + 'faller’s own clock reaches the horizon in 14.42 r_s/c and keeps going. Three of '
+            + 'faller’s own clock reaches the horizon in 14.42 rₛ/c and keeps going. Three of '
             + 'the four charts label the crossing with a perfectly ordinary finite number.',
           figures: [
-            { label: 'Proper time to the horizon from 8 r_s', value: '14.4183 r_s/c' },
+            { label: 'Proper time to the horizon from 8 rₛ', value: '14.4183 rₛ/c' },
             { label: 'Schwarzschild t at the horizon', value: 'infinite' },
             { label: 'Curvature at the horizon', value: 'finite and unremarkable' },
           ],

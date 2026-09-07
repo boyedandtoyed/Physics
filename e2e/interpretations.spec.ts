@@ -58,9 +58,9 @@ test('the four charts agree on the invariants while disagreeing on the coordinat
 test('shows the wrong comparison beside the right one, with its 745x spread', async ({ page }) => {
   await page.goto(ROUTE);
   await expect(page.getByText(/comparing a number with itself/)).toBeVisible();
-  await expect(page.getByText('r = 3.5339 r_s')).toBeVisible();
-  await expect(page.getByText('r = 2.1386 r_s')).toBeVisible();
-  await expect(page.getByText('r = 6.4395 r_s')).toBeVisible();
+  await expect(page.getByText('r = 3.5339 rₛ')).toBeVisible();
+  await expect(page.getByText('r = 2.1386 rₛ')).toBeVisible();
+  await expect(page.getByText('r = 6.4395 rₛ')).toBeVisible();
   await expect(page.locator('.naive-note strong')).toHaveText('745×');
 });
 

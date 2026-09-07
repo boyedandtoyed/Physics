@@ -247,8 +247,8 @@ export const formatInvariant = (value: number): string =>
 export function describeEvent(readings: EventReadings): string {
   const spread = readings.invariantSpread;
   const parts = [
-    `Event at proper time ${readings.properTime.toFixed(3)} r_s over c, areal radius `
-    + `${readings.radius.toFixed(4)} r_s.`,
+    `Event at proper time ${readings.properTime.toFixed(3)} Schwarzschild radii over c, areal `
+    + `radius ${readings.radius.toFixed(4)} Schwarzschild radii.`,
     'The same event in four charts: '
     + readings.charts
       .map(chart => {

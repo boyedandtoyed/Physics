@@ -64,7 +64,7 @@ function Gallery({ entries }: { entries: readonly SimulationEntry[] }) {
       <Link className="text-link" to="/method">Meet the method <span aria-hidden="true">↗</span></Link>
     </section>
     <section className="collection" aria-labelledby="collection-heading">
-      <div className="section-heading"><h2 id="collection-heading">The collection</h2><span>Foundation stage</span></div>
+      <div className="section-heading"><h2 id="collection-heading">The collection</h2><span>{entries.length} simulation{entries.length === 1 ? '' : 's'}</span></div>
       {entries.length ? <div className="sim-grid">{entries.map(entry => <article key={entry.id}><h3><Link to={`/sims/${entry.id}`}>{entry.title}</Link></h3><p>{entry.description}</p><p>{entry.tags.join(' · ')}</p></article>)}</div> : <article className="coming-next">
         <div><p className="eyebrow">First experiment · In development</p><h3>When light meets<br />a black hole.</h3><p>Trace the geometry that bends starlight. Our first simulation will explore a non-rotating black hole, with its equations and limitations alongside the view.</p></div>
         <aside><span className="status-label">Not available yet</span><p>We’re building and testing the numerical foundation first. There are no playable simulations in this release.</p><Link to="/method">What we’re checking →</Link></aside>
