@@ -12,6 +12,8 @@
 const TWO = 2;
 const THREE = 3;
 const HALF = 0.5;
+/** v is continuous at r_s but its closed form divides by (w-1); evaluate a hair outside. */
+const HORIZON_APPROACH = 1e-13;
 
 /** r_s = 1 by construction here; named so the formulae read as they do in the spec. */
 export const HORIZON = 1;
@@ -157,9 +159,26 @@ export interface KruskalPoint {
  * The product UV is accurate to 2e-15 everywhere. PHYSICS_SPEC §7.4.
  */
 export function kruskal(radius: number, startRadius = DEFAULT_START_RADIUS): KruskalPoint {
-  const V = Math.exp(eddingtonFinkelsteinV(radius, startRadius) / (TWO * HORIZON));
-  const U = Math.exp(-eddingtonFinkelsteinU(radius, startRadius) / (TWO * HORIZON));
+  const boost = horizonCrossingV(startRadius);
+  const V = Math.exp((eddingtonFinkelsteinV(radius, startRadius) - boost) / (TWO * HORIZON));
+  const U = Math.exp(-(eddingtonFinkelsteinU(radius, startRadius) - boost) / (TWO * HORIZON));
   return { V, U, T: (V - U) / TWO, X: (V + U) / TWO };
+}
+
+/**
+ * The Kruskal plane's normalisation: the Schwarzschild time origin is shifted so that V = 1 at
+ * the horizon crossing.
+ *
+ * Shifting t is a boost of the Kruskal plane. It multiplies V and divides U, so UV — and every
+ * invariant — is untouched, and any choice is equally correct. It is not equally *usable*: with
+ * the origin at r0 the crossing sits at X ~ 1e4 while the start of the fall sits at X ~ 1e6, so
+ * the whole worldline is unplottable and X and T agree to one part in 1e8 through the region of
+ * interest. Anchoring at the crossing puts the interesting part of the trajectory at order unity.
+ * The distant exterior is then the ill-conditioned end instead, which is unavoidable: the boost
+ * moves the problem, it does not remove it. PHYSICS_SPEC §7.4.
+ */
+export function horizonCrossingV(startRadius = DEFAULT_START_RADIUS): number {
+  return eddingtonFinkelsteinV(HORIZON * (1 + HORIZON_APPROACH), startRadius);
 }
 
 /** Principal branch of the Lambert W function, for z >= -1/e. Newton-Halley to machine epsilon. */

@@ -298,7 +298,7 @@ export default function Interpretations() {
             'Schwarzschild geometry: non-rotating, uncharged, vacuum. Radial infall from rest at infinity, the one trajectory for which Gullstrand–Painlevé time is exactly the faller’s proper time.',
             'Geometrized units with r_s = 1 and c = 1, so M = 1/2. Radii in r_s, times in r_s/c.',
             'Each chart’s time origin is a convention and no invariant depends on it. This module fixes t(r₀) = 0 and t_ff(r₀) = τ(r₀) = 0.',
-            'Kruskal is carried in the null coordinates U = X − T and V = X + T. Forming X² − T² from stored X and T loses the precision the 10⁻¹⁰ gate needs: 9×10⁻⁶ relative error at r = 1.001 r_s, 9.7×10⁻⁴ at r = 1.00001 r_s. The product UV holds 5×10⁻¹⁴.',
+            'The Kruskal plane is anchored so V = 1 at the horizon crossing. Shifting the time origin is a boost: it leaves UV and every invariant untouched, and this anchoring makes the chart canonical — independent of where the fall began. Kruskal is then carried in the null coordinates U = X − T and V = X + T, because forming X² − T² from stored X and T breaches the 10⁻¹⁰ gate at the distant end (7×10⁻⁹ at r = 8 r_s) while UV holds 10⁻¹⁵ there.',
             'The invariants are compared at the same physical events, labelled by proper time — never at the same coordinate values, which would compare different events, and never at the same r, which would compare a number with itself.',
             'Only the exterior and the horizon crossing are shown. The interior is a different problem and is not modelled here.',
             'The tidal figure’s deformation is exaggerated and swept logarithmically; the 2:1 ratio of radial stretch to transverse squeeze is exact and is drawn to scale.',

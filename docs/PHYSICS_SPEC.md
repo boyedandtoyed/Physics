@@ -895,18 +895,23 @@ $$V \equiv X+T = e^{v/2r_s},\qquad U \equiv X-T = e^{-u/2r_s},\qquad u\equiv t-r
 so that $UV = e^{r_*/r_s} = (r/r_s-1)e^{r/r_s}$, which is $X^2-T^2$ written without a subtraction.
 
 This is not a stylistic preference. $X$ and $T$ are each $\tfrac12(V\pm U)$, and $V/U$ runs over
-about eleven orders of magnitude along an infall from $8r_s$, so on approach to the horizon $X$
-and $T$ agree to within one part in $10^{8}$ and $X^2-T^2$ loses almost all of its significant
-figures. Measured in float64 along this trajectory: forming $X^2-T^2$ from stored $(T,X)$ gives a
-relative error of $9\times10^{-6}$ at $r=1.001\,r_s$ and $6\times10^{-5}$ at $r=1.0001\,r_s$,
-against a required tolerance of $10^{-10}$. The boost freedom in the Kruskal plane (shifting the
-$t$ origin multiplies $V$ and divides $U$) moves the ill-conditioning from one end of the
-trajectory to the other but never removes it. **The product $UV$, formed from $U$ and $V$
-directly, is what the module uses**: measured in the shipped implementation it holds
-$5\times10^{-14}$ down to $r=1.001\,r_s$ and $6\times10^{-12}$ at $r=1.00001\,r_s$ — at the same
-points, seven to eight orders of magnitude better than the difference of squares, and far inside
-the $10^{-10}$ gate. This is the same discipline §6 applies to the shader: work in the variable
-that does not cancel.
+about eleven orders of magnitude along an infall from $8r_s$, so over most of the trajectory $X$
+and $T$ agree to within one part in $10^8$ and $X^2-T^2$ loses almost all of its significant
+figures.
+
+**The normalisation.** Shifting the Schwarzschild time origin is a boost of the Kruskal plane: it
+multiplies $V$ and divides $U$, leaving $UV$ and every invariant untouched. Any choice is equally
+correct and they are not equally usable. The module anchors $V=1$ at the horizon crossing, which
+has two virtues: the interesting stretch of the worldline lands at order unity and is plottable,
+and — because $v(r)-v(r_s)$ does not depend on the time origin — the resulting chart is
+**canonical**, the same whatever $r_0$ is. The distant exterior becomes the ill-conditioned end
+instead. That is unavoidable: the boost moves the problem, it never removes it.
+
+Measured in float64 with that normalisation: $X^2-T^2$ has a relative error of $7\times10^{-9}$ at
+$r=8\,r_s$ and $8\times10^{-11}$ at $6\,r_s$ — breaching the $10^{-10}$ gate — while the product
+$UV$ holds $1\times10^{-15}$ at the same points and stays inside $6\times10^{-12}$ everywhere down
+to $r=1.00001\,r_s$. **The product $UV$ is what the module uses.** This is the same discipline §6
+applies to the shader: work in the variable that does not cancel.
 
 Inverting for the areal radius is then exact via the Lambert $W$ function:
 

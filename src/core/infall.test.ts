@@ -157,17 +157,64 @@ describe('Kruskal is carried in null coordinates for a measured reason', () => {
     expect(productError(1.00001)).toBeLessThan(1e-11);
   });
 
-  it('shows why X^2 - T^2 is not usable: it loses the precision the gate needs', () => {
+  it('shows why X^2 - T^2 is not usable: it breaches the gate at the far end of the fall', () => {
     // Not a stylistic preference. This is the measurement behind PHYSICS_SPEC §7.4's choice.
-    // The difference of squares breaches the 1e-10 invariant gate well before the horizon.
-    expect(differenceError(1.001)).toBeGreaterThan(1e-6);
-    expect(differenceError(1.0001)).toBeGreaterThan(1e-5);
-    expect(differenceError(1.00001)).toBeGreaterThan(1e-4);
-    // The product form is seven or more orders of magnitude better at the same points, which is
-    // the comparison that justifies carrying the chart in U and V rather than in T and X.
-    for (const radius of [1.001, 1.0001, 1.00001]) {
-      expect(differenceError(radius) / productError(radius)).toBeGreaterThan(1e7);
+    // With the shipped normalisation (V = 1 at the crossing) the ill-conditioned end is the
+    // distant exterior, where X and T are ~1e6 and nearly equal and opposite.
+    expect(differenceError(8)).toBeGreaterThan(1e-9);
+    expect(differenceError(6)).toBeGreaterThan(1e-11);
+    expect(productError(8)).toBeLessThan(1e-14);
+    expect(differenceError(8) / productError(8)).toBeGreaterThan(1e5);
+  });
+
+  it('is canonical: anchoring at the crossing makes it independent of where the fall began', () => {
+    // v(r) - v(r_s) does not depend on the time origin, so the normalised plane is the same
+    // chart whatever r0 is. That is a virtue, and it is why no boost parameter is exposed.
+    for (const radius of [1.2, 2, 3, 4]) {
+      const eight = kruskal(radius, 8);
+      const five = kruskal(radius, 5);
+      expect(Math.abs(five.X / eight.X - 1)).toBeLessThan(1e-12);
+      expect(Math.abs((five.U * five.V) / (eight.U * eight.V) - 1)).toBeLessThan(1e-12);
     }
+  });
+
+  it('has a boost move the ill-conditioning rather than remove it', () => {
+    // Applied arithmetically, since the shipped chart is canonical: a boost multiplies V and
+    // divides U by the same factor. UV is untouched; X^2 - T^2 is not, and wherever the boost
+    // makes one end of the trajectory clean it makes the other end worse.
+    const boosted = (radius: number, factor: number) => {
+      const { U, V } = kruskal(radius);
+      const bV = V * factor;
+      const bU = U / factor;
+      const X = (bV + bU) / 2;
+      const T = (bV - bU) / 2;
+      const exact = (radius - 1) * Math.exp(radius);
+      return {
+        product: Math.abs((bU * bV) / exact - 1),
+        difference: Math.abs((X * X - T * T) / exact - 1),
+      };
+    };
+    // A boost that cleans up the distant end...
+    expect(boosted(8, 1e6).difference).toBeLessThan(boosted(8, 1).difference);
+    // ...ruins the horizon end, which the shipped normalisation had clean.
+    expect(boosted(1.0001, 1e6).difference).toBeGreaterThan(boosted(1.0001, 1).difference);
+    expect(boosted(1.0001, 1e6).difference).toBeGreaterThan(1e-8);
+    // The product form is unaffected by any of it, at both ends.
+    for (const factor of [1e-6, 1, 1e6]) {
+      expect(boosted(8, factor).product).toBeLessThan(1e-13);
+      expect(boosted(1.0001, factor).product).toBeLessThan(1e-11);
+    }
+  });
+
+  it('puts the horizon crossing at V = 1, which is what makes the plane plottable', () => {
+    expect(kruskal(1 + 1e-12).V).toBeCloseTo(1, 9);
+    expect(kruskal(1 + 1e-12).X).toBeCloseTo(0.5, 6);
+    // And the interesting stretch of the fall is then order unity rather than order 1e6.
+    for (const radius of [1.001, 1.1, 1.5, 2, 3]) {
+      expect(Math.abs(kruskal(radius).X)).toBeLessThan(50);
+    }
+    // While the start of the fall is far outside any drawable window; the panel says so.
+    expect(kruskal(8).X).toBeGreaterThan(1e6);
   });
 
   it('keeps X = (V+U)/2 and T = (V-U)/2 consistent for drawing', () => {
