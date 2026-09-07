@@ -13,9 +13,17 @@ How this project is served, and how it fits alongside the other sites on the sam
 | Account cert | `~/.cloudflared/cert.pem` (account-level; can create/delete tunnels — never commit or back up off-machine) |
 
 Set up 2026-09-06. `abstract-physics.binodtiwari.com` CNAME created and routed to this tunnel.
+`staging-abstract-physics.binodtiwari.com` added 2026-09-07 for the release path below.
+
+| Hostname | Port | Serves |
+|---|---|---|
+| `abstract-physics.binodtiwari.com` | 8080 | production — `physics-web:live` |
+| `staging-abstract-physics.binodtiwari.com` | 8082 | release candidate — `physics-web:rc` |
 
 **Edit `/etc/cloudflared/config.yml`, not the copy in `~/.cloudflared/`.** Keeping two is what
-broke the previous setup — see Troubleshooting.
+broke the previous setup — see Troubleshooting. The `~/.cloudflared/` copy is kept in sync anyway,
+with a header saying it is not the live one, because `cloudflared tunnel ingress rule <url>`
+defaults to that path and a stale copy makes it answer differently from production.
 
 ## History (2026-09-06)
 
@@ -63,7 +71,8 @@ a revived service keeps its old address.
 
 | Port | Project | Hostname | Status |
 |---|---|---|---|
-| 8080 | **Abstract Physics** | `abstract-physics.binodtiwari.com` | **live route, app not built yet** |
+| 8080 | **Abstract Physics** — production | `abstract-physics.binodtiwari.com` | **live, all four simulations** |
+| 8082 | **Abstract Physics** — staging | `staging-abstract-physics.binodtiwari.com` | **live, release candidate** |
 | 3000 | Portfolio (apex site) | `binodtiwari.com` | dormant |
 | 3001 | NeuralForge | `neuralforge.binodtiwari.com` | dormant |
 | 3002 | PipelineGuard | `pipelineguard.binodtiwari.com` | dormant |
@@ -77,9 +86,10 @@ a revived service keeps its old address.
 | 3010 | DocuMind (frontend) | `documind.binodtiwari.com` | dormant |
 | 8001 | DocuMind (API) | `documind.binodtiwari.com/api/*`, `/health`, `/docs` | dormant |
 | 80 | StudyAI | `studyai.binodtiwari.com` | dormant |
-| 8082+ | *(free)* | | |
+| 8083+ | *(free)* | | |
 
-Port 8080 was chosen because it collides with nothing above.
+Ports 8080 and 8082 were chosen because they collide with nothing above. 8081 is left
+free deliberately: it is the obvious next default and reserving it avoids a future collision.
 
 ### Reviving a dormant site
 
@@ -229,16 +239,77 @@ find a config in your home directory on its own. Always pass the path explicitly
 
 ---
 
+## Releasing: build once, verify on staging, promote the same image
+
+**Nothing reaches production that has not been served, over the real Cloudflare edge, from the
+byte-identical image.** That is the whole point of the staging stack, and it exists because the
+edge is not transparent: Cloudflare injects a hidden `<a>` into `<body>` and a challenge script
+before `</body>`, so the HTML a browser receives is not what nginx sent. An accessibility
+violation caused by exactly that injection passed every local check and only appeared through the
+tunnel. Verifying against `127.0.0.1:8080` is verifying something the public never receives.
+
+```bash
+./scripts/release.sh build      # physics-web:rc-<sha>, also tagged :rc
+./scripts/release.sh stage      # starts the staging stack on 127.0.0.1:8082
+#                                 -> https://staging-abstract-physics.binodtiwari.com
+#   ... verify against the STAGING HOSTNAME, not localhost ...
+./scripts/release.sh promote    # retags the staged image :live, recreates production
+./scripts/release.sh status     # what is built, staged and live, by image ID
+```
+
+**`promote` cannot rebuild.** `docker-compose.yml` has no `build:` — production can only start an
+image that already exists — and `promote` refuses unless `physics-web:rc` is the image the
+staging *container* is running. Rebuilding after staging therefore fails the promotion rather than
+silently shipping something the verification never covered. Both stacks are separate compose
+projects (`physics`, `physics-staging`), so staging can never recreate a production container.
+
+Rolling back needs no rebuild either, because every candidate keeps its own tag:
+
+```bash
+docker images physics-web            # find the previous rc-<sha>
+./scripts/release.sh rollback rc-1a2b3c4
+```
+
+### What to check on staging
+
+The same sweep production gets, against the staging hostname over HTTPS: every sim route in both
+themes, zero axe violations, zero console errors, no horizontal overflow at 360 and 390 px, and
+the controls driven to their limits. `npx playwright test` covers the app against a local preview;
+staging is where the *edge* is exercised.
+
+### The two stacks are independent
+
+Staging holds port 8082 continuously; it is not torn down between releases. It costs one small
+nginx container and means the hostname is always there to deploy into. If it must be stopped:
+
+```bash
+docker compose -f docker-compose.staging.yml down
+```
+
+That leaves the ingress rule in place and the hostname returns the catch-all 404 — which is also
+the signal that staging is down rather than broken.
+
 ## Adding the next site later
 
 ```bash
-# 1. add an ingress block above the catch-all in ~/.cloudflared/config.yml
-cloudflared tunnel ingress validate
-# 2. point the hostname at the same tunnel
+# 1. point the hostname at the tunnel (needs ~/.cloudflared/cert.pem; no root)
 cloudflared tunnel route dns binod-home <new>.binodtiwari.com
-# 3. pick up the change
+
+# 2. add an ingress block ABOVE the catch-all. Validate before installing, not after:
+#    a bad config makes the service crash-loop and takes every hostname down with it.
+cloudflared --config /tmp/proposed.yml tunnel ingress validate
+cloudflared --config /tmp/proposed.yml tunnel ingress rule https://<new>.binodtiwari.com
+
+# 3. install and restart (needs root; back the old one up first)
+sudo cp -a /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak-$(date +%Y%m%d-%H%M%S)
+sudo cp /tmp/proposed.yml /etc/cloudflared/config.yml
+sudo cloudflared --config /etc/cloudflared/config.yml tunnel ingress validate
 sudo systemctl restart cloudflared
 ```
+
+`--config` is a **global** flag and must come before the subcommand: `cloudflared --config X
+tunnel ingress validate`, not `cloudflared tunnel ingress validate --config X`, which is silently
+parsed as something else and prints the help text instead of validating.
 
 Update the port registry above in the same commit.
 
@@ -255,13 +326,25 @@ plain HTTP bound to localhost only. **No certificate in the container**, and do 
 `0.0.0.0` — binding `127.0.0.1` means the tunnel is the only route in.
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml — production. No `build:` on purpose; see the release section.
+name: physics
 services:
   web:
-    build: .
+    image: physics-web:live
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"
+```
+
+```yaml
+# docker-compose.staging.yml — the release candidate, same image, different port.
+name: physics-staging
+services:
+  web:
+    image: physics-web:rc
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:80"
 ```
 
 Multi-stage Dockerfile: node build stage → nginx serving `dist/`. Nginx needs gzip (brotli if
@@ -287,6 +370,9 @@ for `.wasm`, and SPA fallback to `index.html`.
 | Hostname doesn't resolve at all | `route dns` was never run, or the record isn't proxied |
 | Service fails to start | Missing `--config` on install (looking in `/root`), missing catch-all, or YAML indentation |
 | Config edits do nothing | Editing `~/.cloudflared/config.yml` while the service reads `/etc/cloudflared/config.yml`. The system copy is the live one. |
+| Error 1033 on a new hostname | The CNAME exists and reaches Cloudflare but no tunnel claims it — usually `route dns` not yet run, or run against a different tunnel. |
+| A new hostname returns the catch-all 404 rather than the app | DNS is correct and the tunnel is reachable; the **ingress rule is missing or below the catch-all**. This is the expected state between `route dns` and the config edit. |
+| `cloudflared tunnel ingress validate --config X` prints help | `--config` is a global flag: it must precede the subcommand. |
 | axe reports a violation live that the container does not | **Cloudflare injects into the HTML at the edge.** It adds a hidden `<a href="/cdn-cgi/content?…">` as the first child of `<body>`, plus a challenge-platform script before `</body>`. The response through the tunnel is not byte-identical to what nginx serves. This displaced the skip link from first position and tripped axe's `region` best-practice rule on every page, while `curl` of the container showed nothing wrong. Diff `curl` of the public host against `curl` of `127.0.0.1:8080` before assuming the app changed. |
 | `service install` refuses to run | A config exists in both `~/.cloudflared/` and `/etc/cloudflared/`. Retire one. |
 | Service crash-loops, `status=1/FAILURE` | Usually a stale `/etc/cloudflared/config.yml` from a previous setup referencing a tunnel that no longer exists |
