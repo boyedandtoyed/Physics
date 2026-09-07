@@ -287,6 +287,7 @@ for `.wasm`, and SPA fallback to `index.html`.
 | Hostname doesn't resolve at all | `route dns` was never run, or the record isn't proxied |
 | Service fails to start | Missing `--config` on install (looking in `/root`), missing catch-all, or YAML indentation |
 | Config edits do nothing | Editing `~/.cloudflared/config.yml` while the service reads `/etc/cloudflared/config.yml`. The system copy is the live one. |
+| axe reports a violation live that the container does not | **Cloudflare injects into the HTML at the edge.** It adds a hidden `<a href="/cdn-cgi/content?…">` as the first child of `<body>`, plus a challenge-platform script before `</body>`. The response through the tunnel is not byte-identical to what nginx serves. This displaced the skip link from first position and tripped axe's `region` best-practice rule on every page, while `curl` of the container showed nothing wrong. Diff `curl` of the public host against `curl` of `127.0.0.1:8080` before assuming the app changed. |
 | `service install` refuses to run | A config exists in both `~/.cloudflared/` and `/etc/cloudflared/`. Retire one. |
 | Service crash-loops, `status=1/FAILURE` | Usually a stale `/etc/cloudflared/config.yml` from a previous setup referencing a tunnel that no longer exists |
 

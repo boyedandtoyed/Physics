@@ -37,8 +37,13 @@ export function App({ entries = simulations }: { entries?: readonly SimulationEn
     previousPath.current = location.pathname;
   }, [location.pathname, entries]);
   return <>
-    <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header">
+      {/* Inside the header, not before it. Cloudflare's edge injects a hidden anchor as the first
+          child of <body>, which displaces a body-level skip link from first position — and axe's
+          `region` rule only exempts a skip link when it IS first. The same bytes pass locally and
+          fail through the tunnel. Sitting inside a landmark makes it immune to whatever the edge
+          puts in front of it; it is still the first focusable element in the document. */}
+      <a className="skip-link" href="#main">Skip to content</a>
       <Link to="/" className="brand"><span className="brand-mark" aria-hidden="true">∂</span> Abstract Physics</Link>
       <nav aria-label="Main"><NavLink to="/">Collection</NavLink><NavLink to="/method">Our method</NavLink></nav>
       <label className="theme-control">Theme <select value={theme} onChange={e => setTheme(e.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
