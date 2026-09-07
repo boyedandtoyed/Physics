@@ -2,8 +2,8 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 2 — Time and interpretations. **Part 1's physics core and part 2 (the deflection
-decomposition exhibit) are landed and green. Part 3 and part 1's UI remain.**
+**Phase:** 2 — Time and interpretations. **Parts 2 and 3 are landed, green and deployed-ready.
+Part 1's physics core is landed; part 1's UI is the only Phase 2 item left.**
 Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is signed off.
 **Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves the foundation shell (HTTP 200).
@@ -99,10 +99,55 @@ below. **Part 1's UI is not built.**
 commits `dc52dfa` → `3dc64ab`). Core, figures, chart geometry, view, 8 Playwright tests. See the
 Phase 2 gate table below.
 
-**NEXT: part 3**, the Interpretations module (§7.4 Claim B), then part 1's UI. Part 3 must assert
-the invariants agree across all four charts to 1e-10 **at the same physical events**, not at the
-same coordinate values — comparing charts at equal coordinate values compares different events and
-would make the test pass for the wrong reason.
+**DONE: part 3, the Interpretations module** (`/sims/interpretations`, commits `d8764db` →
+`43c75ec`). Four charts, one worldline, invariants recovered by four independent routes.
+
+**NEXT: part 1's UI** — the gravitational time-dilation calculator and visualiser. Its physics
+core (`src/core/timeDilation.ts`) is finished and mutation-tested; what remains is entirely UI,
+following the pattern the two Phase 2 exhibits now establish: a pure `description/` layer computing
+every displayed number, a `view/` layer that draws it, an e2e spec covering both themes, and a
+mutation harness in `docs/mutations/`.
+
+### Phase 2 part 3 gate table
+
+| Gate | Value | Mutation that trips it | Mutated |
+|---|---|---|---|
+| Proper time to horizon from 8 rₛ | **14.4183 rₛ/c** (§7.4) | drop the −rₛ^{3/2} term | 15.08 |
+| Schwarzschild t at the horizon | **∞** | drop the log in F(w) | finite |
+| Invariant agreement, 4 charts, same event | **≤ 8.7e-15** (gate 1e-10) | any transformation error | ≫ gate |
+| Areal radius agreement, 4 charts | **< 1e-12** | Lambert argument UV instead of UV/e | fails |
+| Wrong comparison (same coordinate value 13) | **745×** spread in K | — asserted as a guard | — |
+| K, tidal at the horizon | **12**, **−1.0** | wrong power of r | fails at 4 radii |
+| Kruskal UV vs exact | **≤ 6e-12** worst | X²−T² instead | 7e-9 at r = 8 rₛ |
+| infall mutations killed | **37 / 37** | — | — |
+| Tests | 204 Vitest, 27 Playwright (app) | — | — |
+
+**The methodological point, recorded because it is the thing most likely to be undone later.**
+K = 48M²/r⁶ and the tidal component depend on the areal radius *alone*, and r is a coordinate in
+three of the four charts. Comparing the charts at the same r compares a number with itself and
+passes however wrong the transformations are — the same defect as the r = 1 rₛ Kretschmann check
+found in the Phase 2 audit. The module therefore compares at the same physical **events**, labelled
+by the faller's proper time, and each chart recovers r through its own inverse: a root-find on
+t(r), proper time, a root-find on v(r), and W₀(UV/e). The constraint is expressed in the types —
+a route's `fromCoordinates` is handed only its own chart's coordinates, never the radius. Beside
+it, the module *shows* the wrong comparison and a test asserts its 745× spread, so the correct one
+cannot quietly become vacuous.
+
+**What building part 3 found:**
+
+1. **The Kruskal panel rendered empty**, and no unit test would have caught it. With the time
+   origin at r₀ the whole worldline sits between X ≈ 10⁴ and 10⁶. The plane is now anchored at
+   V = 1 at the horizon crossing — a boost, so every invariant is untouched — which also turns out
+   to make the chart *canonical*, independent of r₀.
+2. **X² − T² cannot carry this calculation.** X and T agree to one part in 10⁸ over most of the
+   trajectory. The boost moves the ill-conditioning between the ends but never removes it; only
+   the product UV is accurate at both. Asserted arithmetically.
+3. **Two equivalent mutants** in the first mutation run pointed at dead code rather than weak
+   tests: a redundant +∞ branch that also wrongly returned a number inside the horizon, and a
+   direction auto-detection that always computed the same answer. Both deleted, the properties
+   they assumed asserted directly.
+4. **`chartGeometry` had to move to `ui/`** — sims must never import each other. The
+   dependency-cruiser rule was verified to actually fire by reintroducing the violation.
 
 ### Phase 2 gate table
 
