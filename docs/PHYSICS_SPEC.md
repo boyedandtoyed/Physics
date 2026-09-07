@@ -1031,6 +1031,22 @@ $\Omega=7.292115\times10^{-5}$ rad/s, $r_{GPS}=26562000$ m and conventional
 $g=9.80665$ m/s². The flight model below additionally assumes constant height, speed and latitude;
 its representative flight parameters are not a reconstruction of the measured trajectories.
 
+**Why it matters, stated so the calculator can show it.** GPS positioning is pseudoranging: the
+receiver multiplies a clock difference by $c$. An uncorrected clock offset therefore appears
+directly as a range error,
+
+$$\Delta s = c\,\Delta\tau_{\rm net},$$
+
+so the net $+38.6$ μs/day computed above becomes **11.6 km/day** of position drift. **ASSERT**
+this as $c$ times the net offset, not as an independently remembered number. Ashby (2003) §1 makes
+the same point: the satellite clocks are deliberately offset in rate before launch — their
+proper frequency is set to 10.22999999543 MHz rather than 10.23 MHz — precisely because the effect
+is far too large to leave uncorrected. That factory offset is an independent check on the sign
+and magnitude: Ashby's fractional rate correction is $4.4647\times10^{-10}$, and
+$10.23\,\text{MHz}\times(1-4.4647\times10^{-10}) = 10.22999999543$ MHz, the published value
+exactly. The spherical-Earth model here gives $4.4688\times10^{-10}$ — high by **0.09%**, which is
+the geoid correction this approximation drops, and is the right size for that omission.
+
 #### Hafele–Keating, stated so it can actually be asserted
 
 $$\boxed{\frac{\Delta\tau}{\tau} = \frac{gh}{c^2} - \frac{2R_\perp\Omega v_{\rm air}+v_{\rm air}^2}{2c^2}}$$
