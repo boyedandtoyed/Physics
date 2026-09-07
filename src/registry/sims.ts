@@ -46,4 +46,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Time dilation', 'GPS'],
     load: () => import('../sims/time-dilation'),
   },
+  {
+    id: 'spacetime-curvature',
+    title: 'The picture everyone has seen',
+    description:
+      'The embedding diagram, drawn exactly — and the three things it does not show. The funnel '
+      + 'is the curvature of space, which is very nearly not why anything falls.',
+    tags: ['General relativity', 'Geometry', 'Misconceptions'],
+    load: () => import('../sims/spacetime-curvature'),
+  },
 ];

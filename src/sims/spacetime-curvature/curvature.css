@@ -1,0 +1,43 @@
+/* Scoped to the curvature view. Colours come from the shell's theme tokens.
+   Shared stage and ui/ component styles live elsewhere. */
+
+.curvature { display: grid; gap: 0; }
+.curvature .sim-head { max-width: 46rem; }
+.curvature .sim-head .intro { color: var(--muted); margin: 0; }
+
+.curvature .figures {
+  display: grid; gap: 0.9rem; margin: 0; padding: 0;
+}
+.curvature .figures div { display: grid; gap: 0.15rem; }
+.curvature .figures dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.curvature .figures dd {
+  margin: 0; font-size: 1.2rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.curvature .figures dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+
+.curvature .preset-label { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.curvature .preset-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.curvature .preset {
+  cursor: pointer; padding: 0.4rem 0.7rem; font-size: 0.8rem;
+  border: 1px solid var(--line); border-radius: 0.35rem;
+  background: var(--bg); color: var(--ink);
+}
+.curvature .preset:hover { border-color: var(--accent); }
+.curvature .preset:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+/* The label PHYSICS_SPEC §2.1a requires on this view. Prominent, not a footnote. */
+.required-label {
+  margin: 0; padding: 1rem 1.2rem; border-radius: 0.4rem;
+  border: 1px solid var(--focus); background: var(--panel); color: var(--ink);
+  font-size: 0.92rem; line-height: 1.65; max-width: 52rem;
+}
+
+.curvature .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+.curvature .stage-help kbd {
+  font: inherit; font-size: 0.72rem; padding: 0.05rem 0.3rem;
+  border: 1px solid var(--line); border-radius: 0.2rem;
+}
