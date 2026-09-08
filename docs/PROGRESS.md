@@ -50,8 +50,49 @@ unstarted. Physics is unchanged throughout: no equation, constant or benchmark m
   `core/gl/matrix.ts` (9 tests) are new; the mesh tests (8) assert every vertex sits on the exact
   embedding. 6 Playwright tests.
 
-**Still to do:** the Gullstrand–Painlevé river view, and converting the three non-WebGL sims
-(deflection, interpretations, time dilation) to the stage layout.
+- **Gullstrand–Painlevé river** (`/sims/gp-river`, commit `ee17875`). Animated WebGL2 flow field:
+  markers advect inward along the exact GP trajectory, colour-coded by |β| = √(rₛ/r), recycling at
+  0.1 rₛ. Mass, outer edge and playback rate in the side panel; Play/Pause stops the loop outright.
+  `core/river.ts` (13 tests), marker-layout tests (11), 7 Playwright tests. **Benchmark row 33**
+  asserts 0.5 c at 4 rₛ and exactly c at the horizon to 1e-10 — 84 → 88 checks.
+- **Deflection exhibit and Interpretations module moved onto the shared stage**
+  (commits `9f74a92`, `3766243`). Layout only; all 18 of their existing e2e tests pass unchanged.
+
+**Phase 3-Visual is complete apart from the Hawking/Casimir particle effects, which need sims
+that do not exist yet (Phase 6).**
+
+#### The WebGL2 conversion audit — no sim qualified
+
+The brief asked for "every sim currently using canvas2D or SVG animation that can be upgraded to a
+WebGL2 canvas". Audited: **there is no canvas2D anywhere in the repo and no SVG or CSS animation
+anywhere.** All six remaining visuals are static SVG that re-renders on a control change, and each
+is inherently 2D — the brief's own exclusion:
+
+| Visual | Verdict |
+|---|---|
+| `DeflectionChart` | Log-log plot of α(β): a one-variable function. 2D. |
+| `RayBending` | Deflection by a spherical mass is **exactly planar** by symmetry. 3D would imply out-of-plane structure that does not exist. |
+| `ChartPanel` ×4 | Charts *of coordinates*. The module's thesis is that they are four 2D pictures of one geometry; a 3D scene would be a category error. |
+| `TidalPanel` | Cross-section. The 2:1 stretch-to-squeeze ratio it exists to show reads worse as an ellipsoid. |
+| `RateCurve` | dτ/dt against r — the brief's own example of what not to convert. |
+| `TickStrip` | Two rows of tick marks. |
+
+The stage *layout* is separate from WebGL2, so the deflection and interpretations sims got it.
+**Time dilation deliberately did not:** it is a three-part calculator, not a single-visual sim, and
+its four sliders belong to three different demonstrations. One shared side panel would divorce
+each control from the section it acts on, which is worse for the reader than the status quo.
+
+#### The specified disclaimer contained a physics error, and was corrected
+
+The brief's text read *"The water analogy holds near the horizon but breaks down far from it."*
+That is backwards. The Gullstrand–Painlevé form is **exact at every radius** (§5.2: expanding the
+square recovers Schwarzschild identically, and the constant-t_ff slices are exactly flat
+Euclidean space). Far out the flow becomes negligible as 1/√r, so the picture becomes *trivial*,
+not wrong. What actually fails is not radial at all: the river carries no energy or momentum, has
+no detectable state of motion, and explains falling and nothing else — not tides, not orbits, not
+the ISCO (§5.4 points 1–4). The page says that instead, keeps the Hamilton & Lisle citation
+unchanged, carries §5.4's own required label alongside, and a misconception panel addresses the
+"breaks down far away" belief directly.
 
 **Four premises in the brief did not match the repo, and are recorded so they are not re-tried:**
 
