@@ -55,4 +55,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Geometry', 'Misconceptions'],
     load: () => import('../sims/spacetime-curvature'),
   },
+  {
+    id: 'gp-river',
+    title: 'Space is not flowing',
+    description:
+      'The Gullstrand–Painlevé river, animated: flat space with an inward current at the escape '
+      + 'velocity, exactly c at the horizon. An exact slicing of Schwarzschild — and not a current.',
+    tags: ['General relativity', 'Gullstrand–Painlevé', 'Interpretations'],
+    load: () => import('../sims/gp-river'),
+  },
 ];

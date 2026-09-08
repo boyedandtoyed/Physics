@@ -1,0 +1,53 @@
+/* Scoped to the river view. Colours come from the shell's theme tokens. */
+
+.river { display: grid; gap: 0; }
+.river .sim-head { max-width: 46rem; }
+.river .sim-head .intro { color: var(--muted); margin: 0; }
+
+.river .figures { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.river .figures div { display: grid; gap: 0.15rem; }
+.river .figures dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.river .figures dd {
+  margin: 0; font-size: 1.2rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.river .figures dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; font-size: 0.8rem; }
+.legend li { display: flex; align-items: center; gap: 0.6rem; color: var(--muted); }
+.legend li::before {
+  content: ''; width: 1.4rem; height: 0.28rem; border-radius: 0.14rem; flex: none;
+}
+/* These four swatches must match the shader's bands. The band EDGES are physical (0.5c is
+   exactly 4 rₛ, 1c is exactly the horizon); the hues are a display choice. */
+.legend-slow::before { background: #1a52b8; }
+.legend-fast::before { background: #c77505; }
+.legend-horizon::before { background: var(--ink); }
+.legend-super::before { background: #9e2929; }
+:root:not([data-theme='light']) .legend-slow::before { background: #4d94f2; }
+:root:not([data-theme='light']) .legend-fast::before { background: #ffb833; }
+:root:not([data-theme='light']) .legend-super::before { background: #d96160; }
+:root[data-theme='dark'] .legend-slow::before { background: #4d94f2; }
+:root[data-theme='dark'] .legend-fast::before { background: #ffb833; }
+:root[data-theme='dark'] .legend-super::before { background: #d96160; }
+
+/* The mandatory disclaimer. Always rendered, never a toggle, and given the visual weight of a
+   result rather than a footnote. */
+.river-disclaimer {
+  margin: 0; padding: 1.1rem 1.3rem; border-radius: 0.4rem;
+  border: 1px solid var(--focus); background: var(--panel); color: var(--ink);
+  font-size: 0.95rem; line-height: 1.7; max-width: 54rem;
+}
+.river-disclaimer strong { color: var(--focus); }
+.river-ref { display: block; margin-top: 0.5rem; color: var(--muted); font-size: 0.85rem; }
+
+/* The label PHYSICS_SPEC §5.4 requires verbatim. */
+.river-required-label {
+  margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.6; max-width: 54rem;
+  font-style: italic;
+}
+
+.river .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
