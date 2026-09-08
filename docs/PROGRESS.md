@@ -2,8 +2,9 @@
 
 ## Current status — 2026-09-06
 
-**Phase:** 3-Visual — 3D rendering and interaction overhaul. **IN PROGRESS** (see below).
-Phase 2 — Time and interpretations — is **COMPLETE.** All three parts are built, green,
+**Phase:** 3 — Orbits and precession (BUILD_PLAN §3). **IN PROGRESS**: Sim A landed, sims B and C
+to come. Phase 3-Visual is complete apart from the Hawking/Casimir effects, which need Phase 6
+sims. Phase 2 — Time and interpretations — is **COMPLETE.** All three parts are built, green,
 merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
 signed off. **Next phase: 3 — orbits and precession (BUILD_PLAN §3).**
 **Branch:** `feat/phase-2-time`, branched from `master`.
@@ -28,6 +29,41 @@ anchor as the first child of `<body>` at the edge, which displaced the skip link
 position — and axe exempts a skip link only when it *is* first. The skip link now lives inside the
 header landmark, which makes it immune to whatever the edge puts in front of it. **Diff `curl` of
 the public host against `curl` of `127.0.0.1:8080` before assuming the app changed.**
+
+### Phase 3 — Orbits and precession *(2026-09-08)* — IN PROGRESS
+
+**Landed: Sim A, the effective-potential explorer** (`/sims/effective-potential`, commits
+`0a96621` → `862effe`). V_eff with its critical radii and a movable energy line beside the orbit
+that energy produces, integrated with Yoshida-4. `core/orbit.ts` (21 tests), the state layer
+(26 tests), 8 Playwright tests. 88 → 99 benchmark checks.
+
+**Three of the brief's stated benchmarks were wrong and were corrected before implementation:**
+
+1. **V_eff at the ISCO is −1/18, not −1/(12M).** In geometric units V_eff is dimensionless, so
+   −1/(12M) is dimensionally inconsistent as well as numerically wrong (−0.0833 vs −0.0556). The
+   value is confirmed twice: directly, and as (Ẽ²−1)/2 with Ẽ = √(8/9), agreeing to 7×10⁻¹⁸.
+2. **"V_eff has a local maximum at r = 3M for any L > 0" is false** for a massive particle. Below
+   L = 2√3 M there are *no extrema at all*; above it the inner maximum approaches 3M only
+   asymptotically (3.303M at L = 6M, 3.000002M at L = 2000M). The exact 3M belongs to the **null**
+   potential L²(1/r² − 2M/r³), whose derivative vanishes at 3M for every L. Both are now asserted.
+3. **Mercury precession was already benchmarked** (rows 1–3: 42.98″/century, 0.10353″/orbit,
+   415.20 orbits/century), so the proposed row would have duplicated it.
+
+Also: the Yoshida-4 integrator is `createYoshida4` in `core/integrators/symplectic.ts`, not a
+`yoshida4.ts`; and PHYSICS_SPEC **§3 is Kerr** — the orbits section BUILD_PLAN Phase 3 cites is
+**§2.5**.
+
+**What driving Sim A's page caught that the green suite did not** — four defects, recorded because
+they are all the same shape, a degenerate parameter value reachable from a slider:
+
+- **L = 0 crashed the panel**: the circular-orbit quadratic degenerates to a double root at r = 0.
+- **The plot rendered empty at high L**: a fixed vertical band inverted once the barrier exceeded
+  the clamped ceiling.
+- **The default energy landed unbound**: a linear sweep of the drawn band is mostly above E = 0,
+  because the barrier is far taller than the well is deep.
+- **A turning point was reported that the particle cannot reach**, on the far side of the barrier.
+
+**Next: Sim B (Mercury precession), then Sim C (ISCO explorer).**
 
 ### Phase 3-Visual — 3D rendering and interaction overhaul *(2026-09-07)* — IN PROGRESS
 
