@@ -53,6 +53,8 @@ const SIM_ROUTES = [
   '/sims/time-dilation',
   '/sims/deflection-decomposition',
   '/sims/interpretations',
+  '/sims/spacetime-curvature',
+  '/sims/gp-river',
 ];
 
 for (const width of [360, 390]) {

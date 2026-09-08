@@ -94,7 +94,7 @@
    geometry. Rendering a coordinate chart as a 3D scene would be a category error. */
 .panel-host {
   display: grid; align-content: center; padding: 0.9rem; width: 100%; height: 100%;
-  overflow-y: auto;
+  overflow-y: auto; min-width: 0;
 }
 .panel-host .panel-grid {
   /* Two by two, not auto-fit: at stage width auto-fit gives three across and wraps Kruskal onto
@@ -105,6 +105,7 @@
 }
 @media (max-width: 900px) {
   .panel-host .panel-grid { grid-template-columns: minmax(0, 1fr); }
+  .panel-host .panel-card { min-width: 0; }
 }
 .panel-host .panel-card { padding: 0.75rem; }
 .panel-host .panel-title { min-height: 2.7rem; }

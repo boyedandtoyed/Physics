@@ -21,6 +21,10 @@
   grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
   gap: 1.25rem;
   align-items: stretch;
+  /* Grid children default to min-width:auto and will widen the whole stage to fit their widest
+     indivisible content. Without this a sim whose canvas slot holds a grid of its own pushes the
+     page past the viewport — which is exactly what the four-chart module did at 390px. */
+  min-width: 0;
 }
 
 .stage-canvas-wrap { position: relative; min-width: 0; display: grid; }
@@ -103,7 +107,13 @@
   .sim-stage.is-focused .stage-panel { background: var(--panel); }
 }
 
-.stage-prose { display: grid; gap: 3rem; }
+/* The prose below the stage holds tables and equations with real minimum widths. As grid items
+   they default to min-width:auto and widen the entire stage — which is how a 34rem table in the
+   Interpretations module pushed the page 205px past a 390px viewport, while the visible symptom
+   was the canvas being too wide. Wide content scrolls in its own container; it does not get to
+   resize the page. */
+.stage-prose { display: grid; gap: 3rem; min-width: 0; }
+.stage-prose > * { min-width: 0; }
 
 /* --- narrow screens: the panel becomes a bottom drawer --- */
 @media (max-width: 900px) {
