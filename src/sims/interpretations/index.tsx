@@ -9,6 +9,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { NumberSlider } from '../../ui/NumberSlider';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
+import { SimStage, StageCanvas } from '../../ui/sim/SimStage';
 import {
   DEFAULT_START_RADIUS,
   kretschmann,
@@ -36,6 +37,7 @@ const ANNOUNCE_DELAY_MS = 600;
 /** The coordinate value §7.4 uses to show what the wrong comparison does. */
 const NAIVE_COORDINATE_VALUE = 13;
 const TIME_PLACES = 3;
+const SIM_ID = 'interpretations';
 
 export default function Interpretations() {
   const total = useMemo(() => properTimeToHorizon(DEFAULT_START_RADIUS), []);
@@ -64,7 +66,7 @@ export default function Interpretations() {
   }, []);
 
   return (
-    <article className="interpretations">
+    <article className="interpretations sim-page">
       <div className="interp-head">
         <p className="eyebrow">Interpretations · Claim B</p>
         <h1>One geometry.<br /><em>Four</em> pictures.</h1>
@@ -78,8 +80,35 @@ export default function Interpretations() {
         </p>
       </div>
 
-      <section className="event" aria-labelledby="event-heading">
-        <h2 id="event-heading">The event</h2>
+      <SimStage
+        simId={SIM_ID}
+        panelLabel="The event"
+        showTransport={false}
+        canvas={
+          <StageCanvas simId={SIM_ID} dragging={false}>
+            <div className="stage-svg panel-host" tabIndex={0} role="group" aria-label="The same worldline in four coordinate charts">
+              <div className="panel-grid">
+                {CHARTS.map(chart => (
+                  <figure key={chart.id} className="panel-card">
+                    <figcaption className="panel-title">
+                      <strong>{chart.name}</strong>
+                      <span className="panel-horizon-note">At the horizon: {chart.atHorizon}</span>
+                    </figcaption>
+                    <ChartPanel id={chart.id} properTime={tau} />
+                    <p className="panel-prose">
+                      {chart.character}
+                      {chart.windowNote
+                        ? <span className="panel-window-note">{chart.windowNote}</span>
+                        : null}
+                    </p>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </StageCanvas>
+        }
+        controls={<>
+      <div className="event">
         <div className="controls-grid">
           <NumberSlider
             label="The faller’s own clock"
@@ -104,31 +133,9 @@ export default function Interpretations() {
             </div>
           </dl>
         </div>
-      </section>
-
-      <section className="panels" aria-labelledby="panels-heading">
-        <h2 id="panels-heading">The same worldline, four times</h2>
-        <div className="panel-grid">
-          {CHARTS.map(chart => (
-            <figure key={chart.id} className="panel-card">
-              {/* Header, chart, then prose. The header is a fixed two lines so the four charts
-                  line up across the row: a side-by-side comparison that is not side by side
-                  is asking the reader to do the work the layout should have done. */}
-              <figcaption className="panel-title">
-                <strong>{chart.name}</strong>
-                <span className="panel-horizon-note">At the horizon: {chart.atHorizon}</span>
-              </figcaption>
-              <ChartPanel id={chart.id} properTime={tau} />
-              <p className="panel-prose">
-                {chart.character}
-                {chart.windowNote
-                  ? <span className="panel-window-note">{chart.windowNote}</span>
-                  : null}
-              </p>
-            </figure>
-          ))}
-        </div>
-      </section>
+      </div>
+        </>}
+      >
 
       <section className="agreement" aria-labelledby="agreement-heading">
         <h2 id="agreement-heading">Different coordinates, identical curvature</h2>
@@ -328,6 +335,7 @@ export default function Interpretations() {
         cannot quietly become vacuous. 35 mutations of the underlying arithmetic were introduced
         and all 35 make the suite fail.
       </p>
+      </SimStage>
     </article>
   );
 }

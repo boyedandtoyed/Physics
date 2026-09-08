@@ -87,3 +87,29 @@
   .tidal-layout { grid-template-columns: 1fr; }
   .event-figures dd { font-size: 1.15rem; }
 }
+
+/* --- stage layout ------------------------------------------------------------------------ */
+/* The four coordinate charts are the stage's visual. They stay SVG: these are charts OF
+   coordinates, and the module's whole thesis is that they are four different 2D pictures of one
+   geometry. Rendering a coordinate chart as a 3D scene would be a category error. */
+.panel-host {
+  display: grid; align-content: center; padding: 0.9rem; width: 100%; height: 100%;
+  overflow-y: auto;
+}
+.panel-host .panel-grid {
+  /* Two by two, not auto-fit: at stage width auto-fit gives three across and wraps Kruskal onto
+     a second row, so the four-way comparison — the entire point of the module — needs scrolling
+     to see. All four must be on screen together. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+@media (max-width: 900px) {
+  .panel-host .panel-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.panel-host .panel-card { padding: 0.75rem; }
+.panel-host .panel-title { min-height: 2.7rem; }
+.panel-host .panel-title strong { font-size: 0.88rem; }
+.panel-host .panel-prose { font-size: 0.76rem; }
+.interpretations .stage-panel-body .event-figures dd { font-size: 1.15rem; }
+.interpretations .stage-panel-body .controls-grid { grid-template-columns: minmax(0, 1fr); }
+.interpretations .event { display: grid; gap: 1.2rem; }
