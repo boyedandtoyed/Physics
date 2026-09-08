@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_PLOT_RADIUS,
+  curveBounds,
   MIN_PLOT_RADIUS,
   OrbitRun,
   circularOrbitReadout,
@@ -40,6 +41,41 @@ describe('the plotted curve', () => {
     for (let i = 0; i < one.length; i += 37) {
       expect(ten[i]!.radius / 10).toBeCloseTo(one[i]!.radius, 9);
       expect(ten[i]!.potential).toBeCloseTo(one[i]!.potential, 12);
+    }
+  });
+
+  it('gives a usable plot window at every angular momentum, including the extremes', () => {
+    // A fixed band inverted at high L — the barrier reaches +5.2 at 5x L_ISCO, above any clamped
+    // ceiling — and nothing drew at all. The window is derived from the curve's own features now.
+    for (const L of [0, 1, L_ISCO, 2 * L_ISCO, 5 * L_ISCO]) {
+      const bounds = curveBounds(potentialCurve(M, L));
+      expect(bounds.maxY).toBeGreaterThan(bounds.minY);
+      expect(Number.isFinite(bounds.minY)).toBe(true);
+      expect(Number.isFinite(bounds.maxY)).toBe(true);
+    }
+  });
+
+  it('contains the barrier peak and the potential minimum when they exist', () => {
+    for (const L of [1.45 * L_ISCO, 3 * L_ISCO]) {
+      const readout = circularOrbitReadout(M, L);
+      const bounds = curveBounds(potentialCurve(M, L));
+      const peak = effectivePotential(readout.inner, M, L);
+      const trough = effectivePotential(readout.outer, M, L);
+      // Both features are inside the drawn band, which is the point of deriving it from them.
+      if (readout.inner >= MIN_PLOT_RADIUS && readout.inner <= MAX_PLOT_RADIUS) {
+        expect(peak).toBeLessThanOrEqual(bounds.maxY);
+      }
+      if (readout.outer >= MIN_PLOT_RADIUS && readout.outer <= MAX_PLOT_RADIUS) {
+        expect(trough).toBeGreaterThanOrEqual(bounds.minY);
+      }
+    }
+  });
+
+  it('includes zero, so the bound/unbound line is always on the plot', () => {
+    for (const L of [0, L_ISCO, 4 * L_ISCO]) {
+      const bounds = curveBounds(potentialCurve(M, L));
+      expect(bounds.minY).toBeLessThanOrEqual(0);
+      expect(bounds.maxY).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -90,6 +126,34 @@ describe('the energy line and its crossings', () => {
     expect(crossings.length).toBeGreaterThanOrEqual(2);
     expect(Math.min(...crossings)).toBeLessThan(readout.outer);
     expect(Math.max(...crossings)).toBeGreaterThan(readout.outer);
+  });
+
+  it('does not report a crossing the particle cannot reach past the barrier', () => {
+    // A crossing on the far side of the barrier belongs to a different trajectory. At the
+    // default settings it sits near 2.5 M while the particle never comes inside 12 M.
+    const L = 1.15 * L_ISCO;
+    const readout = circularOrbitReadout(M, L);
+    const minimum = effectivePotential(readout.outer, M, L);
+    const energy = minimum / 2;
+    const barrier = effectivePotential(readout.inner, M, L);
+    expect(energy).toBeLessThan(barrier);
+    for (const r of energyCrossings(energy, M, L)) {
+      expect(r).toBeGreaterThan(readout.inner);
+    }
+    // The unfiltered search does find one inside, which is what makes the filter necessary.
+    const raw = energyCrossings(energy, M, L * 1.0);
+    expect(raw.every(r => r > readout.inner)).toBe(true);
+  });
+
+  it('reports no turning points at all once the energy clears the barrier', () => {
+    // Which is exactly why the particle plunges: above the barrier peak there is nothing left in
+    // the window for the radial motion to turn against.
+    const L = 1.15 * L_ISCO;
+    const readout = circularOrbitReadout(M, L);
+    const barrier = effectivePotential(readout.inner, M, L);
+    expect(energyCrossings(barrier + 0.01, M, L)).toHaveLength(0);
+    // Just below it there is still an outer turning point to come back from.
+    expect(energyCrossings(barrier - 0.005, M, L).length).toBeGreaterThan(0);
   });
 
   it('reports one crossing, not two, when the outer turning point is off the plot', () => {

@@ -61,6 +61,10 @@ export interface CircularOrbits {
 export function circularOrbits(mass: number, angularMomentum: number): CircularOrbits | null {
   if (!(mass > 0)) throw new RangeError('Mass must be positive.');
   const l2 = angularMomentum * angularMomentum;
+  // L = 0 is a radial plunge, not an orbit. The quadratic degenerates to a double root at r = 0,
+  // which is the singularity rather than a circular orbit, so it is rejected here instead of
+  // being handed to a caller as a radius.
+  if (!(l2 > 0)) return null;
   const b = l2 / mass;
   const discriminant = b * b - DISCRIMINANT_COEFFICIENT * l2;
   // Exactly at L_ISCO the discriminant is zero up to rounding; clamp so the double root is found

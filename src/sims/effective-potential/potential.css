@@ -1,0 +1,46 @@
+/* Scoped to the effective-potential explorer. Colours come from the shell's theme tokens. */
+
+.potential { display: grid; gap: 0; }
+.potential .sim-head { max-width: 46rem; }
+.potential .sim-head .intro { color: var(--muted); margin: 0; }
+
+.potential .figures { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.potential .figures div { display: grid; gap: 0.15rem; }
+.potential .figures dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.potential .figures dd {
+  margin: 0; font-size: 1.15rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.potential .figures dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+.potential .figures dd.orbit-bound { color: #1a52b8; }
+.potential .figures dd.orbit-unbound { color: #c77505; }
+:root:not([data-theme='light']) .potential .figures dd.orbit-bound { color: #6ba6ff; }
+:root:not([data-theme='light']) .potential .figures dd.orbit-unbound { color: #ffb833; }
+:root[data-theme='dark'] .potential .figures dd.orbit-bound { color: #6ba6ff; }
+:root[data-theme='dark'] .potential .figures dd.orbit-unbound { color: #ffb833; }
+
+.potential .legend {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; font-size: 0.78rem;
+}
+.potential .legend li { display: flex; align-items: center; gap: 0.55rem; color: var(--muted); }
+.potential .legend li::before {
+  content: ''; width: 1.3rem; height: 0.26rem; border-radius: 0.13rem; flex: none;
+}
+/* These swatches mirror the shader's colours. The radii they mark are physical; the hues are a
+   display choice. */
+.legend-horizon::before { background: #b8473d; }
+.legend-photon::before { background: #d98c26; }
+.legend-isco::before { background: #409ee6; }
+.legend-bound::before { background: #1a52b8; }
+.legend-unbound::before { background: #c77505; }
+:root:not([data-theme='light']) .legend-bound::before { background: #6ba6ff; }
+:root:not([data-theme='light']) .legend-unbound::before { background: #ffb833; }
+:root[data-theme='dark'] .legend-bound::before { background: #6ba6ff; }
+:root[data-theme='dark'] .legend-unbound::before { background: #ffb833; }
+
+.potential .mode-warning { margin: 0.4rem 0 0; font-size: 0.82rem; color: var(--muted); }
+.potential .mode-warning.active { color: var(--focus); font-weight: 600; }
+.potential .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

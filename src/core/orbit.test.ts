@@ -95,6 +95,13 @@ describe('the ISCO', () => {
     expect(ISCO_BINDING_EFFICIENCY).toBeCloseTo(0.0571909584, 9);
   });
 
+  it('treats zero angular momentum as a radial plunge, not a circular orbit at r = 0', () => {
+    // The quadratic degenerates to a double root at the singularity. Returning it as a radius
+    // crashed the explorer when the angular-momentum slider reached its minimum.
+    expect(circularOrbits(M, 0)).toBeNull();
+    expect(circularOrbits(M, -0)).toBeNull();
+  });
+
   it('has no circular orbits at all below L_ISCO, not merely no stable ones', () => {
     for (const L of [0.5, 2, 3, L_ISCO - 1e-6]) {
       expect(circularOrbits(M, L)).toBeNull();

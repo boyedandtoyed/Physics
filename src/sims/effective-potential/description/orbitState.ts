@@ -23,11 +23,11 @@ export const MAX_PLOT_RADIUS = 30;
 const CURVE_SAMPLES = 480;
 const FLOATS_PER_VERTEX = 3;
 const STATIC_AGE = 1;
-/** Plot window in V_eff. The potential dives to -infinity at small r, so the band is set by the
- * interesting features — the minimum and the barrier — not by the divergence. */
-const POTENTIAL_FLOOR = -0.25;
-const POTENTIAL_CEILING = 0.12;
+/** Padding around the plotted band, and a floor on its height so a flat curve still has a scale. */
 const POTENTIAL_PAD_FRACTION = 0.12;
+const MIN_PLOT_SPAN = 0.02;
+/** Stand-in well depth when no circular orbit exists, so the energy control still has a range. */
+const FALLBACK_WELL_DEPTH = 0.05;
 /** Angular momentum within this of L_ISCO reads as "at the ISCO" in the readout. */
 const ISCO_TOLERANCE = 1e-9;
 
@@ -48,23 +48,39 @@ export function potentialCurve(mass: number, angularMomentum: number): CurvePoin
 }
 
 /**
- * Vertical extent worth plotting: the curve clipped to a readable band around its features.
+ * Vertical extent worth plotting, derived from the curve's own features.
  *
- * Takes no mass, and that is not an oversight: V_eff is dimensionless and scale-free, so the
- * band is the same for every mass. Only the radius labels change.
+ * A fixed band does not work: V_eff dives to -infinity at small r and its barrier grows without
+ * bound with L, so at 5x L_ISCO the peak reaches +5.2 while a clamped ceiling of 0.12 sits below
+ * the curve's minimum in the window — the bounds invert and nothing draws at all. The window is
+ * therefore set by the circular-orbit values, the far field, and zero (the bound/unbound line),
+ * which are the features a reader is looking for.
+ *
+ * Takes no mass: V_eff is dimensionless and scale-free, so the band is the same for every mass
+ * and only the radius labels change.
  */
 export function curveBounds(
   points: readonly CurvePoint[],
 ): { minY: number; maxY: number } {
-  // The potential dives to -infinity at small r, so the window is set by the interesting part —
-  // the minimum and the barrier — not by the divergence.
-  const finite = points.map(p => p.potential).filter(Number.isFinite);
-  const lowest = Math.min(...finite);
-  const highest = Math.max(...finite);
-  const floor = Math.max(lowest, POTENTIAL_FLOOR);
-  const ceiling = Math.min(highest, POTENTIAL_CEILING);
-  const pad = (ceiling - floor) * POTENTIAL_PAD_FRACTION;
-  return { minY: floor - pad, maxY: ceiling + pad };
+  const features: number[] = [0];
+  const last = points[points.length - 1];
+  if (last && Number.isFinite(last.potential)) features.push(last.potential);
+  // Local extrema, found from the samples themselves so this works whether or not the
+  // closed-form roots fall inside the plotted window.
+  const finite = points.filter(point => Number.isFinite(point.potential));
+  for (let i = 1; i < finite.length - 1; i++) {
+    const before = finite[i - 1]!.potential;
+    const here = finite[i]!.potential;
+    const after = finite[i + 1]!.potential;
+    if ((here >= before && here >= after) || (here <= before && here <= after)) {
+      features.push(here);
+    }
+  }
+  const lower = Math.min(...features);
+  const upper = Math.max(...features);
+  const span = Math.max(upper - lower, MIN_PLOT_SPAN);
+  const pad = span * POTENTIAL_PAD_FRACTION;
+  return { minY: lower - pad, maxY: upper + pad };
 }
 
 /** The three radii the explorer marks, in units of M. */
@@ -203,13 +219,28 @@ export function energyLine(energy: number, minX: number, maxX: number): Float32A
   return new Float32Array([minX, energy, STATIC_AGE, maxX, energy, STATIC_AGE]);
 }
 
-/** Where the energy line crosses V_eff — the orbit's turning points. */
+/**
+ * Where the energy line crosses V_eff — but only the crossings this orbit can actually reach.
+ *
+ * A crossing on the far side of the barrier is a turning point of a different trajectory: a
+ * particle approaching from outside with E below the barrier peak cannot get past it, so
+ * reporting the inner crossing as "a turning point of the orbit" is wrong. At the default
+ * settings that inner crossing sits at 2.47 M while the particle never comes inside 12 M.
+ *
+ * When E exceeds the barrier peak there is no inner turning point at all — the particle plunges,
+ * and every crossing outside the peak is reported.
+ */
 export function energyCrossings(
   energy: number, mass: number, angularMomentum: number,
 ): number[] {
-  return turningPoints(energy, mass, angularMomentum, {
+  const all = turningPoints(energy, mass, angularMomentum, {
     from: MIN_PLOT_RADIUS, to: MAX_PLOT_RADIUS,
   });
+  const orbits = circularOrbits(mass, angularMomentum);
+  if (!orbits) return all;
+  const barrier = effectivePotential(orbits.inner, mass, angularMomentum);
+  // Below the barrier the outside region is separated from the inside one; above it, it is not.
+  return energy < barrier ? all.filter(radius => radius > orbits.inner) : all;
 }
 
 /** The circular orbits, if any exist at this angular momentum. */
@@ -254,4 +285,36 @@ export function describeState(
     );
   }
   return parts.join(' ');
+}
+
+/**
+ * Map the energy control onto the physics rather than onto the plot band.
+ *
+ * `fraction` is the energy as a share of the well depth: 0 sits at the potential minimum (a
+ * circular orbit), 1 sits at E = 0 (marginally bound), and beyond 1 the orbit is unbound. A
+ * linear sweep of the drawn band instead spends most of its travel above E = 0, because the
+ * barrier is far taller than the well is deep — at the default angular momentum the well is
+ * 0.022 deep and the barrier 0.156 high, so seven eighths of the slider was unbound.
+ *
+ * With no minimum — below L_ISCO — there is no well to measure against, and the control sweeps a
+ * small band around zero instead.
+ */
+export function energyFromWellFraction(
+  fraction: number, mass: number, angularMomentum: number,
+): number {
+  const orbits = circularOrbits(mass, angularMomentum);
+  if (!orbits) return -FALLBACK_WELL_DEPTH * (1 - fraction);
+  const minimum = effectivePotential(orbits.outer, mass, angularMomentum);
+  return minimum * (1 - fraction);
+}
+
+/** The inverse, for showing where the current energy sits in the well. */
+export function wellFractionFromEnergy(
+  energy: number, mass: number, angularMomentum: number,
+): number {
+  const orbits = circularOrbits(mass, angularMomentum);
+  if (!orbits) return 1 + energy / FALLBACK_WELL_DEPTH;
+  const minimum = effectivePotential(orbits.outer, mass, angularMomentum);
+  if (!(Math.abs(minimum) > 0)) return 0;
+  return 1 - energy / minimum;
 }

@@ -64,4 +64,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Gullstrand–Painlevé', 'Interpretations'],
     load: () => import('../sims/gp-river'),
   },
+  {
+    id: 'effective-potential',
+    title: 'One term, two consequences',
+    description:
+      'The Schwarzschild effective potential, with the orbit it produces beside it. The −ML²/r³ '
+      + 'term gives both the perihelion precession and the ISCO; switch it off and both vanish.',
+    tags: ['General relativity', 'Orbits', 'Effective potential'],
+    load: () => import('../sims/effective-potential'),
+  },
 ];
