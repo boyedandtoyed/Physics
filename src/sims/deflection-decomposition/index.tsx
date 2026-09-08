@@ -8,6 +8,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, ToggleButton } from 'react-aria-components';
 import { NumberSlider } from '../../ui/NumberSlider';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
+import { SimStage, StageCanvas } from '../../ui/sim/SimStage';
 import {
   CASSINI_GAMMA_OFFSET,
   CASSINI_GAMMA_UNCERTAINTY,
@@ -39,6 +40,7 @@ const PhysicsPanel = lazy(() =>
 /** Live-region updates are throttled so dragging does not flood a screen reader (BUILD_PLAN §6). */
 const ANNOUNCE_DELAY_MS = 600;
 const PERCENT = 100;
+const SIM_ID = 'deflection-decomposition';
 /** Cassini's bound is quoted in units of 10^-5; this renders it that way. */
 const CASSINI_DISPLAY_SCALE = 1e5;
 
@@ -61,7 +63,7 @@ export default function DeflectionDecomposition() {
   const timeShare = figures.timeCurvature / figures.total;
 
   return (
-    <article className="deflection">
+    <article className="deflection sim-page">
       <div className="deflection-head">
         <p className="eyebrow">Interpretations · Claim A</p>
         <h1>Does time dilation<br /><em>cause</em> gravity?</h1>
@@ -74,6 +76,18 @@ export default function DeflectionDecomposition() {
         </p>
       </div>
 
+      <SimStage
+        simId={SIM_ID}
+        panelLabel="Controls"
+        showTransport={false}
+        canvas={
+          <StageCanvas simId={SIM_ID} dragging={false}>
+            <div className="stage-svg chart-host" tabIndex={0} role="group" aria-label="Deflection against particle speed">
+              <DeflectionChart logBeta={logBeta} ppnGamma={ppnGamma} />
+            </div>
+          </StageCanvas>
+        }
+        controls={<>
       <section className="split" aria-labelledby="split-heading">
         <h2 id="split-heading">The split at this speed</h2>
         <div
@@ -179,14 +193,12 @@ export default function DeflectionDecomposition() {
         </div>
       </section>
 
-      <section className="chart-section" aria-labelledby="chart-heading">
-        <h2 id="chart-heading">Across every speed</h2>
+      <div className="chart-section">
         <p className="chart-intro">
           The space contribution is the flat line: <strong>0.8756″ at every speed</strong>. It is
           the time contribution that diverges for slow particles, not the space contribution that
           vanishes — which is the opposite of how the claim is usually told.
         </p>
-        <DeflectionChart logBeta={logBeta} ppnGamma={ppnGamma} />
         <ul className="chart-key">
           <li className="key-total">Total</li>
           <li className="key-time">Time curvature</li>
@@ -194,7 +206,9 @@ export default function DeflectionDecomposition() {
             ? <li className="key-absent">Space curvature — zero at γ = 0, not drawable on a log axis</li>
             : <li className="key-space">Space curvature</li>}
         </ul>
-      </section>
+      </div>
+        </>}
+      >
 
       <p className="visually-hidden" role="status" aria-live="polite">{announcement}</p>
 
@@ -276,6 +290,7 @@ export default function DeflectionDecomposition() {
         separate places on the axis rather than at β = 1, where the two lines cross and any wrong
         exponent would still pass through the same point.
       </p>
+      </SimStage>
     </article>
   );
 }
