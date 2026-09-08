@@ -411,6 +411,49 @@ check("GP river v/c at r = r_s (horizon)", river_speed_over_c(1.0), 1.0, 1e-10, 
 check("GP river v/c at r = 0.25 r_s (inside)", river_speed_over_c(0.25), 2.0, 1e-10, "c")
 check("GP river v/c at r = 100 r_s (far field)", river_speed_over_c(100.0), 0.1, 1e-10, "c")
 
+# 34-39  Orbits: effective potential, ISCO energetics -----------------------
+# Geometric units (G = c = 1): M and L are lengths and V_eff is dimensionless. PHYSICS_SPEC 2.5.
+M_geo = 1.0
+
+def v_eff(r, L):
+    return -M_geo / r + L * L / (2 * r * r) - M_geo * L * L / r**3
+
+def circular_roots(L):
+    """Roots of dV_eff/dr = 0: r^2 - (L^2/M) r + 3L^2 = 0. None below L = 2 sqrt(3) M."""
+    b = L * L / M_geo
+    disc = b * b - 12 * L * L
+    if disc < -1e-12:
+        return None
+    disc = max(disc, 0.0)
+    root = math.sqrt(disc)
+    return ((b - root) / 2, (b + root) / 2)
+
+L_isco = 2 * math.sqrt(3) * M_geo
+E_isco_tilde = math.sqrt(8 / 9)
+
+check("L_ISCO = 2 sqrt(3) M", L_isco, 3.4641016151377544, 1e-10, "M")
+check("r_ISCO (double root of dV_eff/dr)", circular_roots(L_isco)[0], 6.0, 1e-9, "M")
+# NOT -1/(12M): V_eff is dimensionless here, and the value is -1/18.
+check("V_eff at the ISCO minimum", v_eff(6 * M_geo, L_isco), -1 / 18, 1e-12, "")
+check("E_ISCO (specific energy)", E_isco_tilde, 0.9428090415820634, 1e-10, "")
+# The same number two ways: the potential minimum IS (E~^2 - 1)/2.
+check("(E_ISCO^2 - 1)/2 equals the V_eff minimum",
+      (E_isco_tilde**2 - 1) / 2 - v_eff(6 * M_geo, L_isco), 0.0, 1e-12, "")
+check("ISCO binding energy eta = 1 - sqrt(8/9)", 1 - E_isco_tilde, 0.0571909584, 1e-6, "")
+
+# The photon sphere belongs to the NULL potential, where it is exactly 3M for every L.
+# The massive-particle V_eff's inner maximum only tends to 3M as L -> infinity.
+def dv_photon(r, L):
+    return L * L * (-2 / r**3 + 6 * M_geo / r**4)
+
+for L_ph in (0.5, 1.0, 10.0):
+    check(f"dV_photon/dr at 3M, L={L_ph:g}", dv_photon(3 * M_geo, L_ph), 0.0, 1e-15, "")
+check("massive-particle inner max at L=20M (NOT 3M)", circular_roots(20.0)[0], 3.0228, 1e-3, "M")
+check("massive-particle inner max at L=2000M (approaching 3M)",
+      circular_roots(2000.0)[0], 3.000002, 1e-5, "M")
+print("       (no circular orbits at all below L = 2 sqrt(3) M: "
+      f"{circular_roots(3.0) is None})")
+
 # Yoshida-4 coefficients ---------------------------------------------------
 w1 = 1 / (2 - 2 ** (1 / 3))
 w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))

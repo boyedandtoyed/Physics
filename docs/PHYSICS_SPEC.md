@@ -168,6 +168,55 @@ and the ISCO. The ISCO is where $V_{\rm eff}$ loses its minimum, at $L = \sqrt{1
 $r = 6GM/c^2$. This Hamiltonian **is** separable, so plain Verlet/Yoshida works — this is the
 right formulation for the interactive orbit sim.
 
+#### Geometric units, and the values the explorer asserts
+
+The orbit sims work in geometric units ($G=c=1$), where $M$ and $L$ both carry units of length and
+$V_{\rm eff}$ is **dimensionless**:
+
+$$V_{\rm eff}(r) = -\frac{M}{r} + \frac{L^2}{2r^2} - \frac{ML^2}{r^3},\qquad
+\tfrac12\left(\frac{dr}{d\tau}\right)^2 + V_{\rm eff}(r) = E,\quad E \equiv \frac{\tilde E^2-1}{2}$$
+
+Circular orbits are the roots of $dV_{\rm eff}/dr = 0$, which after clearing $r^4/M$ is the
+quadratic
+
+$$r^2 - \frac{L^2}{M}r + 3L^2 = 0 \;\Longrightarrow\;
+r_\pm = \frac{L^2 \pm \sqrt{L^4 - 12L^2M^2}}{2M}$$
+
+**ASSERT:**
+
+| Quantity | Value | Note |
+|---|---|---|
+| $L_{\rm ISCO}$ | $2\sqrt3\,M = 3.4641016151\,M$ | the discriminant's double root |
+| $r_{\rm ISCO}$ | $6M$ | $r_+=r_-$ there |
+| $V_{\rm eff}(6M;L_{\rm ISCO})$ | $\boxed{-1/18} = -0.0555556$ | **not** $-1/(12M)$ |
+| $\tilde E_{\rm ISCO}$ | $\sqrt{8/9} = 0.9428090416$ | |
+| $E_{\rm ISCO}=(\tilde E^2-1)/2$ | $-1/18$ | identical to the potential minimum |
+| Binding energy $\eta$ | $1-\sqrt{8/9} = 0.0571909584$ | §2.4's 5.7191% efficiency |
+
+The $V_{\rm eff}$ minimum and $(\tilde E^2-1)/2$ agreeing at $-1/18$ is not a coincidence to be
+asserted twice — it is the same number reached two ways, and the test says so.
+
+#### The photon sphere is a different potential — a correction worth recording
+
+It is tempting to say "$V_{\rm eff}$ has its maximum at the photon sphere $3M$". **That is false
+for a massive particle.** From the quadratic above:
+
+- For $L < 2\sqrt3\,M$ the discriminant is negative and there are **no extrema at all** — no
+  circular orbits, stable or otherwise.
+- For $L > 2\sqrt3\,M$ the inner root $r_-$ is the unstable maximum, and it approaches $3M$ only
+  as $L\to\infty$: $r_- = 3.303M$ at $L=6M$, $3.0228M$ at $L=20M$, $3.000002M$ at $L=2000M$.
+
+The exact $3M$ belongs to the **null** effective potential, where the massive-particle $-M/r$ term
+is absent:
+
+$$V_{\rm photon}(r) = L^2\left(\frac{1}{r^2}-\frac{2M}{r^3}\right),\qquad
+\frac{dV_{\rm photon}}{dr} = L^2\left(-\frac{2}{r^3}+\frac{6M}{r^4}\right) = 0
+\;\Longleftrightarrow\; r = 3M$$
+
+for **every** $L$, which is why the photon sphere has a single radius independent of the photon's
+angular momentum. **ASSERT** both: $dV_{\rm photon}/dr = 0$ at exactly $3M$ for several $L$, and
+that the massive-particle $r_-$ merely tends to $3M$ without reaching it.
+
 ---
 
 ## 3. Kerr (rotating) geometry
