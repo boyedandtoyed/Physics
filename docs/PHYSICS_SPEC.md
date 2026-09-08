@@ -1045,6 +1045,7 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 16 | Casimir $F/A$ at 100 nm | $\pi^2\hbar c/240a^4$ | **13.001 Pa** (and 130 kPa at 10 nm ≈ 1.3 atm) | ±1% |
 | 17 | Hawking $T_H(M_\odot)$ | | $6.17\times10^{-8}$ K | ±1% |
 | 18 | Lamb shift 2S–2P | | ~1057.8 MHz total; Uehling term −27 MHz | reproduce breakdown |
+| 33 | Gullstrand–Painlevé river speed | $\lvert\beta\rvert=\sqrt{r_s/r}$ | **0.5 c** at $4r_s$; **exactly c** at $r_s$; 2c at $0.25r_s$ | 1e-10 relative |
 | 19 | Hafele–Keating asymmetry mechanism | $2R\Omega v$ Sagnac cross-term | east/west asymmetry sign | qualitative + sign |
 
 #### Clock calculator implementation conventions

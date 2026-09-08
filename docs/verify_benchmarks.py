@@ -397,6 +397,20 @@ check("Evaporation time (Msun), photons only",
 check("Luminosity coefficient", hbar * c**6 / (15360 * math.pi * G**2),
       3.563e32, 0.005e32, "W kg^2")
 
+# 33  Gullstrand-Painleve river velocity ------------------------------------
+# beta = -sqrt(r_s/r), PHYSICS_SPEC 5.1. The sign is the direction; the magnitude is what the
+# river view colour-codes. Scale-free: only r/r_s enters, so these hold for every mass.
+def river_speed_over_c(radius_over_rs):
+    return math.sqrt(1.0 / radius_over_rs)
+
+check("GP river v/c at r = 4 r_s", river_speed_over_c(4.0), 0.5, 1e-10, "c")
+check("GP river v/c at r = r_s (horizon)", river_speed_over_c(1.0), 1.0, 1e-10, "c")
+# The horizon is exactly where the river reaches c -- PHYSICS_SPEC 5.3 -- and inside it the flow
+# is superluminal, which is not a causality violation because nothing moves faster than c
+# *relative to the river* (5.4 point 6).
+check("GP river v/c at r = 0.25 r_s (inside)", river_speed_over_c(0.25), 2.0, 1e-10, "c")
+check("GP river v/c at r = 100 r_s (far field)", river_speed_over_c(100.0), 0.1, 1e-10, "c")
+
 # Yoshida-4 coefficients ---------------------------------------------------
 w1 = 1 / (2 - 2 ** (1 / 3))
 w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))
