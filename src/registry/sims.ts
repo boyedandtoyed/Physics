@@ -73,4 +73,13 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Orbits', 'Effective potential'],
     load: () => import('../sims/effective-potential'),
   },
+  {
+    id: 'mercury-precession',
+    title: 'The 43 arcseconds that were left over',
+    description:
+      'Mercury\u2019s perihelion, precessing. Run at an exaggerated mass because the real drift is '
+      + 'a tenth of an arcsecond per orbit \u2014 with the benchmark computed at the real parameters.',
+    tags: ['General relativity', 'Orbits', 'Perihelion precession'],
+    load: () => import('../sims/mercury-precession'),
+  },
 ];

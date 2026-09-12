@@ -30,7 +30,7 @@ position — and axe exempts a skip link only when it *is* first. The skip link 
 header landmark, which makes it immune to whatever the edge puts in front of it. **Diff `curl` of
 the public host against `curl` of `127.0.0.1:8080` before assuming the app changed.**
 
-### Phase 3 — Orbits and precession *(2026-09-08)* — IN PROGRESS
+### Phase 3 — Orbits and precession *(2026-09-12)* — IN PROGRESS
 
 **Landed: Sim A, the effective-potential explorer** (`/sims/effective-potential`, commits
 `0a96621` → `862effe`). V_eff with its critical radii and a movable energy line beside the orbit
@@ -63,7 +63,51 @@ they are all the same shape, a degenerate parameter value reachable from a slide
   because the barrier is far taller than the well is deep.
 - **A turning point was reported that the particle cannot reach**, on the far side of the barrier.
 
-**Next: Sim B (Mercury precession), then Sim C (ISCO explorer).**
+**Landed: Sim B, the Mercury precession sim** (`/sims/mercury-precession`). The orbit integrated
+with Yoshida-4 at 1,500 steps per orbit, its rosette, and the swept perihelion angle, beside three
+figures that are deliberately never merged into one. `core/mercury.ts` (8 tests),
+`angularMomentumForTurningPoints` in `core/orbit.ts` (orbit.ts now 25 tests), the sim's state and
+geometry layers (37 tests), 11 Playwright tests. 99 → 103 benchmark checks (new rows 34–37).
+
+**The exaggerated mass is the whole design problem, and it is stated rather than hidden.** At
+Mercury's real $GM/ac^2 = 2.55\times10^{-8}$ the perihelion moves 0.1″ per orbit: no animation can
+show it. The canvas runs at 0.05 — five million times larger — and carries a permanent label
+saying so. At that field strength **the leading-order formula is 32% low**, measured, so the panel
+shows the integrator's advance, the formula's value *at the animation's mass* with the shortfall
+as a percentage, and Mercury's real 42.98″/century computed from the real Solar GM, as three
+separate rows. A misconceptions entry says outright that the animation does not confirm 42.98″.
+New benchmark rows 34–37 pin the integrator's convergence instead: a Newtonian orbit closes, and
+measured/formula falls to 1.0242 at 0.005 and 1.0049 at 0.001.
+
+**Two physics findings during Sim B:**
+
+1. **Newtonian vis-viva seeding is wrong at an exaggerated mass** — it collapsed the eccentricity
+   from 0.206 to 0.029 and gave a 44% formula discrepancy that looked like an integrator bug. The
+   launch state is now solved from the turning points, $V_{\rm eff}(r_p)=V_{\rm eff}(r_a)$, which
+   reproduces the requested apsides exactly in whichever potential is selected — so the Newtonian
+   and relativistic orbits differ only in their physics, not their shape.
+2. **The mass slider's own range leaves the domain of a precessing orbit.** Above about
+   $GM/ac^2=0.15$ at Mercury's eccentricity the periapsis is inside the potential barrier and the
+   particle plunges; at 0.2 with $e=0.6$ the requested periapsis *is* the horizon and no orbit has
+   a turning point there at all. Both are now named states with their own on-page explanation.
+
+**What driving Sim B's page caught that the green suite did not** — three defects:
+
+- **An unhandled `RangeError` replaced the whole sim with the error boundary** at
+  $GM/ac^2 = 0.2$, $e = 0.6$. A Playwright test now sweeps both sliders to that corner, and a unit
+  test walks all 200 × 119 slider positions.
+- **The mandatory label was below the fold.** Placed under the canvas it was off screen at the
+  default window height; moved to an overlay at the canvas head, the sticky control drawer clipped
+  it mid-sentence on a phone. It is now the first row of the stage surface, which cannot be
+  occluded in any layout or in the expanded view.
+- **The trail read as a single arc, not a rosette** — the age fade floor was 0.04, so four of the
+  five orbits held were invisible — and the perihelion arc was drawn exactly on the periapsis
+  guide circle, making the two indistinguishable. The guide circle is gone and the swept angle is
+  now a filled sector.
+
+**Next: Sim C (ISCO explorer).** Its plunge must stop at **r = 2.001 M** (= 1.0005 $r_s$) with the
+coordinate-time label permanently on screen. Note the units slip in the brief: "2.001 $r_s$" would
+be 4.002 M, the marginally bound radius, nowhere near the horizon.
 
 ### Phase 3-Visual — 3D rendering and interaction overhaul *(2026-09-07)* — IN PROGRESS
 

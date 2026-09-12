@@ -44,7 +44,7 @@ export default defineConfig({
   projects: EDGE_URL ? [
     {
       name: 'edge',
-      testMatch: /(shell|sim|deflection|interpretations|timeDilation|simStage|curvature|river|effectivePotential)\.spec\.ts/,
+      testMatch: /(shell|sim|deflection|interpretations|timeDilation|simStage|curvature|river|effectivePotential|mercuryPrecession)\.spec\.ts/,
       // A round trip through Cloudflare is slower than localhost, and the lensing sim renders
       // on SwiftShader in CI.
       timeout: 180_000,
@@ -53,7 +53,7 @@ export default defineConfig({
   ] : [
     {
       name: 'app',
-      testMatch: /(shell|sim|deflection|interpretations|timeDilation|simStage|curvature|river|effectivePotential)\.spec\.ts/,
+      testMatch: /(shell|sim|deflection|interpretations|timeDilation|simStage|curvature|river|effectivePotential|mercuryPrecession)\.spec\.ts/,
       timeout: 150_000,
       use: { baseURL: `http://127.0.0.1:${APP_PORT}` },
     },

@@ -68,3 +68,12 @@ export const APPLE_SPEED = 10;
 export const ISS_ORBITAL_SPEED = 7700;
 /** Mercury mean orbital speed, m/s. */
 export const MERCURY_ORBITAL_SPEED = 47_900;
+
+/** Mercury's orbit, for the precession benchmark of PHYSICS_SPEC §8 row 1.
+ * Reference elements, not measurements to be re-derived here. */
+/** Semi-major axis, m. */
+export const MERCURY_SEMI_MAJOR_AXIS = 5.790_905e10;
+/** Orbital eccentricity, dimensionless. */
+export const MERCURY_ECCENTRICITY = 0.205_630;
+/** Sidereal orbital period, days. */
+export const MERCURY_PERIOD_DAYS = 87.9691;

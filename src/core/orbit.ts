@@ -197,3 +197,35 @@ export function turningPoints(
   }
   return roots;
 }
+
+/**
+ * Angular momentum of the orbit whose turning points are exactly `periapsis` and `apoapsis`.
+ *
+ * Solves V_eff(r_p) = V_eff(r_a) for L. Seeding instead with the Newtonian vis-viva speed gives
+ * an orbit with the wrong shape once the field is strong: at GM/(ac²) = 0.05 the eccentricity
+ * collapses from the intended 0.2056 to 0.029, and every measurement taken from it is of a
+ * different orbit than the one asked for.
+ *
+ * `relativistic` false solves the Newtonian potential instead, which reduces to the textbook
+ * L² = M a (1 − e²). Both are provided so a Newtonian-versus-GR comparison can hold the orbit's
+ * shape fixed and vary only the physics.
+ */
+export function angularMomentumForTurningPoints(
+  periapsis: number, apoapsis: number, mass: number, relativistic = true,
+): number {
+  if (!(periapsis > 0) || !(apoapsis > periapsis)) {
+    throw new RangeError('Apoapsis must exceed a positive periapsis.');
+  }
+  if (!(mass > 0)) throw new RangeError('Mass must be positive.');
+  const numerator = mass * (1 / periapsis - 1 / apoapsis);
+  const denominator = relativistic
+    ? 1 / (TWO * periapsis * periapsis) - mass / periapsis ** THREE
+      - 1 / (TWO * apoapsis * apoapsis) + mass / apoapsis ** THREE
+    : 1 / (TWO * periapsis * periapsis) - 1 / (TWO * apoapsis * apoapsis);
+  if (!(denominator > 0)) {
+    // Inside roughly 8M the relativistic denominator changes sign: no bound orbit has those two
+    // turning points, because the barrier cannot hold it.
+    throw new RangeError('No bound orbit has those turning points.');
+  }
+  return Math.sqrt(numerator / denominator);
+}

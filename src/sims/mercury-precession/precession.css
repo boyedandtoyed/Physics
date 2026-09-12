@@ -1,0 +1,73 @@
+/* Scoped to the Mercury precession sim. Colours come from the shell's theme tokens. */
+
+.precession { display: grid; gap: 0; }
+.precession .sim-head { max-width: 46rem; }
+.precession .sim-head .intro { color: var(--muted); margin: 0; }
+
+/* The mandatory label, as the first row of the stage surface — above the canvas, not over it
+   and not below it. Below the canvas it fell past the fold at the default window height; over
+   the canvas the sticky control drawer clipped it on a phone. As a row it is on screen whenever
+   the head of the canvas is, in every layout and in the expanded view. */
+.precession .stage-surface { grid-template-rows: auto minmax(0, 1fr); gap: 0.55rem; }
+.precession .exaggeration-label {
+  order: -1;
+  margin: 0; padding: 0.55rem 0.8rem; border-radius: 0.4rem;
+  border: 1px solid var(--focus); background: var(--panel); color: var(--ink);
+  font-size: 0.85rem; line-height: 1.5;
+}
+.precession .exaggeration-label strong { color: var(--focus); }
+@media (max-width: 40rem) {
+  .precession .exaggeration-label { font-size: 0.78rem; padding: 0.45rem 0.6rem; }
+}
+/* In the expanded view the control panel floats over the top right; the banner stops short of
+   it rather than running underneath. */
+.precession .sim-stage.is-focused .exaggeration-label {
+  margin-right: calc(min(21rem, 42vw) + 1rem);
+}
+
+.precession .figures { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.precession .figures div { display: grid; gap: 0.15rem; }
+.precession .figures dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.precession .figures dd {
+  margin: 0; font-size: 1.15rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.precession .figures dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+/* The published benchmark, set apart from the animation's own numbers so the two are never
+   read as the same measurement. */
+.precession .figure-benchmark {
+  padding: 0.6rem 0.75rem; border-left: 3px solid var(--focus); background: var(--surface, transparent);
+  border-radius: 0 0.3rem 0.3rem 0;
+}
+
+.precession .legend {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; font-size: 0.78rem;
+}
+.precession .legend li { display: flex; align-items: center; gap: 0.55rem; color: var(--muted); }
+.precession .legend li::before {
+  content: ''; width: 1.3rem; height: 0.26rem; border-radius: 0.13rem; flex: none;
+}
+/* These swatches mirror the shader's colours. */
+.precession .legend-orbit::before { background: #1a52b8; }
+.precession .legend-arc::before { background: #b86b05; }
+.precession .legend-guide::before { background: #6b7378; }
+.precession .legend-horizon::before { background: #4d1a1f; }
+:root:not([data-theme='light']) .precession .legend-orbit::before { background: #6bade0; }
+:root:not([data-theme='light']) .precession .legend-arc::before { background: #fab838; }
+:root[data-theme='dark'] .precession .legend-orbit::before { background: #6bade0; }
+:root[data-theme='dark'] .precession .legend-arc::before { background: #fab838; }
+
+.precession .mode-warning { margin: 0.4rem 0 0; font-size: 0.82rem; color: var(--muted); }
+.precession .mode-warning.active { color: var(--focus); font-weight: 600; }
+
+/* Shown only where the chosen mass and eccentricity admit no bound orbit. */
+.precession .domain-warning {
+  margin: 0; padding: 0.7rem 0.85rem; border-radius: 0.4rem;
+  border: 1px solid var(--line); background: var(--panel);
+  font-size: 0.85rem; line-height: 1.6; color: var(--ink);
+}
+
+.precession .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

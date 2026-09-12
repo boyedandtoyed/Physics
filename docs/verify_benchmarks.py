@@ -454,6 +454,70 @@ check("massive-particle inner max at L=2000M (approaching 3M)",
 print("       (no circular orbits at all below L = 2 sqrt(3) M: "
       f"{circular_roots(3.0) is None})")
 
+# 40-43  Orbit integrator fidelity ------------------------------------------
+# Rows 1-3 already assert Mercury's precession at its REAL parameters. What is new here is that
+# the integrator the sims use reproduces that formula, and how the agreement behaves as the field
+# strengthens -- which is what licenses the exaggerated animation and bounds what it can claim.
+def seed_L(rp, ra, M=1.0):
+    """L of the orbit whose turning points are exactly rp and ra, in the GR effective potential."""
+    num = M * (1 / rp - 1 / ra)
+    den = 1 / (2 * rp * rp) - M / rp**3 - 1 / (2 * ra * ra) + M / ra**3
+    return math.sqrt(num / den)
+
+_W1 = 1 / (2 - 2 ** (1 / 3))
+_W0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))
+
+def _advance_per_orbit(a_geo, ecc, dt, relativistic=True, orbits=6, M=1.0):
+    rp, ra = a_geo * (1 - ecc), a_geo * (1 + ecc)
+    L = seed_L(rp, ra, M)
+    x, y, vx, vy = rp, 0.0, 0.0, L / rp
+    def accel(x, y):
+        r2 = x * x + y * y
+        r = math.sqrt(r2)
+        k = M / (r2 * r) + (3 * M * L * L / (r2 * r2 * r) if relativistic else 0.0)
+        return -k * x, -k * y
+    prev, prev2, peri = math.hypot(x, y), None, []
+    for _ in range(40_000_000):
+        for w in (_W1, _W0, _W1):
+            h = dt * w
+            ax, ay = accel(x, y); vx += h * ax / 2; vy += h * ay / 2
+            x += h * vx; y += h * vy
+            ax, ay = accel(x, y); vx += h * ax / 2; vy += h * ay / 2
+        r = math.hypot(x, y)
+        if prev2 is not None and prev < prev2 and prev < r:
+            peri.append(math.atan2(y, x))
+        prev2, prev = prev, r
+        if len(peri) >= orbits + 1:
+            break
+    adv = []
+    for i in range(1, len(peri)):
+        d = peri[i] - peri[i - 1]
+        while d < -math.pi: d += 2 * math.pi
+        while d > math.pi: d -= 2 * math.pi
+        adv.append(d)
+    return sum(adv) / len(adv)
+
+# A Newtonian orbit must close: no advance at all, to numerical noise.
+check("Newtonian orbit closes (no precession)",
+      _advance_per_orbit(20.0, 0.2056, 0.02, relativistic=False), 0.0, 1e-4, "rad/orbit")
+
+# The integrator reproduces 6 pi M / (a(1-e^2)) as the field weakens. The residual is the
+# leading-order formula's own truncation, O(M/a), not integrator error -- it falls by the same
+# factor the field does.
+for a_geo, dt, want in [(200.0, 0.2, 1.0242), (1000.0, 1.0, 1.0049)]:
+    measured = _advance_per_orbit(a_geo, 0.2056, dt)
+    predicted = 6 * math.pi / (a_geo * (1 - 0.2056**2))
+    check(f"Integrator vs formula at M/a = {1/a_geo:.3f}", measured / predicted, want, 0.01, "")
+
+# And it is emphatically NOT accurate at the mass the ANIMATION uses. The canvas exaggerates so
+# the drift is visible in seconds; at that field strength the weak-field formula is ~30% low,
+# which is why the sim must not present the animated drift as confirming 42.98 arcsec/century.
+_m_over_a = 0.05
+_measured = _advance_per_orbit(1 / _m_over_a, 0.2056, 0.02)
+_predicted = 6 * math.pi * _m_over_a / (1 - 0.2056**2)
+check("Weak-field formula is OUT OF DOMAIN at the animation's M/a = 0.05",
+      _measured / _predicted, 1.321, 0.02, "")
+
 # Yoshida-4 coefficients ---------------------------------------------------
 w1 = 1 / (2 - 2 ** (1 / 3))
 w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))

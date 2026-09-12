@@ -11,6 +11,7 @@ import {
   orbitAcceleration,
   photonPotentialSlope,
   photonSphereRadius,
+  angularMomentumForTurningPoints,
   specificAngularMomentum,
   turningPoints,
 } from './orbit';
@@ -239,5 +240,46 @@ describe('the Cartesian force the integrator uses', () => {
     };
     expect(Math.abs(run(false))).toBeLessThan(1e-3);   // Newtonian closes
     expect(run(true)).toBeGreaterThan(0.05);           // GR precesses, and forwards
+  });
+});
+
+describe('seeding an orbit from its turning points', () => {
+  it('reduces to the textbook L² = M a (1 − e²) in the Newtonian case', () => {
+    for (const [a, e] of [[20, 0.2056], [100, 0.4], [1000, 0.05]] as const) {
+      const L = angularMomentumForTurningPoints(a * (1 - e), a * (1 + e), M, false);
+      expect(L * L).toBeCloseTo(M * a * (1 - e * e), 8);
+    }
+  });
+
+  it('produces exactly the requested turning points in the relativistic case', () => {
+    // The reason this exists: Newtonian vis-viva seeding gives the wrong orbit once the field is
+    // strong — at M/a = 0.05 the eccentricity collapses from 0.2056 to 0.029.
+    for (const [a, e] of [[20, 0.2056], [50, 0.3], [200, 0.1]] as const) {
+      const periapsis = a * (1 - e);
+      const apoapsis = a * (1 + e);
+      const L = angularMomentumForTurningPoints(periapsis, apoapsis, M, true);
+      // Both radii are turning points: V_eff takes the same value at each.
+      expect(effectivePotential(periapsis, M, L))
+        .toBeCloseTo(effectivePotential(apoapsis, M, L), 12);
+    }
+  });
+
+  it('holds the orbit shape while the physics is switched, so the comparison is fair', () => {
+    const a = 20;
+    const e = 0.2056;
+    const gr = angularMomentumForTurningPoints(a * (1 - e), a * (1 + e), M, true);
+    const newtonian = angularMomentumForTurningPoints(a * (1 - e), a * (1 + e), M, false);
+    // Different angular momenta — which is the point: the same ellipse needs different L under
+    // different physics. Using one L for both compares two different orbits.
+    expect(gr).not.toBeCloseTo(newtonian, 3);
+    expect(gr).toBeGreaterThan(0);
+    expect(newtonian).toBeGreaterThan(0);
+  });
+
+  it('refuses turning points no bound orbit has', () => {
+    expect(() => angularMomentumForTurningPoints(0, 10, M)).toThrow(RangeError);
+    expect(() => angularMomentumForTurningPoints(10, 5, M)).toThrow(RangeError);
+    // Deep inside the barrier there is no bound orbit with those turning points.
+    expect(() => angularMomentumForTurningPoints(2.5, 3, M, true)).toThrow(RangeError);
   });
 });

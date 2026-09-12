@@ -1096,6 +1096,22 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 18 | Lamb shift 2S–2P | | ~1057.8 MHz total; Uehling term −27 MHz | reproduce breakdown |
 | 33 | Gullstrand–Painlevé river speed | $\lvert\beta\rvert=\sqrt{r_s/r}$ | **0.5 c** at $4r_s$; **exactly c** at $r_s$; 2c at $0.25r_s$ | 1e-10 relative |
 | 19 | Hafele–Keating asymmetry mechanism | $2R\Omega v$ Sagnac cross-term | east/west asymmetry sign | qualitative + sign |
+| 34 | Newtonian orbit closes | Yoshida-4, $a=-M\vec r/r^3$ | advance **0** per orbit | <1e-4 rad/orbit |
+| 35 | Integrator vs formula at $GM/ac^2=0.005$ | measured $/\,6\pi GM/a(1-e^2)c^2$ | **1.0242** | ±0.01 |
+| 36 | Integrator vs formula at $GM/ac^2=0.001$ | as above | **1.0049** | ±0.01 |
+| 37 | Weak-field formula out of domain at $GM/ac^2=0.05$ | as above | **1.321** — the formula is 32% low | ±0.02 |
+
+**Rows 34–37 — why the precession animation may not claim row 1.** Rows 1–3 assert 42.98″/century
+at Mercury's real parameters, where $GM/ac^2=2.55\times10^{-8}$ and the leading-order formula's own
+truncation error is of that order — so agreement there is vacuous as a test of an *integrator*.
+Rows 34–37 are the integrator's own convergence: a Newtonian orbit must close exactly, and the
+measured advance must approach $6\pi GM/a(1-e^2)c^2$ as the field weakens, with the residual
+falling like $GM/ac^2$ because that is what the formula drops. Row 37 is the counterpart
+statement and is the reason the Mercury sim's canvas carries a permanent label: at the field
+strength an animation needs in order to show a drift at all, the closed form is **32% low**, so
+the animated drift demonstrates the mechanism and the scaling and cannot be presented as
+confirming 42.98″. The published figure is computed separately, at the real Solar $GM$ and
+Mercury's real orbit.
 
 #### Clock calculator implementation conventions
 
