@@ -82,4 +82,14 @@ export const simulations: readonly SimulationEntry[] = [
     tags: ['General relativity', 'Orbits', 'Perihelion precession'],
     load: () => import('../sims/mercury-precession'),
   },
+  {
+    id: 'isco-explorer',
+    title: 'Where orbits stop coming back',
+    description:
+      'Circular orbits exist down to 3M; what ends at 6M is their stability. Nudge one either '
+      + 'side of the ISCO and watch \u03ba\u00b2 change sign \u2014 in Schwarzschild time, which never reaches '
+      + 'the horizon.',
+    tags: ['General relativity', 'Orbits', 'ISCO'],
+    load: () => import('../sims/isco-explorer'),
+  },
 ];

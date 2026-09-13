@@ -1100,6 +1100,10 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 35 | Integrator vs formula at $GM/ac^2=0.005$ | measured $/\,6\pi GM/a(1-e^2)c^2$ | **1.0242** | ±0.01 |
 | 36 | Integrator vs formula at $GM/ac^2=0.001$ | as above | **1.0049** | ±0.01 |
 | 37 | Weak-field formula out of domain at $GM/ac^2=0.05$ | as above | **1.321** — the formula is 32% low | ±0.02 |
+| 38 | Radial epicyclic frequency | $\kappa^2=V_{\rm eff}''(r_c)=\dfrac{M(r-6M)}{r^3(r-3M)}$ | matches a finite difference of $V_{\rm eff}$; **zero at exactly 6M** | 1e-8 |
+| 39 | Epicyclic period | $2\pi/\kappa$ | **224.794 M** at $8M$; **1606.11 M** at $6.01M$ | 1e-3, 1e-2 |
+| 40 | Kepler's third law in Schwarzschild $t$ | $(L/r^2)\big/\big(\tilde E/(1-2M/r)\big)$ | **exactly** $\sqrt{M/r^3}$ | 1e-14 |
+| 41 | $dt/d\tau$ at the infall stop radius | $\tilde E/(1-2M/r)$ | **≈ 2001** at $r=2.001M$ | ±1 |
 
 **Rows 34–37 — why the precession animation may not claim row 1.** Rows 1–3 assert 42.98″/century
 at Mercury's real parameters, where $GM/ac^2=2.55\times10^{-8}$ and the leading-order formula's own
@@ -1112,6 +1116,17 @@ strength an animation needs in order to show a drift at all, the closed form is 
 the animated drift demonstrates the mechanism and the scaling and cannot be presented as
 confirming 42.98″. The published figure is computed separately, at the real Solar $GM$ and
 Mercury's real orbit.
+
+**Rows 38–41 — the ISCO stated as a stability condition.** The ISCO is usually given as a radius,
+which makes it look like the place circular orbits run out. They do not: they exist at every
+radius above $3M$. What changes sign at $6M$ is $\kappa^2$, the curvature of $V_{\rm eff}$ at the
+circular orbit, and row 38 asserts the closed form against a numerical second derivative rather
+than against itself. Row 39 is the operational meaning of *marginally* stable: the period of a
+radial nudge diverges as $6M$ is approached, so the restoring force is not merely small there but
+going to zero. Rows 40–41 are the two facts the infall animation rests on — Kepler's relation
+survives exactly in Schwarzschild coordinate time (it does **not** in proper time), and $dt/d\tau$
+is already ~2000 at $r=2.001M$, which is why an animation paced by $t$ must stop there and say so
+rather than draw a crossing the chart does not contain.
 
 #### Clock calculator implementation conventions
 

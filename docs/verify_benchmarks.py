@@ -242,6 +242,45 @@ check("Marginally bound orbit / M", r_mb, 4.0, 1e-9, "M")
 # Local orbital speed measured by a static observer: v = sqrt(M/(r - 2M)).
 check("ISCO local orbital velocity / c", math.sqrt(1 / (isco - 2)), 0.5, 1e-9, "c")
 
+# 38-41  Stability of a circular orbit, and the coordinate that stops at the horizon ---------
+# The ISCO stated as a stability condition rather than as a radius: kappa^2 = V_eff''(r_c) is the
+# curvature of the potential at the circular orbit, and it changes sign at 6M. This is what
+# "innermost STABLE" means, and it is what the ISCO explorer animates.
+def _veff(r, L):
+    return -1 / r + L * L / (2 * r * r) - L * L / r**3
+
+def _Lc(r):
+    return math.sqrt(r * r / (r - 3))
+
+def _kappa2(r):
+    return (r - 6) / (r**3 * (r - 3))
+
+# Closed form against a finite difference of the potential -- not against itself.
+for _r in (4.0, 8.0, 20.0):
+    _L, _h = _Lc(_r), 1e-4
+    _second = (_veff(_r + _h, _L) - 2 * _veff(_r, _L) + _veff(_r - _h, _L)) / (_h * _h)
+    check(f"kappa^2 = V_eff'' at r = {_r:g}M", _second, _kappa2(_r), 1e-8, "1/M^2")
+
+check("kappa^2 changes sign exactly at the ISCO", _kappa2(6.0), 0.0, 1e-15, "1/M^2")
+
+# The period of a radial nudge diverges as the ISCO is approached: 225 M at 8M, but 1,606 M at
+# 6.01M. "Marginally stable" is not a label -- it is a restoring force going to zero.
+check("Epicyclic period at r = 8M", 2 * math.pi / math.sqrt(_kappa2(8.0)), 224.794, 1e-3, "M")
+check("Epicyclic period at r = 6.01M", 2 * math.pi / math.sqrt(_kappa2(6.01)), 1606.11, 1e-2, "M")
+
+# Kepler's third law survives exactly in Schwarzschild coordinate time, though not in proper
+# time: dphi/dt = (L/r^2) / (Etil/(1 - 2M/r)) = sqrt(M/r^3).
+for _r in (6.0, 10.0, 50.0):
+    _rate = (_Lc(_r) / _r**2) / (_E(_r) / (1 - 2 / _r))
+    check(f"dphi/dt at r = {_r:g}M equals sqrt(M/r^3)", _rate, math.sqrt(1 / _r**3), 1e-14, "1/M")
+
+# dt/dtau at the radius the infall animation stops at. The faller crosses r = 2M at a finite
+# proper time; Schwarzschild t does not reach it at all, which is why the animation stops short
+# and says so on screen rather than showing the particle vanish.
+check("dt/dtau at the animation's stop radius r = 2.001M",
+      1.0 / (1 - 2 / 2.001), 2001.0, 1.0, "")
+
+
 # Photon-ring demagnification per half-orbit (Gralla, Holz & Wald 2019).
 check("Photon ring demagnification e^-pi", math.exp(-math.pi), 1 / 23.14, 1e-5, "")
 

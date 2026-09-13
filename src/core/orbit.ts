@@ -229,3 +229,93 @@ export function angularMomentumForTurningPoints(
   }
   return Math.sqrt(numerator / denominator);
 }
+
+/**
+ * Specific angular momentum of the circular orbit at `radius`: L² = M r²/(r − 3M).
+ *
+ * Diverges as r → 3M from above and does not exist at or below it — 3M is the photon sphere, and
+ * no massive particle circles there at any angular momentum. Gives 2√3 M at the ISCO.
+ */
+export function circularAngularMomentum(radius: number, mass: number): number {
+  if (!(mass > 0)) throw new RangeError('Mass must be positive.');
+  if (!(radius > THREE * mass)) {
+    throw new RangeError('No circular orbit for a massive particle at or inside 3M.');
+  }
+  return Math.sqrt((mass * radius * radius) / (radius - THREE * mass));
+}
+
+/**
+ * Specific energy of the circular orbit at `radius`: Ẽ = (1 − 2M/r)/√(1 − 3M/r).
+ *
+ * This is E/m including rest mass, so it tends to 1 far away and reads √(8/9) at the ISCO. It is
+ * a different quantity from `effectivePotential`, which is the Newtonian-like (Ẽ²−1)/2 — the two
+ * are related by `specificEnergyFromOrbitEnergy` and the sim asserts they agree.
+ */
+export function circularSpecificEnergy(radius: number, mass: number): number {
+  if (!(mass > 0)) throw new RangeError('Mass must be positive.');
+  if (!(radius > THREE * mass)) {
+    throw new RangeError('No circular orbit for a massive particle at or inside 3M.');
+  }
+  return (1 - (TWO * mass) / radius) / Math.sqrt(1 - (THREE * mass) / radius);
+}
+
+/**
+ * Fraction of rest mass that must be radiated to reach the circular orbit at `radius` from rest
+ * at infinity: 1 − Ẽ. At the ISCO this is 5.7191%, which is where the Novikov–Thorne radiative
+ * efficiency comes from — the disk model inherits the number from the geometry.
+ */
+export const circularBindingEfficiency = (radius: number, mass: number): number =>
+  1 - circularSpecificEnergy(radius, mass);
+
+/**
+ * Radial epicyclic frequency squared, κ² = V_eff''(r_c) = M(r − 6M)/(r³(r − 3M)).
+ *
+ * The ISCO in one expression: positive above 6M, so a nudged orbit oscillates and returns;
+ * exactly zero at 6M; negative below, so the nudge grows. The oscillation period 2π/κ diverges
+ * at the ISCO, which is what "marginally stable" means operationally — 225 M at r = 8M, but
+ * 1,606 M at r = 6.01M.
+ */
+export function radialEpicyclicSquared(radius: number, mass: number): number {
+  if (!(mass > 0)) throw new RangeError('Mass must be positive.');
+  if (!(radius > THREE * mass)) {
+    throw new RangeError('No circular orbit for a massive particle at or inside 3M.');
+  }
+  return (mass * (radius - SIX * mass)) / (radius ** THREE * (radius - THREE * mass));
+}
+
+/** A circular orbit is stable exactly where κ² > 0, which is r > 6M. */
+export const isStableCircularOrbit = (radius: number, mass: number): boolean =>
+  radius > SIX * mass;
+
+/**
+ * Ẽ from the Newtonian-like energy the effective potential uses: Ẽ = √(1 + 2E).
+ *
+ * E = (Ẽ² − 1)/2 is the definition that makes V_eff look Newtonian; this inverts it so the two
+ * conventions in PHYSICS_SPEC §2.5 can be compared rather than confused.
+ */
+export function specificEnergyFromOrbitEnergy(energy: number): number {
+  const squared = 1 + TWO * energy;
+  if (!(squared >= 0)) throw new RangeError('No timelike geodesic has that energy.');
+  return Math.sqrt(squared);
+}
+
+/**
+ * dt/dτ = Ẽ/(1 − 2M/r): Schwarzschild coordinate time per unit proper time.
+ *
+ * This is the whole of the "frozen at the horizon" picture. It diverges at r = 2M, so a faller
+ * who reaches the horizon at a finite proper time does so only as t → ∞. Nothing happens to the
+ * faller there; the divergence is a property of the coordinate, which is why an infall animation
+ * driven by t must stop short of the horizon and say so.
+ */
+export function coordinateTimeRate(
+  radius: number, mass: number, specificEnergy: number,
+): number {
+  if (!(mass > 0)) throw new RangeError('Mass must be positive.');
+  if (!(radius > TWO * mass)) {
+    throw new RangeError('Schwarzschild t does not label events at or inside the horizon.');
+  }
+  return specificEnergy / (1 - (TWO * mass) / radius);
+}
+
+/** The marginally bound circular orbit, Ẽ = 1 exactly: r_mb = 4M. */
+export const marginallyBoundRadius = (mass: number): number => 4 * mass;

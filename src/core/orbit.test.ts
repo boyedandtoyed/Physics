@@ -14,6 +14,14 @@ import {
   angularMomentumForTurningPoints,
   specificAngularMomentum,
   turningPoints,
+  circularAngularMomentum,
+  circularBindingEfficiency,
+  circularSpecificEnergy,
+  coordinateTimeRate,
+  isStableCircularOrbit,
+  marginallyBoundRadius,
+  radialEpicyclicSquared,
+  specificEnergyFromOrbitEnergy,
 } from './orbit';
 import { createYoshida4 } from './integrators/symplectic';
 
@@ -281,5 +289,149 @@ describe('seeding an orbit from its turning points', () => {
     expect(() => angularMomentumForTurningPoints(10, 5, M)).toThrow(RangeError);
     // Deep inside the barrier there is no bound orbit with those turning points.
     expect(() => angularMomentumForTurningPoints(2.5, 3, M, true)).toThrow(RangeError);
+  });
+});
+
+describe('circular orbits', () => {
+  it('gives 2 sqrt(3) M and sqrt(8/9) at the ISCO, by the closed forms', () => {
+    expect(circularAngularMomentum(6, 1)).toBeCloseTo(2 * Math.sqrt(3), 12);
+    expect(circularSpecificEnergy(6, 1)).toBeCloseTo(Math.sqrt(8 / 9), 12);
+    expect(circularBindingEfficiency(6, 1) * 100).toBeCloseTo(5.7191, 4);
+  });
+
+  it('reaches the same energy by a second, independent route', () => {
+    // Etil from the closed form must equal sqrt(1 + 2 V_eff) at the same radius with that L.
+    // Two conventions for the same quantity; confusing them is the standard error here.
+    for (const radius of [4.5, 6, 8, 20, 500]) {
+      const l = circularAngularMomentum(radius, 1);
+      const viaPotential = specificEnergyFromOrbitEnergy(effectivePotential(radius, 1, l));
+      expect(viaPotential).toBeCloseTo(circularSpecificEnergy(radius, 1), 12);
+    }
+  });
+
+  it('sits at a stationary point of the potential, which is what circular means', () => {
+    for (const radius of [3.5, 6, 10, 100]) {
+      const l = circularAngularMomentum(radius, 1);
+      expect(Math.abs(effectivePotentialSlope(radius, 1, l))).toBeLessThan(1e-14);
+    }
+  });
+
+  it('agrees with circularOrbits, which solves the same condition the other way round', () => {
+    const l = circularAngularMomentum(9, 1);
+    const roots = circularOrbits(1, l);
+    expect(roots).not.toBeNull();
+    expect(roots!.outer).toBeCloseTo(9, 9);
+  });
+
+  it('has no solution at or inside the photon sphere, at any angular momentum', () => {
+    expect(() => circularAngularMomentum(3, 1)).toThrow(RangeError);
+    expect(() => circularAngularMomentum(2.9, 1)).toThrow(RangeError);
+    expect(() => circularSpecificEnergy(3, 1)).toThrow(RangeError);
+    // ...and it diverges on the way in, rather than stopping at some finite value.
+    expect(circularAngularMomentum(3.001, 1)).toBeGreaterThan(50);
+    expect(circularAngularMomentum(3.000001, 1)).toBeGreaterThan(1500);
+  });
+
+  it('scales with the mass, since only r/M enters', () => {
+    for (const mass of [0.5, 1, 7]) {
+      expect(circularAngularMomentum(6 * mass, mass) / mass).toBeCloseTo(2 * Math.sqrt(3), 12);
+      expect(circularSpecificEnergy(6 * mass, mass)).toBeCloseTo(Math.sqrt(8 / 9), 12);
+    }
+  });
+
+  it('is marginally bound at exactly 4M, where Etil = 1', () => {
+    // The radius the "2.001 r_s" slip pointed at: 4M is r_mb, not the horizon.
+    expect(circularSpecificEnergy(marginallyBoundRadius(1), 1)).toBeCloseTo(1, 12);
+    expect(circularSpecificEnergy(4.1, 1)).toBeLessThan(1);
+    expect(circularSpecificEnergy(3.9, 1)).toBeGreaterThan(1);
+  });
+
+  it('binds more tightly the deeper it goes, down to the ISCO', () => {
+    const efficiencies = [100, 20, 10, 6].map(r => circularBindingEfficiency(r, 1));
+    for (let i = 1; i < efficiencies.length; i++) {
+      expect(efficiencies[i]!).toBeGreaterThan(efficiencies[i - 1]!);
+    }
+    expect(efficiencies.at(-1)!).toBeCloseTo(1 - Math.sqrt(8 / 9), 12);
+  });
+});
+
+describe('stability of a circular orbit', () => {
+  it('changes sign exactly at 6M, which is the ISCO', () => {
+    expect(radialEpicyclicSquared(6, 1)).toBe(0);
+    expect(radialEpicyclicSquared(6.0001, 1)).toBeGreaterThan(0);
+    expect(radialEpicyclicSquared(5.9999, 1)).toBeLessThan(0);
+    expect(isStableCircularOrbit(6.0001, 1)).toBe(true);
+    expect(isStableCircularOrbit(6, 1)).toBe(false);
+    expect(isStableCircularOrbit(5, 1)).toBe(false);
+  });
+
+  it('is the second derivative of the potential, checked against a finite difference', () => {
+    // The claim is that kappa^2 = V_eff''(r_c). Asserting the closed form against itself would
+    // prove nothing, so it is differenced numerically.
+    for (const radius of [4, 8, 12, 20]) {
+      const l = circularAngularMomentum(radius, 1);
+      const h = 1e-4;
+      const second = (effectivePotential(radius + h, 1, l)
+        - 2 * effectivePotential(radius, 1, l)
+        + effectivePotential(radius - h, 1, l)) / (h * h);
+      expect(second).toBeCloseTo(radialEpicyclicSquared(radius, 1), 8);
+    }
+  });
+
+  it('makes the epicyclic period diverge at the ISCO — "marginally" stable, operationally', () => {
+    const period = (r: number) => (2 * Math.PI) / Math.sqrt(radialEpicyclicSquared(r, 1));
+    expect(period(8)).toBeCloseTo(224.794, 2);
+    expect(period(6.01)).toBeGreaterThan(1500);
+    expect(period(6.000001)).toBeGreaterThan(150_000);
+  });
+});
+
+describe('coordinate time', () => {
+  it('runs at Etil/(1 - 2M/r) and diverges at the horizon, not before', () => {
+    const e = circularSpecificEnergy(20, 1);
+    expect(coordinateTimeRate(20, 1, e)).toBeCloseTo(e / 0.9, 12);
+    expect(coordinateTimeRate(2.001, 1, 1)).toBeGreaterThan(2000);
+    expect(coordinateTimeRate(2.000001, 1, 1)).toBeGreaterThan(2e6);
+  });
+
+  it('refuses to label events at or inside the horizon', () => {
+    // Schwarzschild t is not a coordinate there. Returning a large number instead would let a
+    // caller animate straight through the horizon in a chart that does not cover it.
+    expect(() => coordinateTimeRate(2, 1, 1)).toThrow(RangeError);
+    expect(() => coordinateTimeRate(1.5, 1, 1)).toThrow(RangeError);
+  });
+
+  it('tends to Etil far away, where t and tau agree', () => {
+    expect(coordinateTimeRate(1e8, 1, 1)).toBeCloseTo(1, 7);
+  });
+
+  it('reproduces Kepler’s third law: dphi/dt = sqrt(M/r^3) exactly', () => {
+    // A genuinely surprising exactness — the Newtonian relation survives untouched in
+    // Schwarzschild coordinate time, though not in proper time.
+    for (const radius of [6, 10, 50]) {
+      const l = circularAngularMomentum(radius, 1);
+      const e = circularSpecificEnergy(radius, 1);
+      const perProperTime = l / (radius * radius);
+      expect(perProperTime / coordinateTimeRate(radius, 1, e))
+        .toBeCloseTo(Math.sqrt(1 / radius ** 3), 12);
+    }
+  });
+});
+
+describe('the two energy conventions', () => {
+  it('invert each other', () => {
+    for (const energy of [-0.05, -1 / 18, 0, 0.3]) {
+      const tilde = specificEnergyFromOrbitEnergy(energy);
+      expect((tilde * tilde - 1) / 2).toBeCloseTo(energy, 14);
+    }
+  });
+
+  it('put the bound/unbound line at Etil = 1, not at Etil = 0', () => {
+    expect(specificEnergyFromOrbitEnergy(0)).toBe(1);
+    expect(specificEnergyFromOrbitEnergy(-1 / 18)).toBeCloseTo(Math.sqrt(8 / 9), 14);
+  });
+
+  it('refuses an energy below -1/2, where no timelike geodesic exists', () => {
+    expect(() => specificEnergyFromOrbitEnergy(-0.6)).toThrow(RangeError);
   });
 });

@@ -1,0 +1,76 @@
+/* Scoped to the ISCO explorer. Colours come from the shell's theme tokens. */
+
+.isco { display: grid; gap: 0; }
+.isco .sim-head { max-width: 46rem; }
+.isco .sim-head .intro { color: var(--muted); margin: 0; }
+
+/* The two labels live as rows of the stage surface, above and below the canvas, so neither can
+   be occluded by the floating panel in the expanded view or by the sticky drawer on a phone. */
+.isco .stage-surface { grid-template-rows: auto minmax(0, 1fr) auto; gap: 0.55rem; }
+.isco .clock-label {
+  order: -1; margin: 0; padding: 0.45rem 0.8rem; border-radius: 0.4rem;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  font-size: 0.82rem; line-height: 1.5;
+}
+.isco .clock-label strong { color: var(--ink); }
+
+/* Required once the particle has plunged. Rendered in the flow, never a tooltip, and given the
+   weight of a result rather than a footnote. */
+.isco .horizon-label {
+  margin: 0; padding: 0.6rem 0.85rem; border-radius: 0.4rem;
+  border: 1px solid var(--focus); background: var(--panel); color: var(--ink);
+  font-size: 0.86rem; line-height: 1.55;
+}
+.isco .horizon-label strong { color: var(--focus); display: block; }
+@media (max-width: 40rem) {
+  .isco .clock-label, .isco .horizon-label { font-size: 0.78rem; padding: 0.45rem 0.6rem; }
+}
+/* In the expanded view the control panel floats over the top right; the clock banner stops
+   short of it rather than running underneath. */
+.isco .sim-stage.is-focused .isco-labels { margin-right: calc(min(21rem, 42vw) + 1rem); }
+
+.isco .stability {
+  margin: 0; padding: 0.65rem 0.8rem; border-radius: 0.4rem;
+  border: 1px solid var(--line); background: var(--panel);
+  font-size: 0.85rem; line-height: 1.6;
+}
+.isco .stability-stable { border-left: 3px solid #1a7f4b; }
+.isco .stability-marginal { border-left: 3px solid #c77505; font-weight: 600; }
+.isco .stability-unstable { border-left: 3px solid #b8473d; }
+
+.isco .figures { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.isco .figures div { display: grid; gap: 0.15rem; }
+.isco .figures dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.isco .figures dd {
+  margin: 0; font-size: 1.15rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.isco .figures dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+/* The published constants, set apart from the run's own numbers. */
+.isco .figure-benchmark {
+  padding: 0.6rem 0.75rem; border-left: 3px solid var(--focus);
+  border-radius: 0 0.3rem 0.3rem 0;
+}
+
+.isco .legend {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; font-size: 0.78rem;
+}
+.isco .legend li { display: flex; align-items: center; gap: 0.55rem; color: var(--muted); }
+.isco .legend li::before {
+  content: ''; width: 1.3rem; height: 0.26rem; border-radius: 0.13rem; flex: none;
+}
+/* These swatches mirror the shader's colours. The radii they mark are physical; the hues are a
+   display choice. */
+.isco .legend-curve::before { background: #0d5449; }
+.isco .legend-energy::before { background: #576670; }
+.isco .legend-now::before { background: #e66bb8; }
+.isco .legend-isco::before { background: #409ee6; }
+.isco .legend-photon::before { background: #d98c26; }
+.isco .legend-horizon::before { background: #b8473d; }
+:root:not([data-theme='light']) .isco .legend-curve::before { background: #73c7b8; }
+:root[data-theme='dark'] .isco .legend-curve::before { background: #73c7b8; }
+
+.isco .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

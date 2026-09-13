@@ -6,7 +6,7 @@
 to come. Phase 3-Visual is complete apart from the Hawking/Casimir effects, which need Phase 6
 sims. Phase 2 — Time and interpretations — is **COMPLETE.** All three parts are built, green,
 merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
-signed off. **Next phase: 3 — orbits and precession (BUILD_PLAN §3).**
+signed off. **Phase 3 (orbits and precession) is COMPLETE.** Next phase: 4 — Kerr (BUILD_PLAN §4).
 **Branch:** `feat/phase-2-time`, branched from `master`.
 **Live:** https://abstract-physics.binodtiwari.com serves **all four simulations**, verified end
 to end through the public HTTPS host after the Phase 2 deploy: every sim rendered in both themes
@@ -105,9 +105,67 @@ measured/formula falls to 1.0242 at 0.005 and 1.0049 at 0.001.
   guide circle, making the two indistinguishable. The guide circle is gone and the swept angle is
   now a filled sector.
 
-**Next: Sim C (ISCO explorer).** Its plunge must stop at **r = 2.001 M** (= 1.0005 $r_s$) with the
-coordinate-time label permanently on screen. Note the units slip in the brief: "2.001 $r_s$" would
-be 4.002 M, the marginally bound radius, nowhere near the horizon.
+**Landed: Sim C, the ISCO explorer** (`/sims/isco-explorer`). V_eff with the particle's energy
+line on the left, the orbit on the right, and one control that carries the whole point: a radial
+nudge. `core/orbit.ts` gained the circular-orbit layer (43 tests), the state layer has 42 tests
+and there are 10 Playwright tests. 103 → 113 benchmark checks (new rows 38–41).
+
+**The ISCO is presented as a stability condition, not a radius.** Circular orbits exist at every
+radius above 3M; what changes sign at 6M is κ² = M(r−6M)/(r³(r−3M)), the curvature of V_eff at the
+circular orbit. Row 38 asserts that closed form against a numerical second derivative rather than
+against itself, and row 39 pins the operational meaning of *marginally* stable: the recovery
+period is 224.794 M at 8M but 1,606 M at 6.01M, diverging as the ISCO is approached.
+
+**The clock is Schwarzschild coordinate time throughout, and the run stops at r = 2.001 M.**
+Playback is paced by t rather than τ, so the stall near the horizon is the physics and not an
+animation effect: over the last 0.009 M of radius, proper time advances by under 0.02 M while
+coordinate time advances by more than 4. `coordinateTimeRate` throws inside the horizon by design,
+so a step that overshot 2M would take the sim down; the final approach is refined until it lands
+outside, and a unit test walks 121 launch radii × 6 nudges to prove none ever asks. The required
+label is rendered permanently above the canvas once the particle has plunged.
+
+**Units slip in the brief, flagged and corrected:** "2.001 r_s" is 4.002 M — the marginally bound
+circular orbit, most of the way back out to the ISCO. The intent was clearly just outside the
+horizon, so the stop is at **2.001 M = 1.0005 r_s**.
+
+**A physical finding worth keeping.** An unstable circular orbit left with *no* nudge still falls
+off, after 17.3, 17.1 and 16.4 e-folding times at 4.5M, 5M and 5.5M — the same count across a
+threefold range of timescales, because the integrator's own truncation error is a perturbation and
+|κ| is what amplifies it. That is not a defect in the animation; it is what unstable means, and
+both the panel and a misconceptions entry say so. It is also a strong test: the e-fold count is
+only constant if the growth rate really is the κ the closed form gives.
+
+**What driving Sim C's page caught that the green suite did not** — five defects:
+
+- **The V_eff panel was unreadable.** A band taken from the sampled curve is set by the divergence
+  at the horizon (−0.45) rather than by the structure (0.0093 deep at r_c = 9M), so the well was a
+  flat line. Anchoring on the two circular orbits fixed that but replaced it: at r_c = 9M the
+  barrier is 0.0093 above the floor while a −0.06 nudge explores 0.0003 of it, so the energy line
+  and its turning points sat invisibly on the floor. The band is now scaled to the larger of the
+  excursion and the well's own curvature over r_c/10, and the barrier is allowed to leave the top
+  of the frame when nothing can reach it.
+- **The orbit was drawn underneath the expanded view's floating control panel** and was simply not
+  there. The viewports are now squeezed by the same `min(21rem, 42vw)` rule the stylesheet uses.
+- **The plunge label was below the fold** — the third time this exact defect has appeared. Both
+  labels are now one stack above the canvas, so the row count does not change when the plunge
+  label appears.
+- **Two side-by-side viewports are unusable at 390 px**; they now stack, and in the expanded view
+  on a phone both move into the upper half, because there the panel is a bottom sheet covering
+  46vh rather than a column on the right.
+- **The efficiency readout disagreed with the Ẽ beside it** — 5.72% from the circular orbit next
+  to Ẽ = 0.943445 from the nudged particle, which is 5.66%. Both now come from the run.
+
+### Phase 3 — COMPLETE *(2026-09-13)*
+
+All three sims landed: `effective-potential`, `mercury-precession`, `isco-explorer`. 441 unit
+tests, 113 benchmark checks, 91 Playwright tests, all green; every page driven in both themes at
+1280 px and 390 px with zero horizontal overflow, zero axe violations and no console output.
+
+**Known technical debt, recorded rather than paid down now.** Four sims now carry four
+near-identical WebGL2 line renderers — the shaders differ, but the context/VAO/uniform plumbing
+does not. The shared part that exists (`core/gl/context.ts`) is already shared. **Trigger: when a
+fifth sim needs one, promote it to `src/ui/gl/` and migrate all of them**, rather than adding a
+fifth copy.
 
 ### Phase 3-Visual — 3D rendering and interaction overhaul *(2026-09-07)* — IN PROGRESS
 
