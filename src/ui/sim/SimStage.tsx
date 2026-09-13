@@ -19,6 +19,20 @@ interface Props {
   canvas: ReactNode;
   /** Sliders, readouts, equations. Scrolls independently of the canvas. */
   controls: ReactNode;
+  /**
+   * A label that must be on screen whenever the simulation is — a stated exaggeration, a
+   * coordinate choice, a disclaimer the spec requires. It renders as the first row of the canvas
+   * column, above the canvas, in every layout including the expanded view.
+   *
+   * This is a slot in the layout rather than something each sim bolts on, because bolting it on
+   * put it below the fold three times running (deflection, Mercury, ISCO). Placed under the
+   * canvas it falls past the fold at the default window height; overlaid at the head of the
+   * canvas the sticky control drawer clips it on a phone. As a row of the grid it is on screen
+   * whenever the head of the canvas is, and it is outside the panel's scroll area entirely.
+   *
+   * No sim should manage its own above-canvas permanent label.
+   */
+  permanentLabel?: ReactNode;
   /** Long-form prose shown under the stage: misconceptions, the physics panel, sources. */
   children?: ReactNode;
   /** Transport is only meaningful for sims that actually animate. */
@@ -28,6 +42,7 @@ interface Props {
 
 export function SimStage({
   simId, canvas, controls, children, showTransport = true, panelLabel = 'Controls',
+  permanentLabel,
 }: Props) {
   const presentation = usePresentation(simId);
   const setFocused = usePlaybackStore(state => state.setFocused);
@@ -57,6 +72,13 @@ export function SimStage({
       {...(presentation.focused ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Expanded simulation' } : {})}
     >
       <div className="stage-main">
+        {/* Before the canvas in the DOM as well as above it on screen, so a screen reader reaches
+            the caveat before the thing it qualifies — and, critically, OUTSIDE `.stage-columns`,
+            which is the containing block the narrow-screen drawer is sticky within. Inside it,
+            the drawer rises to the top of the stage on arrival and covers the label completely.
+            That is the fourth appearance of this bug and the reason the slot is structural. */}
+        {permanentLabel ? <div className="stage-permanent-label">{permanentLabel}</div> : null}
+        <div className="stage-columns">
         <div className="stage-canvas-wrap">
           {canvas}
           {presentation.focused && (
@@ -92,6 +114,7 @@ export function SimStage({
           </div>
           <div className="stage-panel-body">{controls}</div>
         </aside>
+        </div>
       </div>
 
       {children ? <div className="stage-prose">{children}</div> : null}

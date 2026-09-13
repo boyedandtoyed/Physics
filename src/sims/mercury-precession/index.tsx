@@ -334,15 +334,15 @@ export default function MercuryPrecession() {
               />
             )}
             <p className="visually-hidden" aria-live="polite">{announcement}</p>
-            {/* Required in every state, including the expanded view. Never a toggle and never a
-                tooltip. A banner at the head of the stage rather than an overlay on the canvas:
-                overlaid at the foot it fell below the fold, and overlaid at the head the sticky
-                control drawer clipped it mid-sentence on a phone. */}
-            <p className="exaggeration-label">
-              <strong>Mass exaggerated for visual clarity.</strong> Benchmark value
-              (42.98″/century) computed at Mercury’s real parameters.
-            </p>
           </StageCanvas>
+        }
+        /* Required in every state, including the expanded view. Never a toggle and never a
+           tooltip. The stage owns the slot now; this sim only supplies the words. */
+        permanentLabel={
+          <p>
+            <strong>Mass exaggerated for visual clarity.</strong> Benchmark value
+            (42.98″/century) computed at Mercury’s real parameters.
+          </p>
         }
         controls={<>
           <NumberSlider

@@ -26,7 +26,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByLabel('Theme').selectOption(theme);
     await page.waitForTimeout(2000);
     await expect(page.locator('.stage-surface canvas')).toBeVisible();
-    await expect(page.locator('.exaggeration-label')).toBeVisible();
+    await expect(page.locator('.stage-permanent-label')).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     expect(errors).toEqual([]);
   });
@@ -35,7 +35,7 @@ for (const theme of ['light', 'dark'] as const) {
 test('the exaggeration label is visible in every state, including expanded', async ({ page }) => {
   await page.goto(ROUTE);
   await page.waitForTimeout(1500);
-  const label = page.locator('.exaggeration-label');
+  const label = page.locator('.stage-permanent-label');
   await expect(label).toContainText(REQUIRED_LABEL);
   await expect(label).toContainText('42.98″/century');
   await expect(label).toBeInViewport();

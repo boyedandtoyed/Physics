@@ -242,6 +242,17 @@ export default function GpRiver() {
             <p className="visually-hidden" aria-live="polite">{announcement}</p>
           </StageCanvas>
         }
+        /* PHYSICS_SPEC §5.4 requires this on screen, in every state. It used to live in the prose
+           below the stage, which the expanded view hides outright — so the one view that fills the
+           screen with the flow was the one view without the caveat. The stage's permanent slot
+           fixes that. The full disclaimer and its citation stay in the prose below. */
+        permanentLabel={<>
+          <p>
+            <strong>A coordinate choice (Gullstrand–Painlevé), not a physical current.</strong>{' '}
+            One exact way of slicing Schwarzschild spacetime. The inflow is a property of this
+            coordinate choice, not a measurable current.
+          </p>
+        </>}
         controls={<>
           <NumberSlider
             label="Mass" value={controls.solarMasses}
@@ -301,10 +312,6 @@ export default function GpRiver() {
           <span className="river-ref">
             Ref: Hamilton &amp; Lisle 2008, <em>Am. J. Phys.</em> <strong>76</strong> 519.
           </span>
-        </p>
-        <p className="river-required-label">
-          One exact way of slicing Schwarzschild spacetime. The inflow is a property of this
-          coordinate choice, not a measurable current.
         </p>
 
         <MisconceptionsPanel items={[

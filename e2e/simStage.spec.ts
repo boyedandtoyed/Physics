@@ -160,3 +160,74 @@ for (const theme of ['light', 'dark'] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+/** The permanent-label slot, PHYSICS_SPEC's required disclaimers, and the bug that produced it.
+ *
+ * "Label below fold" shipped three times — deflection, Mercury, ISCO — because each sim placed
+ * its own mandatory label relative to its own canvas. The stage owns the slot now. These tests
+ * are the guard: at 390 px, with the page not scrolled, every one of the three labels is fully
+ * inside the viewport. A label that needs a scroll is not a permanent label.
+ */
+const LABELLED_SIMS = [
+  { route: '/sims/gp-river', text: /not a physical current/i },
+  { route: '/sims/mercury-precession', text: /Mass exaggerated/i },
+  { route: '/sims/isco-explorer', text: /Schwarzschild coordinate time/i },
+] as const;
+
+for (const { route, text } of LABELLED_SIMS) {
+  test(`${route}: the permanent label is on screen at 390px without scrolling`, async ({ page }) => {
+    const VIEWPORT = { width: 390, height: 800 };
+    await page.setViewportSize(VIEWPORT);
+    await page.goto(route);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    const label = page.locator('.stage-permanent-label');
+    await expect(label).toBeVisible();
+    await expect(label).toContainText(text);
+
+    // Nothing has scrolled the page: this is what the reader sees on arrival.
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    const box = (await label.boundingBox())!;
+
+    // `toBeVisible` is not enough and the first version of this test proved it: it passed while
+    // the sticky control drawer painted over all three labels at 390px. Occlusion is what has to
+    // be asserted, so the label is hit-tested at three of its own points.
+    const occluders = await page.evaluate(() => {
+      const element = document.querySelector('.stage-permanent-label')!;
+      const rect = element.getBoundingClientRect();
+      const points: [number, number][] = [
+        [rect.x + 12, rect.y + 6],
+        [rect.x + rect.width / 2, rect.y + rect.height / 2],
+        [rect.x + 12, rect.y + rect.height - 6],
+      ];
+      return points
+        .map(([x, y]) => document.elementFromPoint(x, y))
+        .filter(hit => !(hit && (hit === element || element.contains(hit))))
+        .map(hit => (hit ? `${hit.tagName}.${hit.className}` : 'nothing'));
+    });
+    expect(occluders, 'the permanent label is painted over').toEqual([]);
+    expect(box.y, `${route}: label starts above the viewport`).toBeGreaterThanOrEqual(0);
+    expect(
+      box.y + box.height,
+      `${route}: label ends ${Math.round(box.y + box.height)}px down an 800px viewport`,
+    ).toBeLessThanOrEqual(VIEWPORT.height);
+    // It is above the canvas, not over it and not under it.
+    const canvas = (await page.locator('.stage-surface').boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(canvas.y + 1);
+
+    // And it survives the expanded view, which hides the prose below the stage outright.
+    await page.locator('.stage-surface').click({ position: { x: 120, y: 120 } });
+    await expect(page.locator('.sim-stage')).toHaveClass(/is-focused/);
+    await expect(label).toBeVisible();
+    const focusedBox = (await label.boundingBox())!;
+    expect(focusedBox.y).toBeGreaterThanOrEqual(0);
+    expect(focusedBox.y + focusedBox.height).toBeLessThanOrEqual(VIEWPORT.height);
+    const focusedOccluders = await page.evaluate(() => {
+      const element = document.querySelector('.stage-permanent-label')!;
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return hit && (hit === element || element.contains(hit)) ? [] : [hit?.tagName ?? 'nothing'];
+    });
+    expect(focusedOccluders, 'the label is painted over in the expanded view').toEqual([]);
+  });
+}

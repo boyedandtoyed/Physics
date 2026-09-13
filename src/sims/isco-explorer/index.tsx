@@ -425,24 +425,6 @@ export default function IscoExplorer() {
         panelLabel="Orbit"
         canvas={
           <StageCanvas simId={SIM_ID} dragging={false}>
-            {/* Both labels above the canvas, in one stack, so the row count does not change
-                when the plunge label appears and the canvas keeps its 1fr row. Below the canvas
-                the plunge label was off screen at the default window height. */}
-            <div className="isco-labels">
-              <p className="clock-label">
-                Clock: <strong>Schwarzschild coordinate time</strong>. The chart is the same
-                throughout — nothing switches coordinates mid-run.
-              </p>
-              {/* Required once the particle has plunged: on screen, permanently, not on hover. */}
-              {run?.plunged && (
-                <p className="horizon-label" role="status">
-                  <strong>{HORIZON_LABEL}</strong>{' '}
-                  Stopped at r = {STOP_RADIUS_OVER_MASS} M. The faller crossed nothing here —
-                  their own clock reads a finite {run.properTime.toFixed(PLACES_2)} M and keeps
-                  running.
-                </p>
-              )}
-            </div>
             {failure ? (
               <p className="stage-failure" role="alert">
                 This view needs WebGL2, which this browser did not provide. {failure}
@@ -459,6 +441,23 @@ export default function IscoExplorer() {
             <p className="visually-hidden" aria-live="polite">{announcement}</p>
           </StageCanvas>
         }
+        /* Both labels in the stage's permanent slot, in one stack, so the row count does not
+           change when the plunge label appears and the canvas keeps its 1fr row. */
+        permanentLabel={<>
+          <p>
+            Clock: <strong>Schwarzschild coordinate time</strong>. The chart is the same
+            throughout — nothing switches coordinates mid-run.
+          </p>
+          {/* Required once the particle has plunged: on screen, permanently, not on hover. */}
+          {run?.plunged && (
+            <p className="horizon-label" role="status">
+              <strong>{HORIZON_LABEL}</strong>{' '}
+              Stopped at r = {STOP_RADIUS_OVER_MASS} M. The faller crossed nothing here —
+              their own clock reads a finite {run.properTime.toFixed(PLACES_2)} M and keeps
+              running.
+            </p>
+          )}
+        </>}
         controls={<>
           <NumberSlider
             label="Launch radius" value={radius}

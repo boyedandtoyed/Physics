@@ -44,10 +44,7 @@
 .river-disclaimer strong { color: var(--focus); }
 .river-ref { display: block; margin-top: 0.5rem; color: var(--muted); font-size: 0.85rem; }
 
-/* The label PHYSICS_SPEC §5.4 requires verbatim. */
-.river-required-label {
-  margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.6; max-width: 54rem;
-  font-style: italic;
-}
+/* The label PHYSICS_SPEC §5.4 requires is the shared stage's `permanentLabel` slot now — see
+   src/ui/sim/simStage.css. The long disclaimer and its citation stay in the prose below. */
 
 .river .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

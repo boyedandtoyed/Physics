@@ -32,7 +32,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByLabel('Theme').selectOption(theme);
     await page.waitForTimeout(2500);
     await expect(page.locator('.stage-surface canvas')).toBeVisible();
-    await expect(page.locator('.clock-label')).toBeVisible();
+    await expect(page.locator('.stage-permanent-label')).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     expect(errors).toEqual([]);
   });
@@ -190,8 +190,8 @@ test('the two clocks diverge, which is the reason the run stops', async ({ page 
   expect(proper).toBeGreaterThan(0);
   expect(coordinate).toBeGreaterThan(proper! * 2);
   // The chart never changes underneath the reader.
-  await expect(page.locator('.clock-label')).toContainText('Schwarzschild coordinate time');
-  await expect(page.locator('.clock-label')).toContainText('nothing switches coordinates');
+  await expect(page.locator('.stage-permanent-label')).toContainText('Schwarzschild coordinate time');
+  await expect(page.locator('.stage-permanent-label')).toContainText('nothing switches coordinates');
 });
 
 test('states the ISCO constants and does not claim orbits end at 6M', async ({ page }) => {

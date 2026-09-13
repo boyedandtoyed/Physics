@@ -25,7 +25,9 @@ for (const theme of ['light', 'dark'] as const) {
 test('shows the disclaimer in every state, never behind a toggle', async ({ page }) => {
   await page.goto(ROUTE);
   const disclaimer = page.locator('.river-disclaimer');
-  const requiredLabel = page.locator('.river-required-label');
+  // PHYSICS_SPEC §5.4's required label lives in the shared stage's permanent slot now, so it
+  // survives the expanded view — which hides the prose below the stage outright.
+  const requiredLabel = page.locator('.stage-permanent-label');
 
   await expect(disclaimer).toBeVisible();
   await expect(disclaimer).toContainText('coordinate choice (Gullstrand–Painlevé), not a physical current');

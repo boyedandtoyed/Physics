@@ -15,7 +15,13 @@
 
 .sim-stage { display: grid; gap: 2.5rem; padding-top: 0.5rem; }
 
-.stage-main {
+/* Rows: the permanent label, then the two columns. The label is a row of the STAGE, not of the
+   columns, because the narrow-screen drawer is `position: sticky` and can rise to the top of its
+   own containing block. Inside the columns that containing block includes the label's band, and
+   the drawer covered the label outright on arrival at 390 px. Outside it, it cannot. */
+.stage-main { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 0.55rem; min-width: 0; }
+
+.stage-columns {
   display: grid;
   /* Canvas takes the majority; the panel is sized to hold a slider and its readout. */
   grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
@@ -28,6 +34,25 @@
 }
 
 .stage-canvas-wrap { position: relative; min-width: 0; display: grid; }
+/* The permanent-label slot. A row of the canvas column, so the label is on screen whenever the
+   head of the canvas is — in the default layout, in the narrow-screen drawer layout, and in the
+   expanded view. It is outside the panel's scroll area, so it cannot be scrolled away.
+
+   This exists because the same defect shipped three times: a label placed under the canvas falls
+   past the fold at the default window height, and a label overlaid on the canvas gets clipped by
+   the sticky control drawer on a phone. */
+.stage-permanent-label {
+  margin: 0; padding: 0.55rem 0.8rem; border-radius: 0.4rem;
+  border: 1px solid var(--focus); background: var(--panel); color: var(--ink);
+  font-size: 0.85rem; line-height: 1.5;
+}
+.stage-permanent-label p { margin: 0; }
+.stage-permanent-label p + p { margin-top: 0.35rem; }
+.stage-permanent-label strong { color: var(--focus); }
+.stage-permanent-label a { color: var(--focus); }
+@media (max-width: 40rem) {
+  .stage-permanent-label { font-size: 0.78rem; padding: 0.45rem 0.6rem; }
+}
 .stage-surface { position: relative; display: grid; min-width: 0; }
 /* The canvas fills the stage and is tall enough to read without scrolling, while still leaving
    the page header visible so the reader knows where they are. */
@@ -85,10 +110,8 @@
   background: var(--bg);
   overflow: hidden;
 }
-.sim-stage.is-focused .stage-main {
-  grid-template-columns: minmax(0, 1fr);
-  height: 95vh; width: 95vw;
-}
+.sim-stage.is-focused .stage-main { height: 95vh; width: 95vw; }
+.sim-stage.is-focused .stage-columns { grid-template-columns: minmax(0, 1fr); min-height: 0; }
 .sim-stage.is-focused .stage-surface > canvas,
 .sim-stage.is-focused .stage-surface > .stage-svg {
   min-height: 0; height: 100%; border-radius: 0.5rem;
@@ -101,6 +124,9 @@
   backdrop-filter: blur(6px);
   box-shadow: 0 6px 24px rgb(0 0 0 / 0.28);
 }
+/* In the expanded view the control panel floats over the top right. The label stops short of it
+   rather than running underneath, using the same width rule the panel itself is sized by. */
+.sim-stage.is-focused .stage-permanent-label { margin-right: calc(min(21rem, 42vw) + 1rem); }
 .sim-stage.is-focused .stage-prose { display: none; }
 
 @supports not (backdrop-filter: blur(6px)) {
@@ -117,7 +143,7 @@
 
 /* --- narrow screens: the panel becomes a bottom drawer --- */
 @media (max-width: 900px) {
-  .stage-main { grid-template-columns: minmax(0, 1fr); }
+  .stage-columns { grid-template-columns: minmax(0, 1fr); }
   .stage-surface > canvas, .stage-surface > .stage-svg { min-height: min(52vh, 420px); }
   .stage-panel {
     max-height: min(46vh, 26rem);
@@ -126,7 +152,7 @@
     box-shadow: 0 -6px 20px rgb(0 0 0 / 0.18);
   }
   .sim-stage.is-focused { padding: 0; }
-  .sim-stage.is-focused .stage-main { width: 100vw; height: 100vh; }
+  .sim-stage.is-focused .stage-main { width: 100vw; height: 100vh; padding: 0.5rem; }
   .sim-stage.is-focused .stage-panel {
     position: absolute; inset: auto 0 0 0; width: 100%; max-height: 48vh; border-radius: 0;
   }
