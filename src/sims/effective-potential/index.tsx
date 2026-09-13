@@ -31,7 +31,7 @@ import {
   potentialCurve,
   verticalMarker,
 } from './description/orbitState';
-import { PotentialRenderer, type Bounds, type Rgb } from './view/PotentialRenderer';
+import { LineRenderer, type Bounds, type Rgb } from '../../ui/gl/LineRenderer';
 import './potential.css';
 
 const PhysicsPanel = lazy(() =>
@@ -74,6 +74,9 @@ const REFERENCE_FPS = 60;
 const MARKER_ALPHA = 0.85;
 const ENERGY_ALPHA = 0.9;
 const CIRCLE_ALPHA = 0.8;
+/** Alpha of the oldest trail sample. Lower than the shared default because this sim holds a very
+ *  long path and the newest arc has to stay readable against it. */
+const TRAIL_AGE_FLOOR = 0.05;
 /** Readout precision: energy is small and needs places; E_ISCO is quoted to its benchmark. */
 const ENERGY_PLACES = 5;
 const ISCO_ENERGY_PLACES = 10;
@@ -125,7 +128,7 @@ const ORBIT_VIEW = { x: ORBIT_LEFT, y: VIEW_BOTTOM, width: ORBIT_WIDTH, height: 
 
 export default function EffectivePotential() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<PotentialRenderer>(null);
+  const rendererRef = useRef<LineRenderer>(null);
   const runRef = useRef<OrbitRun | null>(null);
   const [mass, setMass] = useState(DEFAULT_MASS);
   const [lMultiple, setLMultiple] = useState(DEFAULT_L_MULTIPLE);
@@ -194,7 +197,9 @@ export default function EffectivePotential() {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     try {
-      rendererRef.current = new PotentialRenderer(canvas);
+      rendererRef.current = // A long, dense trail: this sim fades it much further than the default so the newest
+      // arc still reads against the accumulated path.
+      new LineRenderer(canvas, { ageFloor: TRAIL_AGE_FLOOR });
       setFailure(undefined);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));
@@ -232,16 +237,16 @@ export default function EffectivePotential() {
       for (const [radius, colour] of [
         [radii.horizon, HORIZON_RGB], [radii.photonSphere, PHOTON_RGB], [radii.isco, ISCO_RGB],
       ] as const) {
-        renderer.drawLines(
+        renderer.draw(
           verticalMarker(radius, bounds.minY, bounds.maxY), 'lines',
           POTENTIAL_VIEW, potentialBounds, colour, MARKER_ALPHA,
         );
       }
-      renderer.drawLines(
+      renderer.draw(
         energyLine(energy, MIN_PLOT_RADIUS * mass, MAX_PLOT_RADIUS * mass), 'lines',
         POTENTIAL_VIEW, potentialBounds, axisColour, ENERGY_ALPHA,
       );
-      renderer.drawLines(
+      renderer.draw(
         curveVertices(curve), 'strip', POTENTIAL_VIEW, potentialBounds, curveColour,
       );
 
@@ -265,8 +270,8 @@ export default function EffectivePotential() {
           circle[i * 3 + 1] = radii.horizon * Math.sin(angle);
           circle[i * 3 + 2] = 1;
         }
-        renderer.drawLines(circle, 'strip', ORBIT_VIEW, orbitBounds, HORIZON_RGB, CIRCLE_ALPHA);
-        renderer.drawLines(run.trailVertices(), 'strip', ORBIT_VIEW, orbitBounds, colour);
+        renderer.draw(circle, 'strip', ORBIT_VIEW, orbitBounds, HORIZON_RGB, CIRCLE_ALPHA);
+        renderer.draw(run.trailVertices(), 'strip', ORBIT_VIEW, orbitBounds, colour);
       }
       renderer.endFrame();
     };

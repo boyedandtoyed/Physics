@@ -42,7 +42,7 @@ import {
   type IscoParams,
 } from './description/iscoRun';
 import {
-  IscoRenderer,
+  LineRenderer,
   circleVertices,
   discVertices,
   squareBounds,
@@ -50,7 +50,7 @@ import {
   type Bounds,
   type Rgb,
   type Viewport,
-} from './view/IscoRenderer';
+} from '../../ui/gl/LineRenderer';
 import './isco.css';
 
 const PhysicsPanel = lazy(() =>
@@ -190,7 +190,7 @@ function prefersDark(): boolean {
 
 export default function IscoExplorer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<IscoRenderer>(null);
+  const rendererRef = useRef<LineRenderer>(null);
   const runRef = useRef<IscoRun | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
   const [nudge, setNudge] = useState(DEFAULT_NUDGE);
@@ -242,7 +242,7 @@ export default function IscoExplorer() {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     try {
-      rendererRef.current = new IscoRenderer(canvas);
+      rendererRef.current = new LineRenderer(canvas);
       setFailure(undefined);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));

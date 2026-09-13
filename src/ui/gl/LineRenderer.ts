@@ -1,11 +1,25 @@
-/** WebGL2 renderer for the ISCO explorer, PHYSICS_SPEC §2.5.
+/** The shared WebGL2 line renderer: 2D geometry in data space, drawn into one or more viewports.
  *
- * Two viewports in one canvas: V_eff(r) with its critical radii and the particle's energy line
- * on the left, and the orbit in the equatorial plane on the right. Both are line geometry
- * uploaded per frame, because both are moving — the marker at the current radius tracks the
- * particle across the potential while the particle tracks it around the orbit.
+ * Promoted out of the individual sims once a fifth sim needed it (PROGRESS.md recorded the trigger).
+ * Four sims had carried near-identical copies of the context/VAO/uniform plumbing; two of those
+ * four turned out **not** to be instances of this pattern at all and are deliberately left alone:
+ *
+ * - `gp-river/view/RiverRenderer` advects static geometry entirely in the vertex shader and
+ *   colours it by a physical speed ramp. Its vertex layout is (direction, phase, end), not (x, y,
+ *   age), and it uploads once rather than per frame.
+ * - `spacetime-curvature/view/GridRenderer` is a 3D wireframe with a model-view-projection matrix
+ *   and eye-space depth cueing.
+ *
+ * Forcing either into this class would mean a shader with two unrelated halves. Both already
+ * share everything they genuinely have in common — `core/gl/context.ts`.
+ *
+ * What this class is: (x, y, age) triples in data space, mapped through `bounds` into a
+ * `viewport` rectangle of the canvas, drawn as lines, points or fans in a flat colour. Geometry
+ * is uploaded per frame because in every sim using it the geometry is moving.
+ *
+ * `age` fades a trail on alpha. It is a display effect and never touches a position.
  */
-import { createContext, createProgram } from '../../../core/gl/context';
+import { createContext, createProgram, uniformLocations } from '../../core/gl/context';
 
 const VERTEX_SHADER = `#version 300 es
 precision highp float;
@@ -32,6 +46,8 @@ uniform vec3 uColour;
 uniform float uAlpha;
 /** Non-zero when drawing points, which are rounded off from the square GL primitive. */
 uniform float uRound;
+/** Alpha of the oldest trail sample, relative to the newest. */
+uniform float uAgeFloor;
 out vec4 fragColor;
 void main() {
   float coverage = 1.0;
@@ -40,9 +56,7 @@ void main() {
     coverage = 1.0 - smoothstep(0.42, 0.5, d);
     if (coverage <= 0.0) discard;
   }
-  // The trail fades with age: a display effect on alpha that never touches a position. The
-  // floor is high because the accumulated path is the picture.
-  fragColor = vec4(uColour, uAlpha * coverage * mix(0.28, 1.0, vAge));
+  fragColor = vec4(uColour, uAlpha * coverage * mix(uAgeFloor, 1.0, vAge));
 }
 `;
 
@@ -64,19 +78,31 @@ export interface Viewport {
   height: number;
 }
 
-const FLOATS_PER_VERTEX = 3;
+/** The whole canvas — for a sim that draws one picture rather than several panels. */
+export const FULL_VIEWPORT: Viewport = { x: 0, y: 0, width: 1, height: 1 };
+
+export const FLOATS_PER_VERTEX = 3;
 
 /**
- * Square data bounds for the orbit panel: `extent` either side of the origin, corrected for the
- * viewport's own aspect so the orbit is drawn round.
+ * Default fade of the oldest trail sample. High on purpose: the accumulated path IS the picture
+ * in every sim that draws one, and at 0.04 four of the five orbits Mercury holds were invisible,
+ * so its rosette read as a single arc with no precession in it.
+ */
+const DEFAULT_AGE_FLOOR = 0.28;
+
+const UNIFORMS = ['uViewport', 'uBounds', 'uColour', 'uAlpha', 'uPointSize', 'uRound', 'uAgeFloor'] as const;
+
+/**
+ * Square data bounds: `extent` either side of the origin, corrected for the viewport's own
+ * aspect so a circular orbit is drawn round.
  *
- * The viewport is a fraction of the canvas, so the aspect that matters is the canvas aspect
- * times the viewport's width-to-height ratio — not the canvas aspect alone. Getting this wrong
- * stretches a circular orbit into an ellipse, which in this sim is indistinguishable from the
- * physics.
+ * The viewport is a fraction of the canvas, so the aspect that matters is the canvas aspect times
+ * the viewport's width-to-height ratio — not the canvas aspect alone. Getting this wrong stretches
+ * a circular orbit into an ellipse, which is indistinguishable from an eccentricity the physics
+ * did not produce.
  */
 export function squareBounds(
-  extent: number, canvasWidth: number, canvasHeight: number, viewport: Viewport,
+  extent: number, canvasWidth: number, canvasHeight: number, viewport: Viewport = FULL_VIEWPORT,
 ): Bounds {
   if (!(extent > 0) || !(canvasWidth > 0) || !(canvasHeight > 0)) {
     throw new RangeError('Extent and canvas dimensions must be positive.');
@@ -98,10 +124,10 @@ const MIN_USABLE = 0.42;
 /**
  * Squeezes a viewport into the width the expanded view's floating control panel leaves.
  *
- * In the expanded view the panel is positioned over the top right of the canvas. The orbit lives
- * in the right-hand viewport and was drawn underneath it, invisible. `panelWidth` is passed in
- * rather than measured here so this stays a pure function of two lengths; the page computes it
- * from the same `min(21rem, 42vw)` rule the stylesheet uses, and passes 0 when not expanded.
+ * In the expanded view the panel is positioned over the top right of the canvas, and geometry
+ * drawn underneath it is simply not there. `panelWidth` is passed in rather than measured here so
+ * this stays a pure function of two lengths; the page computes it from the same `min(21rem, 42vw)`
+ * rule the stylesheet uses, and passes 0 when not expanded.
  */
 export function squeezeForPanel(
   view: Viewport, canvasWidth: number, panelWidth: number,
@@ -139,20 +165,55 @@ export function circleVertices(radius: number, segments: number): Float32Array {
   return data;
 }
 
-export class IscoRenderer {
+/**
+ * A dashed circle as a line list: `segments` arcs with every other one omitted.
+ *
+ * Used where a boundary is real but is not a surface — the Kerr ergosphere, which nothing stops
+ * at — so it must not be drawn with the same weight as a horizon.
+ */
+export function dashedCircleVertices(radius: number, segments: number): Float32Array {
+  if (!(radius > 0) || segments < 4) {
+    throw new RangeError('A dashed circle needs a radius and 4 segments.');
+  }
+  const dashes = Math.floor(segments / 2);
+  const data = new Float32Array(dashes * 2 * FLOATS_PER_VERTEX);
+  for (let dash = 0; dash < dashes; dash++) {
+    const start = (dash * 2) / segments * Math.PI * 2;
+    const end = (dash * 2 + 1) / segments * Math.PI * 2;
+    const base = dash * 2 * FLOATS_PER_VERTEX;
+    data[base] = radius * Math.cos(start);
+    data[base + 1] = radius * Math.sin(start);
+    data[base + 2] = 1;
+    data[base + FLOATS_PER_VERTEX] = radius * Math.cos(end);
+    data[base + FLOATS_PER_VERTEX + 1] = radius * Math.sin(end);
+    data[base + FLOATS_PER_VERTEX + 2] = 1;
+  }
+  return data;
+}
+
+export interface LineRendererOptions {
+  /** Alpha of the oldest trail sample relative to the newest. 1 disables the fade entirely. */
+  ageFloor?: number;
+}
+
+export class LineRenderer {
   #gl: WebGL2RenderingContext;
   #program: WebGLProgram;
   #vao: WebGLVertexArrayObject;
   #buffer: WebGLBuffer;
+  #uniforms: Record<(typeof UNIFORMS)[number], WebGLUniformLocation>;
+  #ageFloor: number;
   #disposed = false;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, options: LineRendererOptions = {}) {
+    this.#ageFloor = options.ageFloor ?? DEFAULT_AGE_FLOOR;
     const gl = createContext(canvas, { alpha: true });
     this.#gl = gl;
     this.#program = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
+    this.#uniforms = uniformLocations(gl, this.#program, UNIFORMS);
     const vao = gl.createVertexArray();
     const buffer = gl.createBuffer();
-    if (!vao || !buffer) throw new Error('Could not allocate ISCO buffers.');
+    if (!vao || !buffer) throw new Error('Could not allocate line-renderer buffers.');
     this.#vao = vao;
     this.#buffer = buffer;
     gl.bindVertexArray(vao);
@@ -176,9 +237,10 @@ export class IscoRenderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(this.#program);
     gl.bindVertexArray(this.#vao);
+    gl.uniform1f(this.#uniforms.uAgeFloor, this.#ageFloor);
   }
 
-  /** Draw (x, y, age) triples in data space, into one viewport. */
+  /** Draw (x, y, age) triples in data space, into one viewport. `pointSize` is device pixels. */
   draw(
     data: Float32Array, mode: DrawMode, viewport: Viewport, bounds: Bounds,
     colour: Rgb, alpha = 1, pointSize = 1,
@@ -187,20 +249,15 @@ export class IscoRenderer {
     const count = data.length / FLOATS_PER_VERTEX;
     if (count < 1) return;
     const gl = this.#gl;
+    const u = this.#uniforms;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.#buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-    gl.uniform4f(
-      gl.getUniformLocation(this.#program, 'uViewport'),
-      viewport.x, viewport.y, viewport.width, viewport.height,
-    );
-    gl.uniform4f(
-      gl.getUniformLocation(this.#program, 'uBounds'),
-      bounds.minX, bounds.minY, bounds.maxX, bounds.maxY,
-    );
-    gl.uniform3f(gl.getUniformLocation(this.#program, 'uColour'), colour[0], colour[1], colour[2]);
-    gl.uniform1f(gl.getUniformLocation(this.#program, 'uAlpha'), alpha);
-    gl.uniform1f(gl.getUniformLocation(this.#program, 'uPointSize'), pointSize);
-    gl.uniform1f(gl.getUniformLocation(this.#program, 'uRound'), mode === 'points' ? 1 : 0);
+    gl.uniform4f(u.uViewport, viewport.x, viewport.y, viewport.width, viewport.height);
+    gl.uniform4f(u.uBounds, bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
+    gl.uniform3f(u.uColour, colour[0], colour[1], colour[2]);
+    gl.uniform1f(u.uAlpha, alpha);
+    gl.uniform1f(u.uPointSize, pointSize);
+    gl.uniform1f(u.uRound, mode === 'points' ? 1 : 0);
     gl.drawArrays(PRIMITIVES[mode](gl), 0, count);
   }
 

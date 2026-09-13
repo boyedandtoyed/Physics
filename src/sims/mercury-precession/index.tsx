@@ -32,12 +32,13 @@ import {
   type OrbitParams,
 } from './description/precessionRun';
 import {
-  PrecessionRenderer,
+  FULL_VIEWPORT,
+  LineRenderer,
   circleVertices,
   discVertices,
-  framedBounds,
+  squareBounds,
   type Rgb,
-} from './view/PrecessionRenderer';
+} from '../../ui/gl/LineRenderer';
 import './precession.css';
 
 const PhysicsPanel = lazy(() =>
@@ -72,6 +73,9 @@ const ANNOUNCE_DELAY_MS = 700;
 
 /** Framing: the apoapsis plus a margin, so the orbit never touches the canvas edge. */
 const FRAME_MARGIN = 1.18;
+/** Alpha of the oldest trail sample. The rosette is the picture: at 0.04 four of the five orbits
+ *  held were invisible and the trail read as a single arc with no precession in it. */
+const TRAIL_AGE_FLOOR = 0.3;
 const CIRCLE_SEGMENTS = 128;
 const DISC_SEGMENTS = 64;
 const ARC_SEGMENTS = 256;
@@ -125,7 +129,7 @@ function prefersDark(): boolean {
 
 export default function MercuryPrecession() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<PrecessionRenderer>(null);
+  const rendererRef = useRef<LineRenderer>(null);
   const runRef = useRef<PrecessionRun | null>(null);
   const [fieldStrength, setFieldStrength] = useState(DEFAULT_FIELD);
   const [eccentricity, setEccentricity] = useState(DEFAULT_ECCENTRICITY);
@@ -185,7 +189,8 @@ export default function MercuryPrecession() {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     try {
-      rendererRef.current = new PrecessionRenderer(canvas);
+      rendererRef.current = // The rosette IS the picture, so the oldest of the five orbits held must still read.
+      new LineRenderer(canvas, { ageFloor: TRAIL_AGE_FLOOR });
       setFailure(undefined);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));
@@ -217,29 +222,39 @@ export default function MercuryPrecession() {
         canvas.width = width;
         canvas.height = height;
       }
-      renderer.beginFrame(framedBounds(extent, width, height));
+      renderer.beginFrame();
+      const bounds = squareBounds(extent, width, height);
 
       // The apoapsis circle: the radius the orbit is pinned to, so a reader can see the shape is
       // held fixed while the orientation drifts. There is deliberately no periapsis circle — it
       // would sit exactly under the perihelion arc and the two became indistinguishable.
       const { apoapsis } = apsides(eccentricity);
-      renderer.draw(circleVertices(apoapsis, CIRCLE_SEGMENTS), 'loop', guideColour, GUIDE_ALPHA);
+      renderer.draw(
+        circleVertices(apoapsis, CIRCLE_SEGMENTS), 'loop', FULL_VIEWPORT, bounds,
+        guideColour, GUIDE_ALPHA,
+      );
       // The horizon, to scale. At the default mass it is a tenth of the semi-major axis; at the
       // top of the slider it is nearly half the periapsis, which is why the orbit stops existing.
-      renderer.draw(discVertices(horizon, DISC_SEGMENTS), 'fan', HORIZON_RGB);
-      renderer.draw(new Float32Array([0, 0, 1]), 'points', MASS_RGB, 1, FOCUS_POINT * ratio);
+      renderer.draw(discVertices(horizon, DISC_SEGMENTS), 'fan', FULL_VIEWPORT, bounds, HORIZON_RGB);
+      renderer.draw(
+        new Float32Array([0, 0, 1]), 'points', FULL_VIEWPORT, bounds,
+        MASS_RGB, 1, FOCUS_POINT * ratio,
+      );
 
       const run = runRef.current;
       if (run) {
         // The swept angle, under the orbit: a filled sector rather than a line, because a
         // one-pixel arc is not findable inside a rosette drawn in the same few hundred pixels.
-        renderer.draw(run.perihelionWedge(ARC_SEGMENTS), 'fan', arcColour, WEDGE_ALPHA);
-        renderer.draw(run.perihelionSpokes(), 'lines', arcColour, SPOKE_ALPHA);
-        renderer.draw(run.perihelionArc(ARC_SEGMENTS), 'strip', arcColour, ARC_ALPHA);
-        renderer.draw(run.trailVertices(), 'strip', trailColour, TRAIL_ALPHA);
+        const wedge = run.perihelionWedge(ARC_SEGMENTS);
+        renderer.draw(wedge, 'fan', FULL_VIEWPORT, bounds, arcColour, WEDGE_ALPHA);
+        renderer.draw(run.perihelionSpokes(), 'lines', FULL_VIEWPORT, bounds, arcColour, SPOKE_ALPHA);
+        const arc = run.perihelionArc(ARC_SEGMENTS);
+        renderer.draw(arc, 'strip', FULL_VIEWPORT, bounds, arcColour, ARC_ALPHA);
+        renderer.draw(run.trailVertices(), 'strip', FULL_VIEWPORT, bounds, trailColour, TRAIL_ALPHA);
         const { x, y } = run.position;
         renderer.draw(
-          new Float32Array([x, y, 1]), 'points', particleColour, 1, PARTICLE_POINT * ratio,
+          new Float32Array([x, y, 1]), 'points', FULL_VIEWPORT, bounds,
+          particleColour, 1, PARTICLE_POINT * ratio,
         );
       }
       renderer.endFrame();
