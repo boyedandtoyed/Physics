@@ -279,6 +279,213 @@ correct for an *offline reference* renderer if we build one.
 
 Carter constant, for telemetry: $Q = p_\theta^2 + \cos^2\theta\left(\dfrac{L_z^2}{\sin^2\theta} - a^2(E^2-\mu^2)\right)$.
 
+### 3.4a Cartesian Kerr–Schild — the form the renderer integrates
+
+§3.4 decided the *strategy*; this is the form itself, written out so the shader and its float64
+mirror are reading the same equations.
+
+$$g_{\mu\nu} = \eta_{\mu\nu} + 2H\,k_\mu k_\nu, \qquad \eta_{\mu\nu} = \mathrm{diag}(-1,1,1,1)$$
+
+with $H$ and the ingoing principal null congruence $k_\mu$
+
+$$H = \frac{M r^3}{r^4 + a^2 z^2}, \qquad
+k_\mu = \left(1,\; \frac{rx + ay}{r^2+a^2},\; \frac{ry - ax}{r^2+a^2},\; \frac{z}{r}\right)$$
+
+and $r(x,y,z)$ defined **implicitly** by the oblate-spheroidal relation
+
+$$\frac{x^2+y^2}{r^2+a^2} + \frac{z^2}{r^2} = 1
+\qquad\Longleftrightarrow\qquad
+r^4 - (x^2+y^2+z^2-a^2)\,r^2 - a^2z^2 = 0$$
+
+whose positive root is taken. Writing $\rho^2 = r^2 + a^2\cos^2\theta$ with
+$\cos\theta = z/r$ gives $\rho^2 = (r^4+a^2z^2)/r^2$, so $H = Mr/\rho^2$ — the two forms of $H$
+are the same thing, and the $r^3/(r^4+a^2z^2)$ one is the one to evaluate, because it never
+divides by $r$.
+
+**ASSERT** $k$ is null in $\eta$, which is what makes the rest of this work:
+
+$$\frac{(rx+ay)^2 + (ry-ax)^2}{(r^2+a^2)^2} + \frac{z^2}{r^2}
+= \frac{x^2+y^2}{r^2+a^2} + \frac{z^2}{r^2} = 1 = k_t^2$$
+
+**The inverse metric is exact and needs no matrix inversion**, which is the property that makes
+Kerr–Schild worth using in a shader:
+
+$$g^{\mu\nu} = \eta^{\mu\nu} - 2H\,k^\mu k^\nu, \qquad k^\mu = \eta^{\mu\nu}k_\nu = (-1,\,k_x,\,k_y,\,k_z)$$
+
+*Proof:* $g^{\mu\alpha}g_{\alpha\nu} = \delta^\mu_\nu + 2Hk^\mu k_\nu - 2Hk^\mu k_\nu - 4H^2k^\mu(k^\alpha k_\alpha)k_\nu = \delta^\mu_\nu$, since $k^\alpha k_\alpha = 0$. There is no $\Delta$ in
+any denominator, so **nothing is singular at either horizon** and no branching is needed at a
+turning point — §3.4's whole reason for choosing this form.
+
+**Hamiltonian geodesics.** With $\mathcal{H} = \tfrac12 g^{\mu\nu}p_\mu p_\nu$,
+
+$$\dot x^\mu = \frac{\partial \mathcal H}{\partial p_\mu} = g^{\mu\nu}p_\nu, \qquad
+\dot p_\mu = -\frac{\partial \mathcal H}{\partial x^\mu} = -\tfrac12 \,(\partial_\mu g^{\alpha\beta})\,p_\alpha p_\beta$$
+
+For photons $\mathcal H = 0$ is a first integral and is the runtime error telemetry, alongside
+$E = -p_t$, $L_z = p_\phi$ and the Carter constant $Q$ of §3.4. $t$ and $\phi$ are cyclic, so
+$E$ and $L_z$ are conserved *identically* by the equations of motion and only $\mathcal H$ and
+$Q$ measure integration error.
+
+Sources: Kerr 1963; Visser, *The Kerr spacetime: a brief introduction*
+([arXiv:0706.0622](https://arxiv.org/abs/0706.0622)) §5, for the Kerr–Schild form and the
+implicit $r$; GRay2 ([arXiv:1706.07062](https://ar5iv.labs.arxiv.org/html/1706.07062)) for the
+Hamiltonian-in-Kerr–Schild choice.
+
+### 3.4b Equatorial circular photon orbits — the cubic, and a cubic that is not it
+
+The equatorial circular photon orbit condition is $r^2 - 3Mr \pm 2a\sqrt{Mr} = 0$
+($-$ prograde, $+$ retrograde). Squaring gives one cubic that carries both branches:
+
+$$\boxed{r^3 - 6Mr^2 + 9M^2r - 4a^2M = 0}$$
+
+Its three roots for $0 < a < M$ are: a spurious root inside the horizon introduced by the
+squaring, the prograde orbit $r_1 \in [M, 3M]$, and the retrograde orbit $r_2 \in [3M, 4M]$.
+$r_1$ and $r_2$ are §3.3's Teo closed forms, and **the harness checks the cubic against Teo
+rather than against itself**. At $a=0$ it degenerates to $r(r-3M)^2 = 0$.
+
+**ASSERT** at $a/M = 0.5$: prograde $r_1 = 2.347296355\,M$, retrograde $r_2 = 3.532088886\,M$,
+cubic and Teo agreeing to $10^{-9}$.
+
+> **A cubic that looks like this one and is not.** $r^3 - 3Mr^2 + a^2r + Ma^2 = 0$ is a real and
+> useful Kerr equation — it is the condition $\xi(r) = 0$ of §3.4c, i.e. the radius of the
+> **polar** spherical photon orbit, the one with zero axial angular momentum. It is **not** the
+> prograde equatorial photon sphere. The two agree at $a = 0$ (both give $3M$) and at $a = M$
+> (both give $M$), which is exactly enough to make a wrong substitution survive its endpoint
+> checks; in between they diverge badly. At $a/M = 0.5$ the polar orbit is at $2.883218\,M$
+> against the prograde equatorial orbit's $2.347296\,M$ — a 23% error. Both are asserted, by
+> name, so neither can be quietly swapped for the other.
+
+### 3.4c The Kerr shadow — Bardeen's celestial coordinates
+
+For an observer at infinity at polar angle $\theta_o$, the shadow boundary is traced by the
+spherical photon orbits, parametrised by their radius $r$ through the two impact parameters
+$\xi = L_z/E$ and $\eta = Q/E^2$ (Bardeen 1973, in *Black Holes (Les Houches 1972)*):
+
+$$\xi(r) = \frac{M(r^2-a^2) - r\Delta}{a(r-M)}, \qquad
+\eta(r) = \frac{r^3\left[4M\Delta - r(r-M)^2\right]}{a^2(r-M)^2}$$
+
+$$\alpha = -\frac{\xi}{\sin\theta_o}, \qquad
+\beta = \pm\sqrt{\eta + a^2\cos^2\theta_o - \xi^2\cot^2\theta_o}$$
+
+$r$ runs over $[r_1, r_2]$ — §3.4b's two equatorial photon orbits, where $\eta = 0$ and the
+curve closes on the $\alpha$ axis.
+
+**Three exact identities for an equatorial observer ($\theta_o = \pi/2$), all ASSERT.** These
+are what gate a Kerr renderer, because each is a different property of the curve and each is
+exact for *every* spin:
+
+1. **$\eta(3M) = 27M^2$ for every $a$.** Substituting $r = 3M$: $\Delta = 3M^2+a^2$, so
+   $4M\Delta - r(r-M)^2 = 12M^3 + 4Ma^2 - 12M^3 = 4Ma^2$, and
+   $\eta = 27M^3 \cdot 4Ma^2 / (4a^2M^2) = 27M^2$. So **the shadow reaches
+   $|\beta| = 3\sqrt3\,M$ at every spin** — the vertical half-extent of the Kerr shadow seen
+   edge-on does not depend on $a$ at all. Numerically $r = 3M$ is also where $\eta$ is maximised,
+   at every spin.
+2. **$\xi(3M) = -2aM$**, so that extremum sits at $\alpha = +2a$ rather than on the axis. This
+   is the displacement, and it is linear in the spin.
+3. **The horizontal extent is $[-\xi(r_1), -\xi(r_2)]$**, which at $a \to M$ is exactly
+   $[-2M, +7M]$: $\xi(4M) = (15M^3 - 36M^3)/(3M^2) = -7M$ and $\xi(r\to M) \to +2M$. This is
+   Bardeen's own figure. At $a/M = 0.998$ it is $[-2.110888\,M,\; +6.996666\,M]$, a midpoint of
+   $+2.442889\,M$ — the shadow is displaced, and the flattened edge is the prograde one.
+
+At $a = 0$ the parametrisation degenerates ($\eta$ has $a^2$ in its denominator) and the curve
+collapses to the circle of radius $b_{\rm crit} = 3\sqrt3\,M$ of §2.4. **A Kerr renderer must
+reproduce §8 row 12 on its own $a = 0$ path**, not inherit it from the Schwarzschild one.
+
+### 3.5 Frame dragging — the ZAMO field, and what it is not
+
+Equatorially ($\theta = \pi/2$, $\Sigma^2 = (r^2+a^2)^2 - a^2\Delta$):
+
+$$\omega_{\rm ZAMO}(r) = -\frac{g_{t\varphi}}{g_{\varphi\varphi}} = \frac{2Mar}{\Sigma^2}$$
+
+A zero-angular-momentum observer has $p_\varphi = 0$ and yet $d\varphi/dt = \omega \ne 0$: it is
+dragged. **This is the definition of frame dragging and it is not a force.** $\omega$ falls off
+as $2Ma/r^3$, so far from the hole the effect is the Lense–Thirring precession of §3.2 and
+nothing more.
+
+**Three identities, all ASSERT:**
+
+1. $\omega_{\rm ZAMO} \to 0$ as $r \to \infty$, like $2Ma/r^3$. At $r = 10^8 M$, $a = 0.998M$:
+   $2.0\times10^{-24}\,M^{-1}$.
+2. **At the horizon $\omega_{\rm ZAMO}(r_+) = \Omega_H$ exactly.** With $\Delta(r_+) = 0$,
+   $\Sigma^2 = (r_+^2+a^2)^2$, so $\omega(r_+) = 2Mar_+/(r_+^2+a^2)^2$. Since
+   $r_+^2 - 2Mr_+ + a^2 = 0$ gives $r_+^2 + a^2 = 2Mr_+$, this is
+   $2Mar_+/(2Mr_+)^2 = a/(2Mr_+) = a/(r_+^2+a^2) = \Omega_H$. **The two published forms of
+   $\Omega_H$ — $a/(2Mr_+)$ and $a/(r_+^2+a^2)$ — are the same number**, and the identity that
+   makes them so is the horizon equation itself. Both appear in the literature; the harness
+   asserts all three expressions agree to $10^{-15}$.
+3. **The ergosphere's equatorial radius is exactly $2M$ for every spin**:
+   $r_E(\pi/2) = M + \sqrt{M^2 - a^2\cos^2(\pi/2)} = 2M$. It does not shrink as the hole spins
+   up; only its polar extent changes, from $2M$ at $a=0$ (where it coincides with the horizon and
+   the region is empty) down to $r_+$ at the poles.
+
+**Inside the ergosphere $g_{tt} > 0$ and no observer can be static.** Equatorially the static
+limit is where $\varpi\omega = \alpha$, with $\alpha = r\sqrt\Delta/\Sigma$ the lapse and
+$\varpi = \Sigma/r$; that condition reduces to $r\sqrt\Delta = 2Ma$, which at $r = 2M$ gives
+$2M\sqrt{a^2} = 2Ma$ — true for every $a$, i.e. the same $2M$ again, by a different route.
+
+### 3.6 The Penrose process — the LNRF split, and the efficiency
+
+**Setup.** Work in the locally non-rotating frame (LNRF, = the ZAMO orthonormal frame) of
+§3.1's lapse–shift form. For any particle,
+
+$$\boxed{E = \alpha\,p^{(t)} + \omega\varpi\,p^{(\varphi)}}, \qquad
+\alpha = \frac{r\sqrt\Delta}{\Sigma}, \quad \varpi = \frac{\Sigma}{r}, \quad
+\omega\varpi = \frac{2Ma}{\Sigma}$$
+
+(equatorially, with $\Sigma^2 = (r^2+a^2)^2 - a^2\Delta$). Since $p^{(t)} \ge |p^{(\varphi)}|$,
+$E$ can be negative **only** where $\omega\varpi > \alpha$ — that is, only where $g_{tt} > 0$,
+only inside the ergosphere. Equatorially $\omega\varpi > \alpha \iff 2Ma > r\sqrt\Delta$, with
+equality at $r = 2M$: §3.5's static limit, recovered a third way.
+
+**The split.** A parent of rest mass $\mu$ and energy $E_{\rm in}$ reaches its radial turning
+point ($p^{(r)} = 0$) at radius $r$ and splits into two photons emitted along $\pm\hat\varphi$ in
+the LNRF. Conservation in that frame gives
+$p_2^{(t)} = \tfrac12(p_0^{(t)} + p_0^{(\varphi)})$ and
+$p_1^{(t)} = \tfrac12(p_0^{(t)} - p_0^{(\varphi)})$, hence
+
+$$E_2 = \tfrac12\big(p_0^{(t)}+p_0^{(\varphi)}\big)(\alpha + \omega\varpi), \qquad
+E_1 = \tfrac12\big(p_0^{(t)}-p_0^{(\varphi)}\big)(\alpha - \omega\varpi)$$
+
+with $E_1 + E_2 = E_{\rm in}$ identically. Inside the ergosphere $E_1 < 0$, so
+$E_2 > E_{\rm in}$: **the escaping fragment carries away more energy than the parent brought
+in, and the difference comes out of the hole's rotation.** The gain is
+$\eta = (E_2 - E_{\rm in})/E_{\rm in} = -E_1/E_{\rm in}$.
+
+**The maximum, in closed form.** Take a parent dropped from rest at infinity, $E_{\rm in} = \mu$.
+As $r \to r_+$: $\alpha \to 0$, $\varpi \to 2M$, $\omega\varpi \to a/r_+$, and the turning-point
+condition $\big(p^{(t)}\big)^2 = \mu^2 + \big(p^{(\varphi)}\big)^2$ forces
+$p^{(\varphi)}/\mu \to r_+/a$. Substituting,
+
+$$\eta_{\rm max}(a) = \tfrac12\left(\sqrt{1 + \tfrac{a^2}{r_+^2}} - 1\right)
+= \boxed{\tfrac12\left(\sqrt{\tfrac{2M}{r_+}} - 1\right)}$$
+
+the two forms being identical because $a^2 = 2Mr_+ - r_+^2$. **ASSERT** the endpoints:
+$a = 0 \Rightarrow r_+ = 2M \Rightarrow \eta = 0$ (no ergosphere, no extraction);
+$a = M \Rightarrow r_+ = M \Rightarrow$
+
+$$\eta_{\rm max} = \tfrac12\left(\sqrt2 - 1\right) = 0.2071067811865\ldots$$
+
+the classical 20.7% (Chandrasekhar, *The Mathematical Theory of Black Holes*, §65; Bardeen,
+Press & Teukolsky 1972). Intermediate values are **generated from the formula**, not tabulated:
+$\eta_{\rm max}(0.5M) = 0.0176381$, $\eta_{\rm max}(0.9M) = 0.0900984$,
+$\eta_{\rm max}(0.998M) = 0.1857640$.
+
+> **$1 - 1/\sqrt2$ is not this number.** $1 - 1/\sqrt2 = 0.2928932$, which is 29.3%, not 20.7%.
+> The 20.7% figure is $\tfrac12(\sqrt2 - 1) = 1/\sqrt2 - 1/2$. The two expressions are easy to
+> interchange and differ by 41%; the harness asserts the value, the closed form and both
+> endpoints so the substitution cannot pass.
+
+$\eta$ falls monotonically from $\eta_{\rm max}$ at $r_+$ to **exactly zero at $r = 2M$**, where
+$\alpha = \omega\varpi$ and $E_1 = 0$. A demonstration must therefore never report a gain above
+$\eta_{\rm max}(a)$ for the spin it is set to, and must report exactly zero at $a = 0$.
+
+**What the Penrose process is not.** It is not a perpetual-motion machine and not free energy:
+every extraction lowers the hole's angular momentum, is bounded by the irreducible mass
+$M_{\rm irr} = \sqrt{\tfrac12 M(M + \sqrt{M^2-a^2})}$, which never decreases, and terminates
+when the hole is spun down to $a = 0$. It is also not astrophysically the way energy comes out
+of a rotating hole — that is Blandford–Znajek, which is electromagnetic and requires a magnetic
+field the vacuum solution does not have.
+
 ---
 
 ## 4. Rendering the black hole
@@ -1104,6 +1311,41 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 39 | Epicyclic period | $2\pi/\kappa$ | **224.794 M** at $8M$; **1606.11 M** at $6.01M$ | 1e-3, 1e-2 |
 | 40 | Kepler's third law in Schwarzschild $t$ | $(L/r^2)\big/\big(\tilde E/(1-2M/r)\big)$ | **exactly** $\sqrt{M/r^3}$ | 1e-14 |
 | 41 | $dt/d\tau$ at the infall stop radius | $\tilde E/(1-2M/r)$ | **≈ 2001** at $r=2.001M$ | ±1 |
+| 42 | Kerr equatorial photon orbits | $r^3-6Mr^2+9M^2r-4a^2M=0$ | **2.347296355 M** prograde, **3.532088886 M** retrograde at $a/M=0.5$; agrees with Teo | 1e-9 |
+| 43 | The cubic that is *not* row 42 | $r^3-3Mr^2+a^2r+Ma^2=0$ | the **polar** orbit, **2.883218 M** at $a/M=0.5$ — a **23%** error if substituted | 1e-8 |
+| 44 | Kerr shadow vertical half-extent | $\eta(3M)$, Bardeen | **exactly $27M^2$, so $3\sqrt3\,M$, at every spin** | 1e-9 |
+| 45 | Kerr shadow displacement | $\alpha=-\xi(3M)$ | **exactly $+2a$** at every spin | 1e-9 |
+| 46 | Kerr shadow horizontal extent | $-\xi(r_{1,2})$ | $[-2M,+7M]$ as $a\to M$ (Bardeen's figure); $[-2.110888,+6.996666]\,M$ at $a/M=0.998$ | 1e-5 |
+| 47 | Kerr shadow at $a=0$ | | the circle $3\sqrt3\,M$ of row 12, on the **Kerr** path | 0.5% |
+| 48 | $\omega_{\rm ZAMO}(r_+)=\Omega_H$ | $2Mar_+/\Sigma^2$ vs $a/(2Mr_+)$ vs $a/(r_+^2+a^2)$ | all three **identical** | 1e-15 |
+| 49 | $\omega_{\rm ZAMO}$ far field | | $\to 0$ as $2Ma/r^3$ ($2.0\times10^{-24}M^{-1}$ at $10^8M$, $a=0.998M$) | 1e-8, and the $r^{-3}$ rate |
+| 50 | Ergosphere equatorial radius | $r_E(\pi/2)=M+\sqrt{M^2-a^2\cos^2\theta}$ | **exactly $2M$ for every $a$**, confirmed twice | 1e-10 |
+| 51 | Penrose maximum efficiency | $\tfrac12(\sqrt{2M/r_+}-1)$ | **0.20710678** at $a=M$, i.e. $\tfrac12(\sqrt2-1)$ — **not** $1-1/\sqrt2=0.2929$ | 1e-12 |
+| 52 | Penrose gain at the static limit | LNRF split at $r=2M$ | **exactly 0**, with $E_1=0$ | 1e-9 |
+| 53 | Penrose split reproduces row 51 | LNRF turning-point split as $r\to r_+$ | matches the closed form at $a/M=0.5,0.9,0.998$ | 1e-5 |
+
+**Rows 42–47 — a Kerr renderer is gated on the shape of the shadow, not just its size.** Row 44
+is the one worth reading twice: the vertical half-extent of the Kerr shadow seen edge-on is
+$3\sqrt3\,M$ **at every spin**, exactly, because $\eta(3M)=27M^2$ identically in $a$. So a
+renderer that reproduces only "the shadow is about $5.2M$ across" has demonstrated nothing about
+spin at all. What spin changes is the *displacement* (row 45, exactly $2a$) and the *horizontal*
+extent (row 46, which becomes Bardeen's $[-2M, +7M]$ at extremality — the flattened prograde
+edge). Row 43 exists because the two cubics agree at $a=0$ and at $a=M$ and nowhere else: a
+wrong substitution passes both endpoint checks and is 23% out in between.
+
+**Rows 48–50 — three statements about frame dragging that are exact.** Row 48 is the identity
+that makes the horizon a rigidly rotating surface, and it also reconciles the two forms of
+$\Omega_H$ that both appear in the literature. Row 50 is the one most often drawn wrongly: the
+ergosphere does **not** shrink towards the horizon as the spin rises; equatorially it sits at
+$2M$ for every $a$, and only its polar extent moves.
+
+**Rows 51–53 — the Penrose process, bounded.** Row 51's value is the classical 20.7%; the closed
+form that produces it is $\tfrac12(\sqrt2-1)$, and the harness asserts explicitly that
+$1-1/\sqrt2$ (29.3%) is a different number, because the two are easy to interchange. Row 52 is
+what makes the demonstration honest at the other end: at the static limit the gain is exactly
+zero, so a slider that walks the split radius out of the ergosphere must watch the effect
+disappear rather than merely get small. Row 53 derives the efficiency from the frame-by-frame
+split rather than asserting the closed form against itself.
 
 **Rows 34–37 — why the precession animation may not claim row 1.** Rows 1–3 assert 42.98″/century
 at Mercury's real parameters, where $GM/ac^2=2.55\times10^{-8}$ and the leading-order formula's own

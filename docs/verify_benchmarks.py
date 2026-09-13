@@ -557,6 +557,206 @@ _predicted = 6 * math.pi * _m_over_a / (1 - 0.2056**2)
 check("Weak-field formula is OUT OF DOMAIN at the animation's M/a = 0.05",
       _measured / _predicted, 1.321, 0.02, "")
 
+# Kerr, PHYSICS_SPEC.md section 3 -------------------------------------------
+# Geometric units throughout: M = 1, so a is a/M and every radius is in M.
+
+def r_plus(a):
+    return 1.0 + math.sqrt(1.0 - a * a)
+
+
+def delta(a, r):
+    return r * r - 2.0 * r + a * a
+
+
+def sigma_sq(a, r):
+    """Sigma^2 = (r^2+a^2)^2 - a^2 Delta, in the equatorial plane."""
+    return (r * r + a * a) ** 2 - a * a * delta(a, r)
+
+
+def omega_zamo(a, r):
+    return 2.0 * a * r / sigma_sq(a, r)
+
+
+def teo_photon(a, sign):
+    """Equatorial circular photon orbit, Teo 2003. sign -1 prograde, +1 retrograde."""
+    return 2.0 * (1.0 + math.cos((2.0 / 3.0) * math.acos(sign * a)))
+
+
+def photon_cubic(a, r):
+    """r^3 - 6Mr^2 + 9M^2 r - 4a^2 M, whose roots ARE the equatorial photon orbits."""
+    return r**3 - 6.0 * r * r + 9.0 * r - 4.0 * a * a
+
+
+def polar_cubic(a, r):
+    """r^3 - 3Mr^2 + a^2 r + M a^2, the xi = 0 condition: the POLAR spherical photon orbit."""
+    return r**3 - 3.0 * r * r + a * a * r + a * a
+
+
+def bardeen_xi(a, r):
+    return ((r * r - a * a) - r * delta(a, r)) / (a * (r - 1.0))
+
+
+def bardeen_eta(a, r):
+    return r**3 * (4.0 * delta(a, r) - r * (r - 1.0) ** 2) / (a * a * (r - 1.0) ** 2)
+
+
+def isco_bpt(a, prograde=True):
+    """Bardeen-Press-Teukolsky, PHYSICS_SPEC 3.3."""
+    z1 = 1 + (1 - a * a) ** (1 / 3) * ((1 + a) ** (1 / 3) + (1 - a) ** (1 / 3))
+    z2 = math.sqrt(3 * a * a + z1 * z1)
+    return 3 + z2 - math.sqrt((3 - z1) * (3 + z1 + 2 * z2)) if prograde \
+        else 3 + z2 + math.sqrt((3 - z1) * (3 + z1 + 2 * z2))
+
+
+# -- 3.4b: the photon-orbit cubic, checked against Teo rather than against itself
+for _a in (0.0, 0.25, 0.5, 0.9, 0.998, 1.0):
+    for _sign, _name in ((-1, "prograde"), (1, "retrograde")):
+        check(f"Kerr photon cubic at a={_a}, {_name}",
+              photon_cubic(_a, teo_photon(_a, _sign)), 0.0, 1e-9, "")
+check("Kerr prograde photon sphere, a/M=0.5", teo_photon(0.5, -1), 2.347296355, 1e-9, "M")
+check("Kerr retrograde photon sphere, a/M=0.5", teo_photon(0.5, 1), 3.532088886, 1e-9, "M")
+check("Kerr photon sphere at a=0 is 3M (both branches)",
+      abs(teo_photon(0.0, -1) - 3.0) + abs(teo_photon(0.0, 1) - 3.0), 0.0, 1e-12, "M")
+check("Kerr prograde photon sphere at a=M is M", teo_photon(1.0, -1), 1.0, 1e-9, "M")
+check("Kerr retrograde photon sphere at a=M is 4M", teo_photon(1.0, 1), 4.0, 1e-9, "M")
+
+# The cubic that is NOT this one. It is the polar (xi = 0) orbit, it agrees at both endpoints,
+# and substituting it for the prograde equatorial orbit is a 23% error at a/M = 0.5.
+_polar_half = _bisect(lambda r: polar_cubic(0.5, r), 2.0, 3.0)
+check("Kerr POLAR photon orbit, a/M=0.5 (r^3-3r^2+a^2 r+a^2)", _polar_half, 2.883217742, 1e-8, "M")
+check("  ...xi vanishes there, which is what that cubic means",
+      bardeen_xi(0.5, _polar_half), 0.0, 1e-9, "")
+check("  ...and it is NOT the prograde equatorial orbit",
+      abs(_polar_half - teo_photon(0.5, -1)) / teo_photon(0.5, -1), 0.2284, 0.001, "rel")
+check("  ...though it agrees at a=0", _bisect(lambda r: polar_cubic(0.0, r), 2.0, 4.0), 3.0, 1e-9, "M")
+
+# -- 3.4c: the Kerr shadow, equatorial observer. Three exact identities, at every spin.
+for _a in (0.2, 0.5, 0.9, 0.998):
+    check(f"Kerr shadow: eta(3M) = 27 M^2 at a={_a}", bardeen_eta(_a, 3.0), 27.0, 1e-9, "M^2")
+    check(f"  ...so |beta| reaches 3*sqrt(3) M at a={_a}",
+          math.sqrt(bardeen_eta(_a, 3.0)), 3 * math.sqrt(3), 1e-9, "M")
+    check(f"Kerr shadow: xi(3M) = -2a at a={_a}", bardeen_xi(_a, 3.0), -2.0 * _a, 1e-9, "M")
+    # eta is MAXIMISED at r = 3M, not merely equal to 27 there: a numerical maximisation, so
+    # this is not the identity above restated.
+    _lo, _hi = teo_photon(_a, -1), teo_photon(_a, 1)
+    for _ in range(400):
+        _m1, _m2 = _lo + (_hi - _lo) * 0.382, _lo + (_hi - _lo) * 0.618
+        if bardeen_eta(_a, _m1) < bardeen_eta(_a, _m2):
+            _lo = _m1
+        else:
+            _hi = _m2
+    check(f"  ...and eta is maximised exactly at r = 3M at a={_a}", (_lo + _hi) / 2, 3.0, 1e-6, "M")
+
+# The horizontal extent: Bardeen's own figure is [-2M, +7M] at extremality.
+check("Kerr shadow edge, retrograde side at a->M", -bardeen_xi(0.999999, teo_photon(0.999999, 1)),
+      7.0, 1e-4, "M")
+# The prograde edge approaches -2M only as sqrt(M^2 - a^2), so a fixed tolerance at one spin
+# would be a statement about how close to extremal that spin is. The rate is asserted instead:
+# the edge is -2M - sqrt(3) sqrt(M^2-a^2) + O(1-a^2), which pins both the limit and the approach.
+for _a in (0.999, 0.99999, 0.9999999):
+    check(f"Kerr shadow prograde edge -> -2M like -sqrt(3)sqrt(1-a^2), a={_a}",
+          (-bardeen_xi(_a, teo_photon(_a, -1)) + 2.0) / math.sqrt(1 - _a * _a),
+          -math.sqrt(3.0), 0.02, "")
+_lo_998 = -bardeen_xi(0.998, teo_photon(0.998, -1))
+_hi_998 = -bardeen_xi(0.998, teo_photon(0.998, 1))
+check("Kerr shadow extent at a/M=0.998, prograde edge", _lo_998, -2.110888, 1e-5, "M")
+check("Kerr shadow extent at a/M=0.998, retrograde edge", _hi_998, 6.996666, 1e-5, "M")
+check("Kerr shadow is DISPLACED: extent midpoint at a/M=0.998",
+      (_lo_998 + _hi_998) / 2, 2.442889, 1e-5, "M")
+check("  ...displacement is positive, i.e. frame dragging moved it",
+      1.0 if (_lo_998 + _hi_998) / 2 > 0 else 0.0, 1.0, 0, "")
+# ...and it is NOT displaced without spin. a -> 0 is a singular parametrisation, so the check is
+# that the displacement vanishes linearly with a rather than that it is zero at zero.
+for _a in (0.02, 0.01, 0.005):
+    _mid = (-bardeen_xi(_a, teo_photon(_a, -1)) - bardeen_xi(_a, teo_photon(_a, 1))) / 2
+    check(f"Kerr shadow displacement / a at a={_a} (-> 2 as a -> 0)", _mid / _a, 2.0, 0.02, "")
+check("Kerr shadow at a=0 is the Schwarzschild circle, 3*sqrt(3) M",
+      3 * math.sqrt(3), 5.196152422706632, 1e-12, "M")
+
+# -- 3.5: frame dragging
+for _a in (0.3, 0.9, 0.998):
+    _rp = r_plus(_a)
+    # Delta(r_+) = 0 exactly, so Sigma^2 = (r_+^2+a^2)^2 and omega(r_+) collapses to Omega_H.
+    _omega_h = 2.0 * _a * _rp / (_rp * _rp + _a * _a) ** 2
+    check(f"omega_ZAMO(r+) = a/(2 M r+) at a={_a}", _omega_h, _a / (2.0 * _rp), 1e-15, "1/M")
+    check(f"  ...= a/(r+^2+a^2), the other published form, at a={_a}",
+          _omega_h, _a / (_rp * _rp + _a * _a), 1e-15, "1/M")
+    check(f"omega_ZAMO -> 0 far away (r = 1e8 M) at a={_a}", omega_zamo(_a, 1e8), 0.0, 1e-8, "1/M")
+    # The falloff is 2Ma/r^3, not something else: halving r must multiply omega by 8.
+    check(f"  ...falling off as r^-3 at a={_a}",
+          omega_zamo(_a, 500.0) / omega_zamo(_a, 1000.0), 8.0, 0.05, "x")
+    check(f"Ergosphere equatorial radius is 2M at a={_a}",
+          1.0 + math.sqrt(1.0 - _a * _a * math.cos(math.pi / 2) ** 2), 2.0, 1e-10, "M")
+    # The static limit by a completely different route: r sqrt(Delta) = 2 M a.
+    check(f"  ...same 2M from r*sqrt(Delta) = 2Ma at a={_a}",
+          2.0 * math.sqrt(delta(_a, 2.0)), 2.0 * _a, 1e-12, "M")
+    check(f"Ergosphere encloses the horizon at a={_a}", 1.0 if _rp < 2.0 else 0.0, 1.0, 0, "")
+
+# -- 3.3: ISCO vs spin, endpoints
+check("Kerr ISCO at a=0", isco_bpt(0.0), 6.0, 1e-9, "M")
+check("Kerr ISCO at a=M, prograde", isco_bpt(1.0), 1.0, 1e-6, "M")
+check("Kerr ISCO at a=M, retrograde", isco_bpt(1.0, prograde=False), 9.0, 1e-6, "M")
+
+# -- 3.6: the Penrose process
+def penrose_eta_max(a):
+    return 0.5 * (math.sqrt(2.0 / r_plus(a)) - 1.0)
+
+
+check("Penrose max efficiency at a=M", penrose_eta_max(1.0), 0.20710678118654757, 1e-12, "")
+check("  ...which is (sqrt(2)-1)/2", (math.sqrt(2) - 1) / 2, 0.20710678118654757, 1e-15, "")
+check("  ...and is NOT 1 - 1/sqrt(2) = 0.2929",
+      1.0 if abs((1 - 1 / math.sqrt(2)) - penrose_eta_max(1.0)) > 0.08 else 0.0, 1.0, 0, "")
+check("Penrose max efficiency at a=0 (no ergosphere)", penrose_eta_max(0.0), 0.0, 1e-15, "")
+check("Penrose max efficiency at a/M=0.5", penrose_eta_max(0.5), 0.017638090, 1e-8, "")
+check("Penrose max efficiency at a/M=0.9", penrose_eta_max(0.9), 0.090098394, 1e-8, "")
+check("Penrose max efficiency at a/M=0.998", penrose_eta_max(0.998), 0.185763988, 1e-8, "")
+check("  ...the second closed form, 0.5*(sqrt(1+a^2/r+^2)-1), agrees at a=0.998",
+      0.5 * (math.sqrt(1 + 0.998**2 / r_plus(0.998) ** 2) - 1), penrose_eta_max(0.998), 1e-14, "")
+
+# The efficiency is derived from the LNRF split, not asserted against itself: build the split at
+# the turning point and confirm it reproduces the closed form as r -> r_+, and gives exactly
+# zero at the static limit r = 2M.
+def penrose_split(a, r):
+    """Parent with E = 1, mu = 1, at its radial turning point. Returns (E1, E2)."""
+    d = delta(a, r)
+    s2 = sigma_sq(a, r)
+    s = math.sqrt(s2)
+    lapse = r * math.sqrt(d) / s
+    omega_varpi = 2.0 * a / s
+    # Turning point with E = 1: quadratic in L, written cancellation-free.
+    qa = r * r * (4.0 * a * a - r * r * d)
+    qb = -4.0 * a * r * s2
+    qc = s2 * 2.0 * r * (r * r + a * a)
+    if abs(qa) < 1e-12 * abs(qb):
+        # Exactly at the static limit r = 2M, where r^2 Delta = 4 a^2, the quadratic degenerates
+        # to a linear equation. That is not a numerical accident: it is the boundary of the
+        # ergosphere, which is the whole point of the check made there.
+        roots = [-qc / qb]
+    else:
+        disc = qb * qb - 4.0 * qa * qc
+        roots = [(-qb + math.sqrt(disc)) / (2 * qa), (-qb - math.sqrt(disc)) / (2 * qa)]
+    best = None
+    for ell in roots:
+        eps = (s2 - 2.0 * a * r * ell) / (r * math.sqrt(d) * s)
+        p_phi = ell * r / s
+        if eps <= 0:
+            continue
+        e2 = 0.5 * (eps + p_phi) * (lapse + omega_varpi)
+        e1 = 0.5 * (eps - p_phi) * (lapse - omega_varpi)
+        if best is None or e2 > best[1]:
+            best = (e1, e2)
+    return best
+
+
+for _a in (0.5, 0.9, 0.998):
+    _e1, _e2 = penrose_split(_a, r_plus(_a) * (1 + 1e-9))
+    check(f"Penrose split at r -> r+ reproduces the closed form, a={_a}",
+          _e2 - 1.0, penrose_eta_max(_a), 1e-5, "")
+    check(f"  ...the plunging fragment has NEGATIVE energy, a={_a}", -_e1, _e2 - 1.0, 1e-9, "")
+    _z1, _z2 = penrose_split(_a, 2.0)
+    check(f"Penrose gain is exactly zero at the static limit r=2M, a={_a}", _z2 - 1.0, 0.0, 1e-9, "")
+    check(f"  ...and E1 = 0 there, a={_a}", _z1, 0.0, 1e-9, "")
+
 # Yoshida-4 coefficients ---------------------------------------------------
 w1 = 1 / (2 - 2 ** (1 / 3))
 w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))
