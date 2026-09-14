@@ -58,6 +58,7 @@ const SIM_ROUTES = [
   '/sims/effective-potential',
   '/sims/mercury-precession',
   '/sims/isco-explorer',
+  '/sims/kerr-shadow',
 ];
 
 for (const width of [360, 390]) {

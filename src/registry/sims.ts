@@ -83,6 +83,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/mercury-precession'),
   },
   {
+    id: 'kerr-shadow',
+    title: 'The shadow is not a circle',
+    description:
+      'A spinning black hole, ray-traced in Kerr\u2013Schild coordinates. Spin flattens the '
+      + 'silhouette on the approaching side and slides it across the sky \u2014 and leaves its '
+      + 'height at exactly 3\u221a3 M, whatever the spin.',
+    tags: ['General relativity', 'Kerr', 'Frame dragging'],
+    load: () => import('../sims/kerr-shadow'),
+  },
+  {
     id: 'isco-explorer',
     title: 'Where orbits stop coming back',
     description:

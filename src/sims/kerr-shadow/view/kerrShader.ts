@@ -52,6 +52,8 @@ const float MAX_STEP      = 12.0;
 const float RING_APPROACH_HEIGHT = 3.0;
 const float RING_APPROACH_FRACTION = 0.5;
 const float RING_MIN_STEP = 0.01;
+/** Below this height a sign change is float32 noise, not a plane crossing. */
+const float RING_MIN_HEIGHT = 1e-5;
 const int   CROSSING_REFINEMENTS = 4;
 /** Capture just inside the horizon. Kerr–Schild is regular there, so this is a stopping rule
  *  and not a coordinate cliff — nothing in the integration blows up at r+. */
@@ -260,7 +262,14 @@ Trace traceRay(vec2 ndc) {
     }
     State next = rk4Step(p, mom, pt, a, dl);
 
-    if (uRingEnabled && p.z != 0.0 && sign(next.p.z) != sign(p.z)) {
+    // A strict product test, not sign() != sign(). GLSL's sign(0.0) is 0.0, so a ray launched
+    // exactly in the equatorial plane -- every ray on the centre row of an edge-on view -- has
+    // sign(z) flipping between 0 and +-1 on float32 noise alone, and every one of those counted
+    // as a plane crossing. The ring rendered as a filled disc across the whole frame. The
+    // product test requires two genuinely opposite, non-zero heights, and RING_MIN_HEIGHT keeps
+    // the noise floor out of it.
+    bool crossed = p.z * next.p.z < 0.0 && max(abs(p.z), abs(next.p.z)) > RING_MIN_HEIGHT;
+    if (uRingEnabled && crossed) {
       float lo = 0.0;
       float hi = dl;
       State landing = next;
