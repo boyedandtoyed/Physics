@@ -9,6 +9,7 @@ import {
   bisect,
   delta,
   draggedInfallRates,
+  equatorialRates,
   ergosphereRadius,
   horizonAngularVelocity,
   horizonRadii,
@@ -19,6 +20,8 @@ import {
   omegaVarpi,
   omegaZamo,
   penroseMaxEfficiency,
+  penroseFragments,
+  penroseParent,
   penroseSplit,
   photonOrbitCubic,
   photonOrbitRadius,
@@ -478,5 +481,106 @@ describe('the Penrose process', () => {
     const { outer } = horizonRadii(0.9);
     expect(() => penroseSplit(outer, 0.9)).toThrow(RangeError);
     expect(() => penroseSplit(outer * 0.9, 0.9)).toThrow(RangeError);
+  });
+});
+
+describe('equatorial trajectories', () => {
+  it('reduces to the dragged infall when L is zero', () => {
+    for (const spin of [0, 0.5, 0.998]) {
+      for (const radius of [2.5, 6, 30]) {
+        const rates = equatorialRates(radius, spin,
+          { energy: 1, angularMomentum: 0, mass: 1, radialSign: -1 })!;
+        const reference = draggedInfallRates(radius, spin);
+        expect(rates.radial).toBeCloseTo(reference.radial, 12);
+        expect(rates.angular).toBeCloseTo(reference.angular, 12);
+      }
+    }
+  });
+
+  it('refuses a radius the body cannot reach, rather than returning a number', () => {
+    // A photon with a large impact parameter has a turning point; inside it there is no motion.
+    expect(equatorialRates(3, 0, { energy: 1, angularMomentum: 20, mass: 0, radialSign: -1 }))
+      .toBeNull();
+    // And nothing has rates inside the horizon in this chart.
+    expect(equatorialRates(1.5, 0, { energy: 1, angularMomentum: 0, mass: 1, radialSign: -1 }))
+      .toBeNull();
+  });
+
+  it('gives a photon dφ/dt inside the light cone at every radius', () => {
+    for (const spin of [0.3, 0.9, 0.998]) {
+      for (const radius of [2.2, 4, 12]) {
+        for (const angularMomentum of [-6, -2, 0, 2, 6]) {
+          const rates = equatorialRates(radius, spin,
+            { energy: 1, angularMomentum, mass: 0, radialSign: 1 });
+          if (!rates) continue;
+          const range = angularVelocityRange(radius, spin);
+          expect(rates.angular).toBeGreaterThanOrEqual(range.min - 1e-9);
+          expect(rates.angular).toBeLessThanOrEqual(range.max + 1e-9);
+        }
+      }
+    }
+  });
+});
+
+describe('the Penrose fragments, as things that move', () => {
+  it('sends one inward and one outward, from the split radius', () => {
+    for (const spin of [0.5, 0.9, 0.998]) {
+      const { outer } = horizonRadii(spin);
+      const radius = outer + (2 - outer) * 0.3;
+      const split = penroseSplit(radius, spin);
+      const { plunging, escaping } = penroseFragments(split, spin);
+      expect(plunging.energy).toBeLessThan(0);
+      expect(escaping.energy).toBeGreaterThan(1);
+      // Counter-rotating and co-rotating respectively: that is what makes E₁ negative.
+      expect(plunging.angularMomentum).toBeLessThan(0);
+      expect(escaping.angularMomentum).toBeGreaterThan(0);
+    }
+  });
+
+  it('conserves energy and angular momentum across the split', () => {
+    for (const spin of [0.5, 0.9, 0.998]) {
+      const { outer } = horizonRadii(spin);
+      const radius = outer + (2 - outer) * 0.4;
+      const split = penroseSplit(radius, spin);
+      const parent = penroseParent(split);
+      const { plunging, escaping } = penroseFragments(split, spin);
+      expect(plunging.energy + escaping.energy).toBeCloseTo(parent.energy, 9);
+      expect(plunging.angularMomentum + escaping.angularMomentum)
+        .toBeCloseTo(parent.angularMomentum, 6);
+    }
+  });
+
+  it('starts both fragments at a radial turning point, which is where the split happens', () => {
+    const spin = 0.9;
+    const { outer } = horizonRadii(spin);
+    const radius = outer + (2 - outer) * 0.4;
+    const split = penroseSplit(radius, spin);
+    const { plunging, escaping } = penroseFragments(split, spin);
+    for (const fragment of [plunging, escaping]) {
+      const rates = equatorialRates(radius, spin, fragment)!;
+      expect(rates.radial).toBeCloseTo(0, 6);
+    }
+    // The parent is at its turning point too — that is the condition that fixed its L.
+    expect(equatorialRates(radius, spin, penroseParent(split))!.radial).toBeCloseTo(0, 6);
+  });
+
+  it('lets the escaping fragment actually leave, and the other actually fall', () => {
+    const spin = 0.9;
+    const { outer } = horizonRadii(spin);
+    const split = penroseSplit(outer + (2 - outer) * 0.4, spin);
+    const { plunging, escaping } = penroseFragments(split, spin);
+    // Just outside the turning point, the escaping photon has outward motion available...
+    expect(equatorialRates(split.radius * 1.02, spin, escaping)).not.toBeNull();
+    expect(equatorialRates(split.radius * 1.02, spin, escaping)!.radial).toBeGreaterThan(0);
+    // ...all the way out.
+    for (const radius of [4, 10, 60, 400]) {
+      expect(equatorialRates(radius, spin, escaping)!.radial).toBeGreaterThan(0);
+    }
+    // ...and the plunging one has inward motion available all the way to the horizon.
+    for (const factor of [0.98, 0.9, 0.8]) {
+      const rates = equatorialRates(Math.max(split.radius * factor, outer * 1.0005), spin, plunging);
+      expect(rates).not.toBeNull();
+      expect(rates!.radial).toBeLessThan(0);
+    }
   });
 });

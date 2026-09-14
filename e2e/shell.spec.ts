@@ -60,6 +60,7 @@ const SIM_ROUTES = [
   '/sims/isco-explorer',
   '/sims/kerr-shadow',
   '/sims/frame-dragging',
+  '/sims/penrose-process',
 ];
 
 for (const width of [360, 390]) {
@@ -77,3 +78,28 @@ for (const width of [360, 390]) {
     }
   });
 }
+
+/** Characters the shipped font does not have.
+ *
+ * U+208A SUBSCRIPT PLUS renders as a full stop in the body font here, so "r₊" — the outer
+ * horizon, which four Kerr sims quote — silently became "r.". It looks like a typo rather than a
+ * missing glyph, which is why it survived a screenshot. U+208B has the same gap.
+ *
+ * A route-level guard over the rendered text, so no sim can reintroduce either.
+ */
+const MISSING_GLYPHS = /[\u208a\u208b]/u;
+
+test('no sim renders a glyph the body font does not have', async ({ page }) => {
+  for (const route of SIM_ROUTES) {
+    await page.goto(route);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForTimeout(300);
+    const text = await page.locator('body').innerText();
+    const found = MISSING_GLYPHS.exec(text);
+    expect(
+      found,
+      `${route} renders U+${found?.[0].codePointAt(0)?.toString(16)}, which the font lacks: `
+      + `"${text.slice(Math.max(0, (found?.index ?? 0) - 40), (found?.index ?? 0) + 20)}"`,
+    ).toBeNull();
+  }
+});

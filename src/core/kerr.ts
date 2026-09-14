@@ -27,6 +27,8 @@ const GOLDEN_STEPS = 200;
 const BISECTION_STEPS = 80;
 /** η is O(27); this is far below any real feature and far above the endpoint rounding. */
 const CLOSURE_TOLERANCE = 1e-12;
+/** Relative to ε²: below this a negative radial momentum squared is a turning point. */
+const TURNING_TOLERANCE = 1e-12;
 
 function requireSpin(spin: number): void {
   if (!Number.isFinite(spin) || spin < 0 || spin >= 1) {
@@ -419,6 +421,98 @@ export function penroseSplit(radius: number, spin: number): PenroseSplit {
   if (best === null) throw new RangeError('No physical split at this radius.');
   return best;
 }
+
+/** A test body on an equatorial orbit, as its two conserved quantities and its rest mass. */
+export interface EquatorialOrbit {
+  /** E = −p_t. **Negative is legal inside the ergosphere** — that is the Penrose process. */
+  energy: number;
+  /** L_z = p_φ. */
+  angularMomentum: number;
+  /** 0 for a photon, 1 for a unit-mass particle. */
+  mass: number;
+  /** +1 outgoing, −1 ingoing. */
+  radialSign: 1 | -1;
+}
+
+/**
+ * dr/dt and dφ/dt in Boyer–Lindquist coordinate time, equatorially, from the LNRF.
+ *
+ *     ε = (E − ωL)/α,   p^(φ) = L/ϖ,   p^(r) = ±√(ε² − μ² − p^(φ)²)
+ *     dr/dt = (p^(r)/ε)·α√Δ/r,        dφ/dt = ω + (p^(φ)/ε)·α/ϖ
+ *
+ * ε is the LNRF energy and is positive for anything physical, **including a fragment whose
+ * conserved E is negative**: E = αε + ωL, so a negative E inside the ergosphere is a statement
+ * about ω, not about the fragment's own energy in its own neighbourhood.
+ *
+ * Returns `null` where the body cannot be — ε² < μ² + p^(φ)², i.e. beyond a turning point.
+ */
+export function equatorialRates(
+  radius: number, spin: number, orbit: EquatorialOrbit,
+): { radial: number; angular: number } | null {
+  requireSpin(spin);
+  const d = delta(radius, spin);
+  if (!(d > 0)) return null;
+  const s2 = sigmaSquared(radius, spin);
+  const s = Math.sqrt(s2);
+  const alpha = (radius * Math.sqrt(d)) / s;
+  const varpiValue = s / radius;
+  const drag = (TWO * spin * radius) / s2;
+
+  const localEnergy = (orbit.energy - drag * orbit.angularMomentum) / alpha;
+  if (!(localEnergy > 0)) return null;
+  const localAngular = orbit.angularMomentum / varpiValue;
+  const radialSquared = localEnergy * localEnergy
+    - orbit.mass * orbit.mass - localAngular * localAngular;
+  // A body sitting exactly AT its turning point has radialSquared = 0 by construction and
+  // computes to a few units in the last place either side of it. Rejecting a rounding-level
+  // negative would refuse to start the Penrose fragments at the split radius, which is the one
+  // place they are defined. Anything genuinely beyond the turning point is still refused: the
+  // scale is ε², so this threshold cannot swallow a real one.
+  if (radialSquared < -TURNING_TOLERANCE * localEnergy * localEnergy) return null;
+  const localRadial = orbit.radialSign * Math.sqrt(Math.max(radialSquared, 0));
+  return {
+    radial: (localRadial / localEnergy) * ((alpha * Math.sqrt(d)) / radius),
+    angular: drag + (localAngular / localEnergy) * (alpha / varpiValue),
+  };
+}
+
+/** The two fragments of a Penrose split, as orbits that can be integrated. PHYSICS_SPEC §3.6. */
+export function penroseFragments(
+  split: PenroseSplit, spin: number,
+): { plunging: EquatorialOrbit; escaping: EquatorialOrbit } {
+  const { radius } = split;
+  const s = Math.sqrt(sigmaSquared(radius, spin));
+  const varpiValue = s / radius;
+  const d = delta(radius, spin);
+  const alpha = (radius * Math.sqrt(d)) / s;
+  const drag = (TWO * spin) / s;
+  // Photon 2 leaves along +φ̂ and photon 1 along −φ̂, both with p^(r) = 0. Their local energies
+  // follow from the split; L = ϖ p^(φ) with p^(φ) = ±p^(t).
+  const escapingLocal = split.escapingEnergy / (alpha + drag);
+  const plungingLocal = alpha - drag === 0 ? 0 : split.plungingEnergy / (alpha - drag);
+  return {
+    escaping: {
+      energy: split.escapingEnergy,
+      angularMomentum: varpiValue * escapingLocal,
+      mass: 0,
+      radialSign: 1,
+    },
+    plunging: {
+      energy: split.plungingEnergy,
+      angularMomentum: -varpiValue * plungingLocal,
+      mass: 0,
+      radialSign: -1,
+    },
+  };
+}
+
+/** The parent's orbit: unit rest mass, E = 1, and the L its turning point at `radius` fixes. */
+export const penroseParent = (split: PenroseSplit): EquatorialOrbit => ({
+  energy: 1,
+  angularMomentum: split.parentAngularMomentum,
+  mass: 1,
+  radialSign: -1,
+});
 
 // --- shared numerics --------------------------------------------------------------------------
 

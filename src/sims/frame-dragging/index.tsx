@@ -512,7 +512,7 @@ export default function FrameDragging() {
             <dl>
               <div>
                 <dt>Ω at the horizon</dt>
-                <dd>{perM(figures.omegaHorizon)}<span>Ω_H = a/(2Mr₊)</span></dd>
+                <dd>{perM(figures.omegaHorizon)}<span>Ω_H = a/(2Mr_+)</span></dd>
               </div>
               <div>
                 <dt>ω at the ergosphere</dt>
@@ -593,8 +593,8 @@ export default function FrameDragging() {
           <PhysicsPanel
             equation={String.raw`\omega_{\rm ZAMO} = -\frac{g_{t\varphi}}{g_{\varphi\varphi}} = \frac{2Mar}{\Sigma^2},\qquad \Omega_\pm = \omega \pm \frac{\alpha}{\varpi} = \frac{2Mar \pm r^2\sqrt{\Delta}}{\Sigma^2}`}
             assumptions={[
-              'Kerr geometry in Boyer–Lindquist coordinates, equatorial plane, with Σ² = (r²+a²)² − a²Δ and Δ = (r−r₊)(r−r₋).',
-              'Δ is computed in its factored form, not as r² − 2Mr + a². The two are the same polynomial and not the same computation: at a/M = 0.998 the literal form returns 1.4×10⁻¹⁷ at r₊ instead of 0, and √Δ of that is the whole width of a light cone that should have closed to a point.',
+              'Kerr geometry in Boyer–Lindquist coordinates, equatorial plane, with Σ² = (r²+a²)² − a²Δ and Δ = (r−r_+)(r−r_−).',
+              'Δ is computed in its factored form, not as r² − 2Mr + a². The two are the same polynomial and not the same computation: at a/M = 0.998 the literal form returns 1.4×10⁻¹⁷ at r_+ instead of 0, and √Δ of that is the whole width of a light cone that should have closed to a point.',
               'The clock is Boyer–Lindquist coordinate time throughout, including the faller. It never crosses the horizon in this chart; its own proper time reaches it in a finite interval.',
               'The faller is dropped from rest at infinity with exactly zero angular momentum: E = μ, L_z = 0. Its rates are dr/dt = −√(1−α²)Δ/Σ and dφ/dt = ω, integrated with RK4 and refined so a step never lands inside the horizon.',
               'The wedges are drawn for a fixed span of coordinate time, so their width is the local light cone in φ and not a velocity.',
@@ -610,9 +610,9 @@ export default function FrameDragging() {
         </Suspense>
 
         <p className="verification-note">
-          Every claim on this page is asserted numerically. ω(r₊) equals Ω_H in all three of its
+          Every claim on this page is asserted numerically. ω(r_+) equals Ω_H in all three of its
           published forms to 10⁻¹⁵; ω falls off as r⁻³ to within 5%; the equatorial ergosphere is
-          2 M to 10⁻¹⁰ at every spin, confirmed by three independent routes; Ω₋ crosses zero at
+          2 M to 10⁻¹⁰ at every spin, confirmed by three independent routes; Ω_− crosses zero at
           exactly r = 2 M; and the light-cone wedge closes to a single value at the horizon,
           exactly, which needs the factored Δ to be true at all.
         </p>

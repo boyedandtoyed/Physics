@@ -103,6 +103,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/frame-dragging'),
   },
   {
+    id: 'penrose-process',
+    title: 'Twenty per cent, and not a scrap more',
+    description:
+      'Energy out of a black hole. A fragment with negative energy plunges, its partner leaves '
+      + 'with more than came in, and the hole\u2019s rotation pays \u2014 up to \u00bd(\u221a2\u22121) = 20.71%, '
+      + 'derived rather than capped.',
+    tags: ['General relativity', 'Kerr', 'Energy extraction'],
+    load: () => import('../sims/penrose-process'),
+  },
+  {
     id: 'isco-explorer',
     title: 'Where orbits stop coming back',
     description:

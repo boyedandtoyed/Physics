@@ -405,7 +405,7 @@ export default function KerrShadow() {
             <dl>
               <div>
                 <dt>Outer horizon</dt>
-                <dd>{inM(figures.outerHorizon)}<span>r₊ = M + √(M²−a²)</span></dd>
+                <dd>{inM(figures.outerHorizon)}<span>r_+ = M + √(M²−a²)</span></dd>
               </div>
               <div>
                 <dt>Ergosphere, equator</dt>
