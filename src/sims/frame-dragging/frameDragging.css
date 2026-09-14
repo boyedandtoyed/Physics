@@ -1,0 +1,26 @@
+/* Scoped to the frame-dragging sim. Colours come from the shell's theme tokens. */
+
+.dragging { display: grid; gap: 0; }
+.dragging .sim-head { max-width: 48rem; }
+.dragging .sim-head .intro { color: var(--muted); margin: 0; }
+
+.dragging .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.dragging .readout div { display: grid; gap: 0.15rem; }
+.dragging .readout dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.dragging .readout dd {
+  margin: 0; font-size: 1.05rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.dragging .readout dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+.dragging .figure-benchmark {
+  padding: 0.55rem 0.7rem; border-radius: 0.4rem;
+  border: 1px solid var(--line); background: var(--bg);
+}
+/* The row that carries the prohibition, once the prohibition is in force. */
+.dragging .figure-benchmark.forbidden { border-color: var(--focus); }
+.dragging .figure-benchmark.forbidden dd { color: var(--focus); }
+
+.dragging .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

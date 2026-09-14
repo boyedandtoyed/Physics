@@ -34,9 +34,18 @@ function requireSpin(spin: number): void {
   }
 }
 
-/** Δ = r² − 2Mr + a². Zero at both horizons. */
-export const delta = (radius: number, spin: number): number =>
-  radius * radius - TWO * radius + spin * spin;
+/**
+ * Δ = (r − r₊)(r − r₋), **not** r² − 2Mr + a².
+ *
+ * The two are the same polynomial and they are not the same computation. At a/M = 0.998 the
+ * literal form evaluated at r₊ = 1.0632 returns 1.4×10⁻¹⁷ rather than 0, and √Δ of that is
+ * 3.7×10⁻⁹ — which is the entire width of a light cone that is supposed to have closed to a
+ * point. Vieta does the cancellation exactly: r₊ + r₋ = 2M and r₊r₋ = a².
+ */
+export function delta(radius: number, spin: number): number {
+  const root = Math.sqrt(Math.max(1 - spin * spin, 0));
+  return (radius - (1 + root)) * (radius - (1 - root));
+}
 
 /**
  * Σ² = (r²+a²)² − a²Δ sin²θ, in the equatorial plane where sin θ = 1.
@@ -94,6 +103,51 @@ export function lapse(radius: number, spin: number): number {
   const d = delta(radius, spin);
   if (d < 0) throw new RangeError('Inside the horizon there is no static or ZAMO frame.');
   return (radius * Math.sqrt(d)) / Math.sqrt(sigmaSquared(radius, spin));
+}
+
+/**
+ * The range of dφ/dt available to any timelike or null worldline at radius r, equatorially:
+ *
+ *     Ω± = ω ± α/ϖ = (2Mar ± r²√Δ) / Σ²
+ *
+ * The centre of the wedge is the ZAMO's ω and its half-width is the local light cone's opening
+ * in φ. **Ω₋ = 0 at exactly r = 2M for every spin**, so outside the ergosphere standing still is
+ * one of the options and inside it every worldline has dφ/dt > 0 — not "difficult": unavailable.
+ * At r₊ the wedge closes to the single value Ω_H, which is what "the horizon rotates rigidly"
+ * means. PHYSICS_SPEC §3.5.
+ */
+export function angularVelocityRange(
+  radius: number, spin: number,
+): { min: number; max: number } {
+  requireSpin(spin);
+  const d = Math.max(delta(radius, spin), 0);
+  const s2 = sigmaSquared(radius, spin);
+  const drag = (TWO * spin * radius) / s2;
+  const halfWidth = (radius * radius * Math.sqrt(d)) / s2;
+  return { min: drag - halfWidth, max: drag + halfWidth };
+}
+
+/**
+ * dr/dt and dφ/dt for a particle dropped from rest at infinity with **exactly zero angular
+ * momentum**, equatorially (E = μ, L_z = 0). PHYSICS_SPEC §3.5.
+ *
+ *     dr/dt = −√(1−α²) Δ/Σ,   dφ/dt = ω
+ *
+ * At a = 0 this is the Schwarzschild radial fall and dφ/dt is identically zero. For a ≠ 0 the
+ * angular momentum is zero for the whole trajectory and φ still advances. That is the whole
+ * demonstration: nothing is pushing it sideways.
+ */
+export function draggedInfallRates(
+  radius: number, spin: number,
+): { radial: number; angular: number } {
+  requireSpin(spin);
+  const d = Math.max(delta(radius, spin), 0);
+  const s2 = sigmaSquared(radius, spin);
+  const lapseSquared = (radius * radius * d) / s2;
+  return {
+    radial: -Math.sqrt(Math.max(1 - lapseSquared, 0)) * (d / Math.sqrt(s2)),
+    angular: (TWO * spin * radius) / s2,
+  };
 }
 
 /** ϖ = Σ/r, the circumferential radius, equatorially. */

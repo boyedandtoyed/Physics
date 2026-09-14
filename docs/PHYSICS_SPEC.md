@@ -423,6 +423,45 @@ limit is where $\varpi\omega = \alpha$, with $\alpha = r\sqrt\Delta/\Sigma$ the 
 $\varpi = \Sigma/r$; that condition reduces to $r\sqrt\Delta = 2Ma$, which at $r = 2M$ gives
 $2M\sqrt{a^2} = 2Ma$ — true for every $a$, i.e. the same $2M$ again, by a different route.
 
+#### What the dragging forbids: the allowed range of $d\varphi/dt$
+
+$\omega_{\rm ZAMO}$ says what a *non-rotating* observer does. The stronger statement — the one
+that makes the ergosphere mean something — is which angular velocities are available to anything
+at all. For a worldline at radius $r$ in the equatorial plane with $\Omega = d\varphi/dt$, the
+requirement that it be timelike or null bounds $\Omega$ on both sides:
+
+$$\boxed{\Omega_\pm = \omega \pm \frac{\alpha}{\varpi} = \frac{2Mar \pm r^2\sqrt\Delta}{\Sigma^2}}$$
+
+**ASSERT**, all exact:
+
+1. **$\Omega_- = 0$ at exactly $r = 2M$, for every spin.** There $\Delta = a^2$, so
+   $r^2\sqrt\Delta = 4M^2a = 2Mar$. Outside it $\Omega_- < 0$ and standing still is one of the
+   options; inside it $\Omega_- > 0$ and **every** worldline has $d\varphi/dt > 0$. Not
+   "difficult": unavailable. This is the fourth independent route to the same $2M$.
+2. **$\Omega_+ = \Omega_- = \omega = \Omega_H$ at $r_+$**, because $\Delta = 0$ there. The
+   permitted range closes to a single value: the horizon rotates rigidly.
+3. Far away $\Omega_\pm \to \pm 1/r$, the flat-space light cone, and $\omega \to 0$.
+
+The width of the wedge, $2\alpha/\varpi$, is the local light cone's opening in $\varphi$; the
+offset of its centre from zero is the dragging. Drawing the wedge rather than an arrow is what
+separates "the hole drags you" from "the hole forbids you from not being dragged".
+
+#### The dragged faller — the trajectory a demonstration should integrate
+
+A particle dropped from rest at infinity with **exactly zero angular momentum**
+($E = \mu$, $L_z = 0$), equatorially. In the LNRF its energy is $\varepsilon = 1/\alpha$ and
+$p^{(\varphi)} = 0$, so its local radial speed is $\sqrt{1-\alpha^2}$, and converting the LNRF
+lengths and times to Boyer–Lindquist:
+
+$$\frac{dr}{dt} = -\sqrt{1-\alpha^2}\;\frac{\Delta}{\Sigma}, \qquad
+\frac{d\varphi}{dt} = \omega = \frac{2Mar}{\Sigma^2}$$
+
+**ASSERT** the $a = 0$ reduction: $\alpha^2 = 1-2M/r$ and $\Sigma = r^2$ give
+$dr/dt = -\sqrt{2M/r}\,(1-2M/r)$, the standard Schwarzschild infall from rest at infinity, and
+$d\varphi/dt = 0$ — a radial fall stays radial. For $a \ne 0$ it does not: $L_z$ is zero for the
+whole trajectory and $\varphi$ still advances. **That is the demonstration.** Nothing is pushing
+it sideways; there is no sideways to be pushed in.
+
 ### 3.6 The Penrose process — the LNRF split, and the efficiency
 
 **Setup.** Work in the locally non-rotating frame (LNRF, = the ZAMO orthonormal frame) of

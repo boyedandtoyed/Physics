@@ -565,7 +565,15 @@ def r_plus(a):
 
 
 def delta(a, r):
-    return r * r - 2.0 * r + a * a
+    """Delta = (r - r+)(r - r-), NOT r^2 - 2Mr + a^2.
+
+    The two are the same polynomial and they are not the same computation. At a/M = 0.998 the
+    literal form evaluated at r+ = 1.0632 gives 1.4e-17 instead of 0, and the sqrt of that is
+    3.7e-9 -- which is the whole width of the light-cone wedge that is supposed to have closed.
+    Vieta does the cancellation exactly: r+ + r- = 2M and r+ r- = a^2.
+    """
+    root = math.sqrt(max(1.0 - a * a, 0.0))
+    return (r - (1.0 + root)) * (r - (1.0 - root))
 
 
 def sigma_sq(a, r):
@@ -691,6 +699,55 @@ for _a in (0.3, 0.9, 0.998):
     check(f"  ...same 2M from r*sqrt(Delta) = 2Ma at a={_a}",
           2.0 * math.sqrt(delta(_a, 2.0)), 2.0 * _a, 1e-12, "M")
     check(f"Ergosphere encloses the horizon at a={_a}", 1.0 if _rp < 2.0 else 0.0, 1.0, 0, "")
+
+# -- 3.5: the allowed range of dphi/dt, and the dragged faller
+def omega_pm(a, r):
+    d = max(delta(a, r), 0.0)
+    s2 = sigma_sq(a, r)
+    return (2 * a * r + r * r * math.sqrt(d)) / s2, (2 * a * r - r * r * math.sqrt(d)) / s2
+
+
+for _a in (0.1, 0.5, 0.9, 0.998):
+    _plus, _minus = omega_pm(_a, 2.0)
+    check(f"Omega_minus = 0 at exactly r = 2M, a={_a}", _minus, 0.0, 1e-12, "1/M")
+    check(f"  ...negative just outside 2M (standing still allowed), a={_a}",
+          1.0 if omega_pm(_a, 2.0001)[1] < 0 else 0.0, 1.0, 0, "")
+    check(f"  ...positive just inside 2M (counter-rotation impossible), a={_a}",
+          1.0 if omega_pm(_a, 1.9999)[1] > 0 else 0.0, 1.0, 0, "")
+    _rp = r_plus(_a)
+    _hp, _hm = omega_pm(_a, _rp)
+    check(f"Omega_+ and Omega_- both equal Omega_H at r+, a={_a}", _hp - _hm, 0.0, 1e-12, "1/M")
+    check(f"  ...and that value is Omega_H, a={_a}", _hp, _a / (2.0 * _rp), 1e-12, "1/M")
+    # Far away the wedge is the flat light cone and the drag has gone.
+    _fp, _fm = omega_pm(_a, 1e5)
+    check(f"Omega_+ -> +1/r far away, a={_a}", _fp * 1e5, 1.0, 1e-4, "")
+    check(f"Omega_- -> -1/r far away, a={_a}", _fm * 1e5, -1.0, 1e-4, "")
+    # The ZAMO always sits inside the wedge, and at its centre.
+    for _r in (2.5, 4.0, 20.0):
+        _p, _m = omega_pm(_a, _r)
+        check(f"ZAMO omega is the centre of the wedge at r={_r}, a={_a}",
+              (_p + _m) / 2, omega_zamo(_a, _r), 1e-12, "1/M")
+
+
+def dragged_infall_rates(a, r):
+    """dr/dt and dphi/dt for E = mu, L_z = 0, equatorial."""
+    d = delta(a, r)
+    s2 = sigma_sq(a, r)
+    alpha_sq = r * r * d / s2
+    return -math.sqrt(max(1 - alpha_sq, 0.0)) * d / math.sqrt(s2), 2 * a * r / s2
+
+
+for _r in (3.0, 6.0, 30.0):
+    _dr, _dphi = dragged_infall_rates(0.0, _r)
+    check(f"Dragged infall at a=0 is the Schwarzschild fall, r={_r}",
+          _dr, -math.sqrt(2 / _r) * (1 - 2 / _r), 1e-12, "M/M")
+    check(f"  ...and stays radial at a=0, r={_r}", _dphi, 0.0, 1e-15, "1/M")
+for _a in (0.5, 0.998):
+    for _r in (3.0, 6.0, 30.0):
+        _dr, _dphi = dragged_infall_rates(_a, _r)
+        check(f"Dragged infall winds up in phi with L_z = 0, a={_a}, r={_r}",
+              1.0 if _dphi > 0 else 0.0, 1.0, 0, "")
+        check(f"  ...and still falls inward, a={_a}, r={_r}", 1.0 if _dr < 0 else 0.0, 1.0, 0, "")
 
 # -- 3.3: ISCO vs spin, endpoints
 check("Kerr ISCO at a=0", isco_bpt(0.0), 6.0, 1e-9, "M")

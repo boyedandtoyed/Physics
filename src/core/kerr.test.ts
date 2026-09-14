@@ -5,8 +5,10 @@ import {
   bardeenEta,
   bardeenEtaUnfactored,
   bardeenXi,
+  angularVelocityRange,
   bisect,
   delta,
+  draggedInfallRates,
   ergosphereRadius,
   horizonAngularVelocity,
   horizonRadii,
@@ -115,6 +117,93 @@ describe('frame dragging', () => {
         expect(omega).toBeGreaterThan(previous);
         previous = omega;
       }
+    }
+  });
+});
+
+describe('what the dragging forbids', () => {
+  it('closes the counter-rotating side at exactly 2M, for every spin', () => {
+    for (const spin of SPINS) {
+      expect(angularVelocityRange(2, spin).min).toBeCloseTo(0, 12);
+      // Outside, standing still is one of the options; inside, it is not.
+      expect(angularVelocityRange(2.0001, spin).min).toBeLessThan(0);
+      expect(angularVelocityRange(1.9999, spin).min).toBeGreaterThan(0);
+    }
+  });
+
+  it('needs the factored Δ to say that at all near extremality', () => {
+    // Δ = r² − 2Mr + a² evaluated at r₊ = 1.0632 returns 1.4e-17, and √ of that is 3.7e-9 — the
+    // whole width of a light cone that has closed to a point. (r−r₊)(r−r₋) returns exactly 0.
+    const spin = 0.998;
+    const { outer } = horizonRadii(spin);
+    expect(delta(outer, spin)).toBe(0);
+    const literal = outer * outer - 2 * outer + spin * spin;
+    expect(Math.sqrt(Math.abs(literal))).toBeGreaterThan(1e-9);
+  });
+
+  it('closes the wedge entirely at the horizon, onto Ω_H', () => {
+    for (const spin of SPINS) {
+      const { outer } = horizonRadii(spin);
+      const range = angularVelocityRange(outer, spin);
+      expect(range.max - range.min).toBe(0);
+      expect(range.min).toBeCloseTo(horizonAngularVelocity(spin), 14);
+    }
+  });
+
+  it('is centred on the ZAMO at every radius, which is what ω means', () => {
+    for (const spin of SPINS) {
+      for (const radius of [2.5, 4, 20, 500]) {
+        const range = angularVelocityRange(radius, spin);
+        expect((range.min + range.max) / 2).toBeCloseTo(omegaZamo(radius, spin), 14);
+      }
+    }
+  });
+
+  it('opens onto the flat light cone far away', () => {
+    for (const spin of SPINS) {
+      const range = angularVelocityRange(1e5, spin);
+      expect(range.max * 1e5).toBeCloseTo(1, 4);
+      expect(range.min * 1e5).toBeCloseTo(-1, 4);
+    }
+  });
+});
+
+describe('the dragged faller', () => {
+  it('stays exactly radial when the hole does not spin', () => {
+    for (const radius of [3, 6, 30]) {
+      const rates = draggedInfallRates(radius, 0);
+      expect(rates.angular).toBe(0);
+      expect(rates.radial).toBeCloseTo(-Math.sqrt(2 / radius) * (1 - 2 / radius), 12);
+    }
+  });
+
+  it('winds up in φ with zero angular momentum as soon as the hole spins', () => {
+    for (const spin of [0.3, 0.9, 0.998]) {
+      for (const radius of [2.5, 6, 30]) {
+        const rates = draggedInfallRates(radius, spin);
+        expect(rates.angular).toBeGreaterThan(0);
+        expect(rates.radial).toBeLessThan(0);
+      }
+    }
+  });
+
+  it('stalls in r at the horizon, in coordinate time, as it must', () => {
+    const spin = 0.9;
+    const { outer } = horizonRadii(spin);
+    let previous = Number.NEGATIVE_INFINITY;
+    for (const factor of [1.5, 1.2, 1.05, 1.001, 1.00001]) {
+      const rate = draggedInfallRates(outer * factor, spin).radial;
+      expect(rate).toBeGreaterThan(previous);
+      previous = rate;
+    }
+    expect(Math.abs(draggedInfallRates(outer * 1.00001, spin).radial)).toBeLessThan(1e-4);
+  });
+
+  it('approaches Ω_H as it approaches the horizon, so the faller ends up co-rotating', () => {
+    for (const spin of [0.5, 0.9, 0.998]) {
+      const { outer } = horizonRadii(spin);
+      expect(draggedInfallRates(outer * 1.000001, spin).angular)
+        .toBeCloseTo(horizonAngularVelocity(spin), 5);
     }
   });
 });

@@ -93,6 +93,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/kerr-shadow'),
   },
   {
+    id: 'frame-dragging',
+    title: 'You cannot stand still',
+    description:
+      'Frame dragging, drawn as what it forbids. Inside the ergosphere there is no worldline '
+      + 'with d\u03c6/dt \u2264 0 at all \u2014 and the ergosphere is a circle at exactly 2M seen from '
+      + 'above, whatever the spin.',
+    tags: ['General relativity', 'Kerr', 'Frame dragging'],
+    load: () => import('../sims/frame-dragging'),
+  },
+  {
     id: 'isco-explorer',
     title: 'Where orbits stop coming back',
     description:
