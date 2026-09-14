@@ -1,34 +1,217 @@
 # Progress Log
 
-## Current status — 2026-09-06
+## Current status — 2026-09-14
 
-**Phase:** 3 — Orbits and precession (BUILD_PLAN §3). **IN PROGRESS**: Sim A landed, sims B and C
-to come. Phase 3-Visual is complete apart from the Hawking/Casimir effects, which need Phase 6
-sims. Phase 2 — Time and interpretations — is **COMPLETE.** All three parts are built, green,
-merged to `master` and deployed. Phase 1 is complete, merged (`7bd6e70`) and deployed. Phase 0 is
-signed off. **Phase 3 (orbits and precession) is COMPLETE.** Next phase: 4 — Kerr (BUILD_PLAN §4).
-**Branch:** `feat/phase-2-time`, branched from `master`.
-**Live:** https://abstract-physics.binodtiwari.com serves **all four simulations**, verified end
-to end through the public HTTPS host after the Phase 2 deploy: every sim rendered in both themes
-with **zero axe violations and zero console errors**, zero horizontal overflow at 390 px, the
-gallery listing four entries, and the skip link still first in tab order. Container
-`physics-web-1` healthy; the host-owned `cloudflared` systemd service was not touched.
+**Phase:** 4 — Kerr (BUILD_PLAN §4). **COMPLETE.** All three sims are built, green and on
+`master`: `kerr-shadow`, `frame-dragging`, `penrose-process`. Phases 0, 1, 2, 3 and 3-Visual are
+complete (3-Visual apart from the Hawking/Casimir effects, which need Phase 6 sims). Next phase:
+**5 — Spacetime geometry (BUILD_PLAN §5)**, of which the embedding diagram already exists as
+`/sims/spacetime-curvature`; what remains there is the geodesic-deviation visualiser and the
+interactive Kruskal/Penrose diagrams.
 
-| Route | Live |
+**Branch:** `master`. **Not yet deployed** — Phase 4 has not been through `scripts/release.sh`
+and the live host still serves the Phase 3 image. See "Where to pick up" below.
+
+**Totals at the Phase 4 close:** **576 Vitest**, **288 Python benchmark checks**, **123
+Playwright app tests**, **20 acceptance tests** (11 Phase 1 lensing + 9 Phase 4 Kerr, all
+measured off real GPU frames). Typecheck, ESLint, dependency rules and the production build are
+green. Every page was driven in both themes at 1440 px and 390 px with zero horizontal overflow,
+zero axe violations and a clean console.
+
+### Phase 4 — Kerr *(2026-09-14)* — COMPLETE
+
+Commits `a80da0f` → `8e08a8e`.
+
+| Route | What it is |
 |---|---|
-| `/` | 200, four simulations listed |
-| `/sims/blackhole-lensing` | 200, renders |
-| `/sims/time-dilation` | 200, renders |
-| `/sims/deflection-decomposition` | 200, renders |
-| `/sims/interpretations` | 200, renders |
-| `/method` | 200 |
+| `/sims/kerr-shadow` | The Kerr shadow, ray-traced in Cartesian Kerr–Schild |
+| `/sims/frame-dragging` | The ZAMO field, the ergosphere, and the range of dφ/dt it forbids |
+| `/sims/penrose-process` | Energy extraction, with the efficiency derived rather than capped |
 
-**One live-only finding, recorded in `DEPLOY.md`.** axe reported a `region` violation on every
-page through the tunnel that the identical container did not produce. Cloudflare injects a hidden
-anchor as the first child of `<body>` at the edge, which displaced the skip link from first
-position — and axe exempts a skip link only when it *is* first. The skip link now lives inside the
-header landmark, which makes it immune to whatever the edge puts in front of it. **Diff `curl` of
-the public host against `curl` of `127.0.0.1:8080` before assuming the app changed.**
+BUILD_PLAN §4's bullets, checked one by one: Kerr–Schild Cartesian with adaptive RK4 (§3.4) ✅;
+frame dragging ✅; ergosphere ✅; **ISCO-vs-spin curve (BPT, §3.3)** ✅ — it was the one bullet the
+three sims did not cover, and it is now a chart in `kerr-shadow` carrying all six critical radii
+against spin; **Teo photon orbits as the accuracy probe** ✅, checked against the cubic
+`r³ − 6Mr² + 9M²r − 4a²M`, which is a different expression, to 10⁻⁹ across the whole curve;
+Penrose process demo ✅.
+
+#### The platform fix, done first (`a80da0f`)
+
+`SimStage` takes a `permanentLabel` prop: one row of the stage, above the canvas, outside the
+panel's scroll area, present in every layout including the expanded view. The three existing
+labels moved onto it and **no sim manages an above-canvas permanent label any more.**
+
+**The fourth instance of the bug appeared inside the fix.** The narrow-screen control drawer is
+`position: sticky; bottom: 0`, so it rises to the top of its containing block; with the label
+inside `.stage-canvas-wrap` that block began at the label, and at 390 px the drawer painted over
+all three labels completely. The stage is now rows `[label][columns]` and the drawer's containing
+block is `.stage-columns`, which starts below the label.
+
+**The lesson is the assertion, not the CSS.** `toBeVisible()` does not see occlusion, and the
+first version of the test passed against a label that was entirely covered. The test hit-tests
+three points of the label with `elementFromPoint` at 390 px unscrolled, and again in the expanded
+view. It fails against the previous structure.
+
+#### The renderer promotion (`f562f61`)
+
+Phase 4 needed two more 2D line sims, which fired the trigger the Phase 3 close recorded.
+`src/ui/gl/LineRenderer.ts` is the superset — viewports, data-space bounds, line/point/fan modes,
+the trail age-fade with a per-sim floor — and resolves its uniform locations once rather than on
+every draw.
+
+**The debt note was wrong about the count, and the audit corrected it.** Only **three** of the
+"four near-identical renderers" were instances of this pattern. `RiverRenderer` advects static
+geometry in the vertex shader and colours it by a physical speed ramp, with vertex layout
+(direction, phase, end); `GridRenderer` is a 3D wireframe with an MVP matrix and eye-space depth
+cueing. Neither is (x, y, age) geometry uploaded per frame. They keep sharing what they genuinely
+share, `core/gl/context.ts`. Two further promotions followed for the same reason and were
+verified the same way: `core/gl/starFieldGlsl.ts` and `core/imageMeasure.ts`, both moved out of
+the Phase 1 sim once the Kerr one needed them, with the **Phase 1 acceptance gates re-run
+unchanged** — shadow error still 0.013 px, every number identical.
+
+#### The source audit: two errors in the brief, both of the survive-your-endpoints kind
+
+1. **The prograde photon-sphere cubic.** `r³ − 3Mr² + a²r + Ma²` is a real Kerr equation — it is
+   the ξ = 0 condition, i.e. the **polar** spherical photon orbit — but it is not the prograde
+   equatorial one. It agrees at a = 0 (3M) and at a = M (M) **and nowhere else**: at a/M = 0.5 it
+   gives 2.883218 M against the true 2.347296 M, a 23% error. The equatorial cubic is
+   `r³ − 6Mr² + 9M²r − 4a²M`, checked against Teo's closed form rather than against itself. Both
+   are now asserted by name so neither can be quietly swapped for the other.
+2. **The Penrose maximum efficiency.** `1 − 1/√2` is 0.29289, not the 20.7% quoted beside it.
+   The closed form that gives 20.7% is `½(√2 − 1) = 1/√2 − 1/2`. The general-spin result
+   **η_max(a) = ½(√(2M/r_+) − 1)** is derived in §3.6 from the LNRF split rather than quoted,
+   confirmed numerically against a turning-point split at three spins, and pinned at both
+   endpoints. (29% is a real Kerr number — the rotational fraction of an extremal hole's mass —
+   but it is not the efficiency of one split.)
+
+Three exact shadow identities came out of the derivation and are what actually gate a renderer:
+**η(3M) = 27M² for every spin**, so the shadow's vertical half-extent is 3√3 M at every spin;
+**ξ(3M) = −2a**, so the displacement is exactly linear in a; and the horizontal extent tends to
+Bardeen's own **[−2M, +7M]** at extremality, with the prograde edge approaching −2M as
+−√3·√(M²−a²) — asserted as a rate rather than as a tolerance at one spin.
+
+PHYSICS_SPEC gained §3.4a (Cartesian Kerr–Schild with the exact inverse metric), §3.4b (photon
+orbits), §3.4c (Bardeen's shadow), §3.5 (the ZAMO field and Ω±), §3.6 (the Penrose process) and
+§4.3a (the Kerr redshift factor). §8 gained rows 42–53. Benchmarks went **113 → 288**.
+
+#### The one that nearly shipped: a mirrored scene
+
+**The Kerr scene was rendered as its own reflection, and almost nothing could see it.**
+
+Backward ray tracing integrates the arriving photon's momentum *negated*, which is past-directed.
+Ingoing Kerr–Schild is regular on the *future* horizon and not the past one, so that ray is not
+integrable in this chart — at a = 0 the null condition's regular branch turns over and the
+central ray escapes instead of falling in. Every raymarcher therefore fires a **future-directed**
+ray inward instead, which substitutes `t → −t` alone. **In Kerr that is not an isometry**: the
+isometry is `t → −t` *together with* `φ → −φ`. The traced scene is the φ-reflection of the real
+one — the image of a hole spinning the other way.
+
+**A shadow measurement cannot catch this.** A reflection mislabels the α axis by exactly the
+reflection it introduces, so the measured extent agrees with Bardeen either way — and the float64
+model's own test passed against Bardeen in *both* handednesses. The gate that sees it is which
+limb of the ring is blueshifted: `g = 1/(1 − Ωξ)` puts it at ξ > 0, i.e. α < 0, which is also
+where the shadow's flat prograde edge is. **They must land on the same side**, and that is now an
+acceptance test. The reflection is undone once, at the camera, by a left-handed image basis;
+nothing physical is negated.
+
+#### Numerical findings, all of them invisible to a tolerance test
+
+- **Bardeen's η loses all its precision at small spin.** The bracket `4MΔ − r(r−M)²` is exactly
+  minus the photon-orbit cubic, so it vanishes at both ends of the sampled range; at a/M = 0.1 the
+  two terms are ≈10.225 and differ by 2×10⁻⁴, and the a² underneath multiplies that error by a
+  hundred. Factoring by the cubic's own three roots (Vieta: r₁r₂r₃ = 4a²) removes the cancellation
+  and the a² together. `bardeenEtaUnfactored` is kept **only** so a test can show the difference.
+- **Δ must be computed as (r−r_+)(r−r_−), not r² − 2Mr + a².** Same polynomial, different
+  computation: at a/M = 0.998 the literal form evaluated at r_+ returns 1.4×10⁻¹⁷ instead of 0,
+  and √Δ of that is 3.7×10⁻⁹ — the entire width of a light cone that has closed to a point. The
+  benchmark for "the wedge closes at the horizon" failed at that spin and passed at every lower
+  one, which is what pointed at it.
+- **The literal Kerr–Schild gradients overflow float32.** They carry D³, which is r¹² at a = 0 —
+  10³⁸ at the escape radius. Rewritten in q = a²z²/r⁴, where nothing exceeds r⁵; the shader is
+  now a literal transcription of the float64 function rather than a re-derivation of it.
+- **The shadow outline was open at both ends.** η is exactly zero at the two equatorial photon
+  orbits, so the remaining terms round to about 1e-33 there, negative as often as not, and a
+  `>= 0` guard dropped both endpoints. Sampling was also uniform in r while β goes as √(r−r₁),
+  which put the first sample 0.42 M up a vertical cusp. Chebyshev spacing and a tolerance sized
+  against η's own scale fix both; the test measures the longest gap in the drawn polyline.
+- **A turning point is a fixed point of the first-order radial equation.** dr/dt = ±√(…) vanishes
+  there, so every RK4 stage evaluates zero and the Penrose fragments sat at the split radius for
+  twenty thousand M of coordinate time without moving. They do leave in finite time, because
+  ∫dr/√(r−r_turn) converges; it is the discretisation that cannot. Each fragment starts 10⁻⁴ M
+  off the point now, in its own direction of travel, which changes no conserved quantity.
+- **The two-edge shadow measurement cannot beat half a pixel.** It reads 0.38 px small at a = 0
+  however many integration steps it is given — that is a hard mask's quantisation, and two
+  samples cannot average it down. A circle gives 720, which is how the a = 0 gate reaches
+  0.0037 px.
+
+#### The Phase 4 gate table
+
+| Gate | Value | How it is measured |
+|---|---|---|
+| Shadow radius at a = 0, **on the Kerr integrator** | **0.0037 px** error against 3√3 M | 720 spokes off a GPU frame, spread 0.28 px |
+| Shadow extent at a/M = 0.5, 0.9, 0.998 | both edges **< 1 px** from Bardeen | two-edge scan, α from the exact ray launch |
+| Displacement at a/M = 0.9 | measured 1.993919 vs analytic 1.993949 M | **3×10⁻⁵ M** |
+| Shadow narrows with spin, height does not | 10.309 → 9.100 M wide, ±5.196 M tall throughout | four spins |
+| float32 shader vs float64 model | **0** disagreements on capture | 240 sampled columns |
+| ℋ across a full frame | max **2.3×10⁻⁵**, mean **5.7×10⁻⁷** of E² | float32, read back off the GPU |
+| Ring's bright limb vs the shadow's flat edge | same side, ratio **1.45** | the handedness gate |
+| ω(r_+) = Ω_H, all three published forms | **10⁻¹⁵** | four spins |
+| Ergosphere equatorial radius | **2M to 10⁻¹⁰** at every spin | three independent routes |
+| Ω₋ = 0 at exactly r = 2M | **10⁻¹²** | four spins, sign checked either side |
+| Penrose η_max at a = M | **0.20710678** = ½(√2−1) | closed form, LNRF split and both endpoints |
+| Penrose gain on the static limit | **exactly 0**, with E₁ = 0 | four spins |
+| Gain never above 20.711% | 201 spins × 5 radii, plus all four slider corners | unit and e2e |
+
+#### What driving the pages found that the green suite did not — nine defects
+
+1. **The ring rendered as a filled disc across the whole frame.** GLSL's `sign(0.0)` is `0.0`, so
+   every ray launched in the equatorial plane — the whole centre row of an edge-on view — flipped
+   between 0 and ±1 on float32 noise and counted as a plane crossing.
+2. **The quality ratchet was measuring nothing.** `render()` only *queues* the GPU work, so the
+   frame time it timed was the queueing — a few milliseconds however heavy the frame. The ratchet
+   upgraded every time and the page asked for the most expensive frame the device could not draw.
+   It forces a round trip now, and the upgrade rule is **predictive**: cost goes as the square of
+   the scale, so a step is refused when its predicted cost exceeds the slow threshold.
+3. **The idle camera drift made the Kerr page unusable.** A frame here costs two orders of
+   magnitude more than the Schwarzschild one, and drifting means re-integrating every ray forever;
+   a `<select>` took 27 s to become actionable with the main thread otherwise idle. No drift here
+   at any setting — and comparing two spins wants the viewpoint held anyway. **486 ms** to
+   interactive on a software renderer now.
+4. **The light-cone sectors were pie slices from the origin**, metres wide at the rim, and six of
+   them buried the markers, the ergosphere and the faller. Annular bands at their own radius now,
+   which is also the more honest picture: the cone is local.
+5. **The horizon disc was drawn last** and covered the innermost light-cone band — the one that
+   carries the prohibition.
+6. **Pause did not stop the loop** in the frame-dragging sim. It skipped the integration and kept
+   scheduling frames, which is a paused animation that still costs everything an animation costs.
+7. **U+208A SUBSCRIPT PLUS is not in the shipped body font.** It renders as a full stop, so
+   "r₊" — the outer horizon, quoted by four Kerr sims — silently became "r.". It reads as a typo
+   rather than a missing glyph, which is why it survived a screenshot. There is a route-level e2e
+   guard over the rendered text of every sim now, **verified by reintroducing the character**: it
+   names the route, the code point and the surrounding words. U+209B ("rₛ") is fine; the gap is
+   specific to the subscript plus and minus.
+8. **The Kerr frame was drawn at the escape radius**, which put the horizon, the ergosphere and
+   the split radius inside four pixels. Framed on the release radius.
+9. **The frame-dragging views stacked on a desktop** — the breakpoint was on the window rather
+   than on the canvas, and a 1440 px window leaves about 800 px of canvas beside the panel.
+
+#### Decisions worth not re-litigating
+
+- **The Kerr sim's ring is not a Novikov–Thorne disk and the UI says so in those words.** §4.3's
+  flux profile is the Schwarzschild specialisation of the Page–Thorne integral; the Kerr
+  generalisation is spin-dependent and is **not implemented**. The ring emits uniformly between
+  r_ISCO(a) and 12 M. What *is* physical is §4.3a's exact g and the g⁴ beaming — and that is the
+  whole reason the ring is there, because with a static star field and a vacuum spacetime there is
+  nothing moving for a Doppler shift to act on.
+- **The Penrose efficiency is derived, not capped.** The brief asked for a clamp. A clamp would
+  hide a wrong computation rather than prevent one; the bound is a property of the split, and the
+  tests hunt for a counter-example instead.
+- **The brief's "dashed ellipse" for the ergosphere is a circle in the view it asked for.** Seen
+  down the spin axis the boundary is a circle at exactly 2M at every spin. The oblateness exists
+  only in a cut containing the axis, so `frame-dragging` draws both, side by side, and says which
+  is which.
+
+### Phase 3 — Orbits and precession *(2026-09-12)* — COMPLETE
 
 ### Phase 3 — Orbits and precession *(2026-09-12)* — IN PROGRESS
 

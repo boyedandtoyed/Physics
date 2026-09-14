@@ -63,7 +63,7 @@ test('ω at the horizon is Ω_H, and ω far out is very much smaller', async ({ 
   await page.goto(ROUTE);
   await page.waitForTimeout(1000);
   const readout = page.locator('.readout');
-  await expect(readout).toContainText('Ω_H = a/(2Mr₊)');
+  await expect(readout).toContainText('Ω_H = a/(2Mr_+)');
 
   const value = async (label: string) => {
     const text = await readout.locator('div', { hasText: label }).first().innerText();

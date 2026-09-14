@@ -123,3 +123,25 @@ test('names the handedness check a reader can apply to any Kerr render', async (
   await expect(page.getByText(/bright limb and the flattened edge of the shadow are the same side/))
     .toBeVisible();
 });
+
+test('draws the ISCO-vs-spin curve, and the marker follows the slider', async ({ page }) => {
+  // BUILD_PLAN §4 asks for this curve by name, with Teo's photon orbits as the accuracy probe.
+  await page.goto(ROUTE);
+  const chart = page.locator('.radii-chart');
+  await expect(chart).toBeVisible();
+  // Six series plus the spin marker.
+  await expect(chart.locator('path')).toHaveCount(6);
+  await expect(chart).toContainText('ISCO, prograde');
+  await expect(chart).toContainText('Photon, retrograde');
+
+  const markerX = async () =>
+    Number(await chart.locator('.radii-marker').getAttribute('x1'));
+  const spin = page.getByRole('slider', { name: 'Spin' });
+  await spin.focus();
+  await spin.press('Home');
+  await page.waitForTimeout(300);
+  const atZero = await markerX();
+  await spin.press('End');
+  await page.waitForTimeout(300);
+  expect(await markerX()).toBeGreaterThan(atZero);
+});

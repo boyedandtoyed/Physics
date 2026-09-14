@@ -18,6 +18,7 @@ import { useOrbitControls, useWheelZoom } from '../../ui/sim/useOrbitControls';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
 import { MAX_SPIN, horizonRadii, iscoRadius } from '../../core/kerr';
 import { KerrRenderer, type KerrParams } from './view/KerrRenderer';
+import { RadiiChart } from './view/RadiiChart';
 import {
   describeShadow,
   describeShadowNumbers,
@@ -443,6 +444,18 @@ export default function KerrShadow() {
           </p>
         </>}
       >
+        <section className="radii-section" aria-labelledby="radii-heading">
+          <h2 id="radii-heading">Every critical radius, against spin</h2>
+          <p>
+            The three numbers usually quoted for the Kerr ISCO — 6 M, 1 M and 9 M — are the two
+            ends of this curve and its middle. What they do not show is that the prograde ISCO
+            spends almost all of its travel in the last few per cent of the spin: it is still
+            4.23 M at a/M = 0.5 and 2.32 M at 0.9, and only then falls to 1.24 M by 0.998. The
+            photon orbits do the same thing, and the horizon underneath them does it too.
+          </p>
+          <RadiiChart spin={controls.spin} />
+        </section>
+
         <MisconceptionsPanel items={[
           {
             myth: 'A faster-spinning black hole casts a smaller shadow.',

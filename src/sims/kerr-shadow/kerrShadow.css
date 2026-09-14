@@ -22,3 +22,27 @@
 }
 
 .kerr .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+/* The critical-radii chart. Colours come from the shell's tokens; the two senses are told apart
+   by dash pattern rather than by hue alone, so the chart survives a monochrome print and does
+   not depend on a reader distinguishing them. */
+.kerr .radii-chart { margin: 0; max-width: 48rem; }
+.kerr .radii-chart svg { width: 100%; height: auto; display: block; }
+.kerr .radii-chart figcaption {
+  margin-top: 0.6rem; color: var(--muted); font-size: 0.88rem; line-height: 1.65;
+}
+.kerr .radii-chart .axis { stroke: var(--line); stroke-width: 1; }
+.kerr .radii-chart .tick { fill: var(--muted); font-size: 12px; }
+.kerr .radii-chart .axis-label { fill: var(--muted); font-size: 13px; letter-spacing: 0.04em; }
+.kerr .radii-chart path { fill: none; stroke-width: 2; }
+.kerr .radii-chart .is-dashed { stroke-dasharray: 6 4; }
+.kerr .radii-chart .radii-horizon { stroke: #b8473d; }
+.kerr .radii-chart .radii-photon { stroke: #c77505; }
+.kerr .radii-chart .radii-isco { stroke: #2f7fa8; }
+.kerr .radii-chart .radii-marker { stroke: var(--focus); stroke-width: 1.5; stroke-dasharray: 3 3; }
+:root:not([data-theme='light']) .kerr .radii-chart .radii-horizon { stroke: #e0796d; }
+:root:not([data-theme='light']) .kerr .radii-chart .radii-photon { stroke: #ffb833; }
+:root:not([data-theme='light']) .kerr .radii-chart .radii-isco { stroke: #6fc3e8; }
+:root[data-theme='dark'] .kerr .radii-chart .radii-horizon { stroke: #e0796d; }
+:root[data-theme='dark'] .kerr .radii-chart .radii-photon { stroke: #ffb833; }
+:root[data-theme='dark'] .kerr .radii-chart .radii-isco { stroke: #6fc3e8; }
