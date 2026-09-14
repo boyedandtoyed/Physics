@@ -94,7 +94,10 @@ test('no sim renders a glyph the body font does not have', async ({ page }) => {
     await page.goto(route);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await page.waitForTimeout(300);
-    const text = await page.locator('body').innerText();
+    // `textContent`, not `innerText`: innerText is an HTML concept and does not reach SVG
+    // <text>, which is where the defect recurred in the Kerr sim's chart legend. textContent
+    // also covers the visually-hidden live regions, which a screen reader does read.
+    const text = await page.locator('body').textContent() ?? '';
     const found = MISSING_GLYPHS.exec(text);
     expect(
       found,

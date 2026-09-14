@@ -12,7 +12,7 @@ interactive Kruskal/Penrose diagrams.
 **Branch:** `master`. **Not yet deployed** — Phase 4 has not been through `scripts/release.sh`
 and the live host still serves the Phase 3 image. See "Where to pick up" below.
 
-**Totals at the Phase 4 close:** **576 Vitest**, **288 Python benchmark checks**, **123
+**Totals at the Phase 4 close:** **575 Vitest**, **288 Python benchmark checks**, **123
 Playwright app tests**, **20 acceptance tests** (11 Phase 1 lensing + 9 Phase 4 Kerr, all
 measured off real GPU frames). Typecheck, ESLint, dependency rules and the production build are
 green. Every page was driven in both themes at 1440 px and 390 px with zero horizontal overflow,
@@ -189,7 +189,10 @@ nothing physical is negated.
    rather than a missing glyph, which is why it survived a screenshot. There is a route-level e2e
    guard over the rendered text of every sim now, **verified by reintroducing the character**: it
    names the route, the code point and the surrounding words. U+209B ("rₛ") is fine; the gap is
-   specific to the subscript plus and minus.
+   specific to the subscript plus and minus. **The guard reads `textContent`, not `innerText`** —
+   the defect recurred once more in an SVG chart legend, and `innerText` is an HTML concept that
+   does not reach SVG `<text>`. `textContent` also covers the visually-hidden live regions, which
+   a screen reader does read.
 8. **The Kerr frame was drawn at the escape radius**, which put the horizon, the ergosphere and
    the split radius inside four pixels. Framed on the release radius.
 9. **The frame-dragging views stacked on a desktop** — the breakpoint was on the window rather
@@ -210,6 +213,36 @@ nothing physical is negated.
   down the spin axis the boundary is a circle at exactly 2M at every spin. The oblateness exists
   only in a cut containing the axis, so `frame-dragging` draws both, side by side, and says which
   is which.
+
+### Phase 4 — where to pick up
+
+Everything below is the state at the Phase 4 close. Nothing here is blocked on a decision.
+
+1. **Deploy.** Phase 4 has not been released. `scripts/release.sh build | stage | promote`, then
+   verify through the edge with `PHYSICS_EDGE_URL=… npx playwright test`. The gallery is now
+   **twelve** entries; the live host still serves nine. Note the staging ingress rule is *still*
+   not in `/etc/cloudflared/config.yml` (see the staging-deploy section below) — that step needs
+   root and has been outstanding since 2026-09-07, so `stage` verifies on `127.0.0.1:8082` only.
+2. **Phase 5 — Spacetime geometry (BUILD_PLAN §5).** The embedding diagram already exists as
+   `/sims/spacetime-curvature` (Phase 3-Visual). What remains is the geodesic-deviation / tidal
+   tensor visualiser — note the Interpretations module already has a tidal panel, §7.4, which is
+   a cross-section rather than a tensor visualiser and should be read before duplicating it — and
+   the interactive Kruskal–Szekeres and Penrose diagrams. **`core/infall.ts` already carries the
+   Kruskal transformation** and the four-chart machinery, with the null-coordinate warning of
+   §7.4 that X² − T² cannot carry the arithmetic. Start there rather than from scratch.
+3. **Known debt, recorded rather than paid down.** The Schwarzschild raymarcher's quality ratchet
+   has the same "`render()` only queues the work" defect the Kerr one had: its measured frame time
+   is the queueing cost, so the resolution scaling §4.5 marks *required* never engages on a slow
+   device. It has not mattered in practice — that shader is two orders of magnitude cheaper, and
+   on a genuinely slow device the queue backs up until `render()` does block — but the fix is one
+   line (`finish()` before measuring, as `kerr-shadow/index.tsx` does) and it should be made when
+   that sim is next touched. **Do not make it in isolation**: it changes the frame budget the
+   Phase 1 performance figure was measured at, so re-measure the 64.7 fps alongside it.
+4. **A rendering limit worth knowing before Phase 5.** The Kerr raymarcher is ~100× the cost of
+   the Schwarzschild one per ray, and the screen-space-Jacobian anti-aliasing of §4.4 costs two
+   to four extra rays per escaped pixel on top. On a software renderer it falls back to about a
+   sixth of the linear resolution. That is §4.5 working as designed, not a defect, but any Phase 5
+   sim that reuses the star-field filtering should expect the same multiplier.
 
 ### Phase 3 — Orbits and precession *(2026-09-12)* — COMPLETE
 

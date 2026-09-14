@@ -75,11 +75,11 @@ at it finds nothing to complain about.
 - Mercury precession reproducing 42.98″/century (§8.1)
 - ISCO explorer; plunge vs stable orbit; the $V_{\rm eff}$ curve shown live alongside the orbit
 
-### Phase 4 — Kerr
-- Rotating black hole: Kerr–Schild Cartesian, RK4 adaptive (§3.4)
+### Phase 4 — Kerr — **COMPLETE** *(2026-09-14)*
+- Rotating black hole: Kerr–Schild Cartesian, RK4 adaptive (§3.4) — `/sims/kerr-shadow`
 - Frame dragging, ergosphere, ISCO-vs-spin curve (BPT, §3.3), Teo photon orbits as the accuracy
-  probe
-- Penrose process demo
+  probe — `/sims/frame-dragging`, and the radii curve in `/sims/kerr-shadow`
+- Penrose process demo — `/sims/penrose-process`
 
 ### Phase 5 — Spacetime geometry
 - Embedding diagrams (the "rubber sheet" — done correctly, with its limitations stated: it is a
