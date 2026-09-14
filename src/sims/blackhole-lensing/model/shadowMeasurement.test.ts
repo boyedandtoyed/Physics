@@ -1,3 +1,6 @@
+/** The measurement now lives in `core/imageMeasure.ts` (the Kerr sim needs it too) and is
+ *  re-exported by the module under test. These cases exercise both halves together, which is
+ *  the pairing that matters: a measured radius means nothing without the predicted one. */
 import { describe, expect, it } from 'vitest';
 import { shadowAngularRadius } from '../../../core/schwarzschild';
 import {

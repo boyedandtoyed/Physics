@@ -757,6 +757,53 @@ for _a in (0.5, 0.9, 0.998):
     check(f"Penrose gain is exactly zero at the static limit r=2M, a={_a}", _z2 - 1.0, 0.0, 1e-9, "")
     check(f"  ...and E1 = 0 there, a={_a}", _z1, 0.0, 1e-9, "")
 
+# Kerr redshift factor, PHYSICS_SPEC 4.3a ----------------------------------
+
+def kerr_orbit_ut(a, r):
+    """u^t of a prograde equatorial circular orbit (BPT 1972), M = 1."""
+    return (r**1.5 + a) / (r**0.75 * math.sqrt(r**1.5 - 3 * math.sqrt(r) + 2 * a))
+
+
+def kerr_orbit_omega(a, r):
+    return 1.0 / (r**1.5 + a)
+
+
+def kerr_g(a, r_em, xi, r_obs):
+    return (1.0 / math.sqrt(1 - 2 / r_obs)) / (kerr_orbit_ut(a, r_em) * (1 - kerr_orbit_omega(a, r_em) * xi))
+
+
+# At a = 0 it must reduce to 4.3's expression, which is a different formula entirely.
+for _r in (7.0, 12.0, 30.0):
+    check(f"Kerr u^t reduces to (1-3M/r)^-1/2 at a=0, r={_r}",
+          kerr_orbit_ut(0.0, _r), 1 / math.sqrt(1 - 3 / _r), 1e-12, "")
+    check(f"Kerr Omega reduces to sqrt(M/r^3) at a=0, r={_r}",
+          kerr_orbit_omega(0.0, _r), math.sqrt(1 / _r**3), 1e-12, "")
+    for _xi in (-4.0, 0.0, 4.0):
+        _schwarzschild = math.sqrt(1 - 3 / _r) / ((1 - math.sqrt(1 / _r**3) * _xi) * math.sqrt(1 - 2 / 200.0))
+        check(f"Kerr g reduces to the 4.3 form at a=0, r={_r}, xi={_xi}",
+              kerr_g(0.0, _r, _xi, 200.0), _schwarzschild, 1e-12, "")
+# u^t diverges at the prograde photon orbit: there is no circular emitter inside it.
+for _a in (0.0, 0.5, 0.9):
+    _rph = teo_photon(_a, -1)
+    check(f"Kerr circular-orbit u^t diverges at the photon orbit, a={_a}",
+          1.0 / kerr_orbit_ut(_a, _rph * (1 + 1e-9)), 0.0, 1e-4, "")
+# The approaching limb is the one whose photons share the orbit's sense, i.e. xi > 0, because
+# g carries 1/(1 - Omega xi). Getting that sign backwards renders the crescent on the wrong side
+# and is invisible to any check that only looks at |g|.
+for _a in (0.0, 0.9):
+    _blue = kerr_g(_a, 8.0, 5.0, 200.0)
+    _red = kerr_g(_a, 8.0, -5.0, 200.0)
+    check(f"Kerr g: approaching limb (xi>0) is blueshifted at a={_a}",
+          1.0 if _blue > 1 else 0.0, 1.0, 0, "")
+    check(f"Kerr g: receding limb (xi<0) is redshifted at a={_a}",
+          1.0 if _red < 1 else 0.0, 1.0, 0, "")
+# Bolometric beaming is g^4. The number matters, not the exponent identity: at a = 0, r = 8M and
+# |xi| = 5 the crescent contrast is 6.03, where double-counting g would render 36.4.
+check("Kerr crescent contrast at a=0, r=8M, |xi|=5 (g^4)",
+      (kerr_g(0.0, 8.0, 5.0, 200.0) / kerr_g(0.0, 8.0, -5.0, 200.0)) ** 4, 6.033, 0.01, "x")
+check("  ...and g^8 would render 36.4, which is the error 4.3 records",
+      (kerr_g(0.0, 8.0, 5.0, 200.0) / kerr_g(0.0, 8.0, -5.0, 200.0)) ** 8, 36.40, 0.1, "x")
+
 # Yoshida-4 coefficients ---------------------------------------------------
 w1 = 1 / (2 - 2 ** (1 / 3))
 w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))

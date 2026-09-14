@@ -626,6 +626,39 @@ dramatically brighter. Note that DNGR deliberately *softened* this for the film 
 wanted a symmetric disk. **We do not. Physical mode is the default.** A "cinematic" toggle is
 permitted but must be labelled as non-physical.
 
+### 4.3a The Kerr redshift factor — the closed form, and what the ring is not
+
+The Schwarzschild $g$ of §4.3 generalises without needing a frame transformation. For a
+**prograde equatorial circular orbit** at Boyer–Lindquist $r$ (Bardeen, Press & Teukolsky 1972):
+
+$$\Omega = \frac{M^{1/2}}{r^{3/2} + aM^{1/2}}, \qquad
+u^t = \frac{r^{3/2} + aM^{1/2}}{r^{3/4}\left(r^{3/2} - 3M r^{1/2} + 2aM^{1/2}\right)^{1/2}}$$
+
+and for a photon with $p_t = -E$, $p_\varphi = L_z$, so $\xi = L_z/E$,
+
+$$\boxed{g = \frac{\nu_{\rm obs}}{\nu_{\rm em}}
+= \frac{u^t_{\rm obs}}{u^t_{\rm em}\,(1 - \Omega\xi)}}, \qquad
+u^t_{\rm obs} = \left(1 - \frac{2M}{r_{\rm obs}}\right)^{-1/2}$$
+
+for a static distant observer. **ASSERT** the reduction: at $a = 0$, $u^t_{\rm em} =
+(1-3M/r)^{-1/2}$ and $\Omega = \sqrt{M/r^3}$, recovering §4.3's expression exactly. $u^t_{\rm em}$
+diverges at the prograde photon orbit, which is where circular *timelike* orbits stop existing —
+the formula's own statement that there is no emitter inside that radius.
+
+$\xi$ is a **conserved** quantity of the traced ray, so the whole factor needs only the emission
+radius and one number carried along the geodesic. §4.3's warning carries over unchanged: a
+shifted blackbody is a blackbody at $T' = gT$, and the $g^3$ (per band) and $g^4$ (bolometric)
+are already contained in that substitution. Applying $g$ again scales brightness as $g^8$.
+
+> **The Kerr sim's ring is not a Novikov–Thorne disk and must not be presented as one.** §4.3's
+> flux profile is the Schwarzschild specialisation of the Page–Thorne integral; the Kerr
+> generalisation is spin-dependent and is **not implemented**. The Kerr shadow sim renders a
+> **uniformly emitting** optically thin ring between $r_{\rm ISCO}(a)$ and a chosen outer radius.
+> Its *brightness profile* is therefore not physical and the UI says so in those words. What is
+> physical is the $g$ above and the $g^4$ beaming it produces — which is the entire reason the
+> ring is there: it is what makes frame dragging visible, because with a static star field at
+> infinity and a vacuum spacetime there is nothing moving for a Doppler shift to act on.
+
 ### 4.4 Anti-aliasing — the thing naive shaders get wrong
 
 Point-sampling the star field through a lensing map scintillates badly under camera motion. Near

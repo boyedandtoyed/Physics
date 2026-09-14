@@ -4,9 +4,9 @@ import react from '@vitejs/plugin-react';
 
 const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
-// The lensing acceptance harness is a test fixture, not part of the product. It is built only
-// when PHYSICS_HARNESS=1, which Playwright sets for its own server, so the shipped Docker image
-// never contains it.
+// The acceptance harnesses are test fixtures, not part of the product. They are built only when
+// PHYSICS_HARNESS=1, which Playwright sets for its own server, so the shipped Docker image never
+// contains them.
 const withHarness = process.env.PHYSICS_HARNESS === '1';
 
 export default defineConfig({
@@ -14,7 +14,11 @@ export default defineConfig({
   build: withHarness
     ? {
         rollupOptions: {
-          input: { main: resolve('./index.html'), lensing: resolve('./lensing-harness.html') },
+          input: {
+            main: resolve('./index.html'),
+            lensing: resolve('./lensing-harness.html'),
+            kerr: resolve('./kerr-harness.html'),
+          },
         },
       }
     : {},

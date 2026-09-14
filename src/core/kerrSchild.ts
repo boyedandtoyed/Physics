@@ -75,15 +75,18 @@ export interface MetricSample {
 /**
  * The metric functions and their exact spatial gradients.
  *
- * With D ≡ r⁴ + a²z² and S ≡ r² + a², differentiating the implicit radius equation gives
+ * Written in terms of **q ≡ a²z²/r⁴**, which is between 0 (equatorial or non-spinning) and
+ * a²/r² ≤ 1. In that variable D = r⁴(1+q) and everything collapses:
  *
- *     ∂ₓr = x r³/D,   ∂_y r = y r³/D,   ∂_z r = z r (r²+a²)/D
+ *     H    = 1/(r(1+q))                                      [= M/r at a = 0]
+ *     ∂ₓr  = x/(r(1+q)),  ∂_y r = y/(r(1+q)),  ∂_z r = z(r²+a²)/(r³(1+q))
+ *     ∂ₓH  = x(3q−1)/(r³(1+q)³),   ∂_y H = y(3q−1)/(r³(1+q)³)
+ *     ∂_z H = z[(3q−1)(r²+a²)/(1+q) − 2a²] / (r⁵(1+q)²)
  *
- * and then, from H = Mr³/D,
- *
- *     ∂ᵢH = M [ r²(3a²z² − r⁴) ∂ᵢr − 2a²z r³ δᵢ_z ] / D²
- *
- * with k_x = (rx+ay)/S, k_y = (ry−ax)/S, k_z = z/r differentiated directly.
+ * The literal forms carry D² and D³ in their denominators. D³ is r¹² at a = 0, which at the
+ * 1500 M escape radius is 10³⁸ — **float32 overflows there**, and the shader is float32. In the
+ * (1+q) form nothing larger than r⁵ appears and the shader is a literal transcription of this
+ * function rather than a re-derivation of it.
  */
 export function sampleMetric(position: Vec3, spin: number): MetricSample {
   const { x, y, z } = position;
@@ -91,19 +94,22 @@ export function sampleMetric(position: Vec3, spin: number): MetricSample {
   const radius = kerrSchildRadius(position, spin);
   const r2 = radius * radius;
   const r3 = r2 * radius;
-  const d = r2 * r2 + a * a * z * z;
   const s = r2 + a * a;
+  // q = a²z²/r⁴, the oblateness. Zero on the equator and for a non-spinning hole.
+  const q = (a * a * z * z) / (r2 * r2);
+  const onePlusQ = 1 + q;
 
-  const drdx = (x * r3) / d;
-  const drdy = (y * r3) / d;
-  const drdz = (z * radius * s) / d;
+  const drdx = x / (radius * onePlusQ);
+  const drdy = y / (radius * onePlusQ);
+  const drdz = (z * s) / (r3 * onePlusQ);
 
-  const h = r3 / d;
-  const common = r2 * (THREE * a * a * z * z - r2 * r2);
+  const h = 1 / (radius * onePlusQ);
+  const threeQMinusOne = THREE * q - 1;
   const gradH: Vec3 = {
-    x: (common * drdx) / (d * d),
-    y: (common * drdy) / (d * d),
-    z: (common * drdz - TWO * a * a * z * r3) / (d * d),
+    x: (x * threeQMinusOne) / (r3 * onePlusQ ** THREE),
+    y: (y * threeQMinusOne) / (r3 * onePlusQ ** THREE),
+    z: (z * ((threeQMinusOne * s) / onePlusQ - TWO * a * a))
+      / (r2 * r3 * onePlusQ * onePlusQ),
   };
 
   const kx = (radius * x + a * y) / s;
@@ -294,12 +300,36 @@ export function traceRay(initial: RayState, options: TraceOptions): TraceResult 
 }
 
 /**
- * Launch a photon from `origin` in direction `direction` (a unit vector in the flat background),
- * with p_t normalised to −1.
+ * Launch a backward-traced photon from `origin` along `direction` — the direction the camera is
+ * looking, so the ray travels from the camera towards the hole, **future-directed**, with
+ * `p_t = −1` and therefore E = −p_t = +1.
  *
- * ℋ = 0 is then solved for the scale of the spatial momentum rather than assumed: with
- * p_i = s n_i, ℋ = ½(−1 + s²) − H(−(−1) ... )² is a quadratic in s, and taking the root that
- * makes the photon future-directed is what keeps the ray null from the first step.
+ * ℋ = 0 is solved for the scale of the spatial momentum rather than assumed, so the ray is null
+ * in the actual metric at the camera rather than in the flat approximation to it: with
+ * p_i = s n_i and κ = −p_t + s(k·n) = 1 + s(k·n),
+ *
+ *     ℋ = ½(−1 + s²) − H(1 + s k·n)² = 0
+ *       ⇒ (½ − H(k·n)²) s² − 2H(k·n) s − (½ + H) = 0
+ *
+ * **This ray is future-directed, and that means the picture it builds is mirrored.** A genuine
+ * backward trace integrates the arriving photon's momentum *negated*, which is past-directed;
+ * ingoing Kerr–Schild is regular on the future horizon and not on the past one, so a
+ * past-directed ray is not integrable here — at a = 0 the null condition's regular branch turns
+ * over and the central ray escapes instead of falling in. Firing a future-directed ray inward
+ * instead is the standard raymarcher construction and is numerically clean, but it substitutes
+ * t → −t alone, and **t → −t alone is not an isometry of Kerr** (the isometry is t → −t together
+ * with φ → −φ). The traced scene is therefore the φ-reflection of the real one: the image of a
+ * hole spinning the other way.
+ *
+ * The reflection is undone once, at the camera, by `cameraFrame` building a left-handed image
+ * basis — see `sims/kerr-shadow/view/camera.ts`. Nothing physical is negated: the metric, the
+ * spin and the ring's sense are all the real ones.
+ *
+ * **A shadow measurement cannot catch this on its own.** A reflection mislabels the α axis by
+ * exactly the reflection it introduces, so the measured extent agrees with Bardeen either way.
+ * Only a quantity that breaks the mirror tells them apart — which limb of the ring is blueshifted
+ * — and the two must land on the same side, because the flat edge of the shadow and the
+ * approaching limb are both the prograde side.
  */
 export function launchPhoton(origin: Vec3, direction: Vec3, spin: number): RayState {
   const length = Math.hypot(direction.x, direction.y, direction.z);
@@ -307,8 +337,6 @@ export function launchPhoton(origin: Vec3, direction: Vec3, spin: number): RaySt
   const n: Vec3 = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
   const sample = sampleMetric(origin, spin);
   const kn = sample.k.x * n.x + sample.k.y * n.y + sample.k.z * n.z;
-  // H_geo = 0 with p_t = -1, p_i = s n_i:  1/2(-1 + s^2) - H(1 + s*kn)^2 = 0
-  //   => (1/2 - H kn^2) s^2 - 2 H kn s - (1/2 + H) = 0
   const qa = HALF - sample.h * kn * kn;
   const qb = -TWO * sample.h * kn;
   const qc = -(HALF + sample.h);
@@ -323,3 +351,14 @@ export function launchPhoton(origin: Vec3, direction: Vec3, spin: number): RaySt
   }
   return { position: origin, momentum: { x: s * n.x, y: s * n.y, z: s * n.z }, energy: -1 };
 }
+
+/**
+ * ξ = L_z/E of a traced ray, and Bardeen's α = −ξ for an equatorial observer.
+ *
+ * E = −p_t, so the sign of p_t is carried here and nowhere else. ξ is unchanged by reversing the
+ * momentum, so it is a property of the geodesic rather than of the direction it is traversed in.
+ */
+export const impactRatio = (state: RayState): number =>
+  axialAngularMomentum(state) / -state.energy;
+
+export const bardeenAlpha = (state: RayState): number => -impactRatio(state);
