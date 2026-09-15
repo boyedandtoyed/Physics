@@ -9,8 +9,41 @@ complete (3-Visual apart from the Hawking/Casimir effects, which need Phase 6 si
 `/sims/spacetime-curvature`; what remains there is the geodesic-deviation visualiser and the
 interactive Kruskal/Penrose diagrams.
 
-**Branch:** `master`. **Not yet deployed** — Phase 4 has not been through `scripts/release.sh`
-and the live host still serves the Phase 3 image. See "Where to pick up" below.
+**Branch:** `master`. **Deployed 2026-09-15** — `physics-web:rc-5697f7f`
+(`sha256:0606d8ec…`), built, staged, verified through the Cloudflare edge and promoted. Staging
+and production run the **identical image ID**, which is what `release.sh promote` refuses to
+proceed without.
+
+**Live:** https://abstract-physics.binodtiwari.com serves **all twelve simulations**, verified end
+to end through the public HTTPS host: the **full 123-test app suite passed against the deployed
+host** (`PHYSICS_EDGE_URL=… npx playwright test`), including every axe scan in both themes, the
+permanent-label occlusion tests at 390 px and the missing-glyph guard. Twelve gallery cards, zero
+page errors, a missing asset still a genuine 404 rather than the SPA fallback. Containers
+`physics-web-1` and `physics-staging-web-1` both healthy; the host-owned `cloudflared` systemd
+service was not touched and is active.
+
+| Route | Live |
+|---|---|
+| `/`, `/method` | 200, **twelve** simulations listed |
+| `/sims/blackhole-lensing`, `/sims/deflection-decomposition`, `/sims/interpretations` | 200 |
+| `/sims/time-dilation`, `/sims/spacetime-curvature`, `/sims/gp-river` | 200 |
+| `/sims/effective-potential`, `/sims/mercury-precession`, `/sims/isco-explorer` | 200 |
+| `/sims/kerr-shadow`, `/sims/frame-dragging`, `/sims/penrose-process` | 200 |
+
+**The staging ingress rule is in place.** It had been outstanding since 2026-09-07 and needed
+root; `https://staging-abstract-physics.binodtiwari.com` now returns 200 and serves the staging
+container — confirmed by diffing its bundle hash against `127.0.0.1:8082`. **The release path is
+therefore complete for the first time**: this is the first release verified through the real edge
+*before* the public saw it, which is what the whole staging arrangement was built for.
+
+**The Kerr bright-limb asymmetry was checked on the deployed host, not only in a unit test.** At
+a/M = 0.5 the approaching (left, α < 0) limb is visibly brighter and the far side is lensed over
+the top; at a/M = 0.998 the asymmetry is far stronger, the shadow is displaced right and its left
+edge is flattened. Both are the same side, which is the handedness gate. **Still to do on a
+GPU-backed browser:** every check so far — local and deployed — has run on SwiftShader, so the
+renderer has never been seen above about a sixth of its linear resolution. Nothing physical
+depends on that (the acceptance gates are measured off the same frames), but the *appearance* at
+full resolution is unverified.
 
 **Totals at the Phase 4 close:** **575 Vitest**, **288 Python benchmark checks**, **123
 Playwright app tests**, **20 acceptance tests** (11 Phase 1 lensing + 9 Phase 4 Kerr, all
@@ -218,11 +251,8 @@ nothing physical is negated.
 
 Everything below is the state at the Phase 4 close. Nothing here is blocked on a decision.
 
-1. **Deploy.** Phase 4 has not been released. `scripts/release.sh build | stage | promote`, then
-   verify through the edge with `PHYSICS_EDGE_URL=… npx playwright test`. The gallery is now
-   **twelve** entries; the live host still serves nine. Note the staging ingress rule is *still*
-   not in `/etc/cloudflared/config.yml` (see the staging-deploy section below) — that step needs
-   root and has been outstanding since 2026-09-07, so `stage` verifies on `127.0.0.1:8082` only.
+1. ~~Deploy.~~ **DONE 2026-09-15**, see the status block above. The only thing left from it is a
+   look at the Kerr sims in a browser with a real GPU — everything so far has run on SwiftShader.
 2. **Phase 5 — Spacetime geometry (BUILD_PLAN §5).** The embedding diagram already exists as
    `/sims/spacetime-curvature` (Phase 3-Visual). What remains is the geodesic-deviation / tidal
    tensor visualiser — note the Interpretations module already has a tidal panel, §7.4, which is

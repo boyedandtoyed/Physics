@@ -73,6 +73,7 @@ a revived service keeps its old address.
 |---|---|---|---|
 | 8080 | **Abstract Physics** — production | `abstract-physics.binodtiwari.com` | **live, all four simulations** |
 | 8082 | **Abstract Physics** — staging | `staging-abstract-physics.binodtiwari.com` | **live, release candidate** |
+
 | 3000 | Portfolio (apex site) | `binodtiwari.com` | dormant |
 | 3001 | NeuralForge | `neuralforge.binodtiwari.com` | dormant |
 | 3002 | PipelineGuard | `pipelineguard.binodtiwari.com` | dormant |
@@ -250,6 +251,7 @@ tunnel. Verifying against `127.0.0.1:8080` is verifying something the public nev
 
 ```bash
 ./scripts/release.sh build      # physics-web:rc-<sha>, also tagged :rc
+./scripts/release.sh build      # requires a clean tree; tags physics-web:rc-<sha>
 ./scripts/release.sh stage      # starts the staging stack on 127.0.0.1:8082
 #                                 -> https://staging-abstract-physics.binodtiwari.com
 #   ... verify against the STAGING HOSTNAME, not localhost ...
