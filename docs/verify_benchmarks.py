@@ -557,6 +557,201 @@ _predicted = 6 * math.pi * _m_over_a / (1 - 0.2056**2)
 check("Weak-field formula is OUT OF DOMAIN at the animation's M/a = 0.05",
       _measured / _predicted, 1.321, 0.02, "")
 
+# Sandbox physics, PHYSICS_SPEC.md sections 2.6-2.8 --------------------------
+# Sim units: G = 1, masses in sim units, c = 1 unless a real body is named.
+
+def kepler_period(radius, mass):
+    return 2 * math.pi * math.sqrt(radius**3 / mass)
+
+
+def sandbox_acceleration(x, y, mass, h_squared, relativistic):
+    """a = -(M/r^3 + 3 M h^2 / r^5) r_vec. The 3M coefficient, NOT 3/2 (section 2.6)."""
+    r2 = x * x + y * y
+    r = math.sqrt(r2)
+    k = mass / (r2 * r) + (3 * mass * h_squared / (r2 * r2 * r) if relativistic else 0.0)
+    return -k * x, -k * y
+
+
+def yoshida4(q, v, dt, accel):
+    """The composition core/integrators/symplectic.ts implements, for cross-checking it."""
+    w1 = 1 / (2 - 2 ** (1 / 3))
+    w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))
+    for weight in (w1, w0, w1):
+        h = dt * weight
+        for _ in range(1):
+            a = accel(q)
+            v = [v[i] + h * a[i] / 2 for i in range(len(v))]
+            q = [q[i] + h * v[i] for i in range(len(q))]
+            a = accel(q)
+            v = [v[i] + h * a[i] / 2 for i in range(len(v))]
+    return q, v
+
+
+# -- 2.6: the coefficient. 3/2 is the r_s = 1 specialisation and is wrong elsewhere.
+for _m in (1.0, 10.0):
+    _correct = sandbox_acceleration(3.0, 0.0, _m, 4.0, True)[0] - sandbox_acceleration(3.0, 0.0, _m, 4.0, False)[0]
+    _literal = -1.5 * 4.0 * 3.0 / 3.0**5
+    check(f"Sandbox GR coefficient is 3M, not 3/2, at M={_m}", _correct, -3 * _m * 4.0 * 3.0 / 3.0**5, 1e-15, "")
+    if _m != 0.5:
+        check(f"  ...and 3/2 would be wrong by 2M at M={_m}", _correct / _literal, 2 * _m, 1e-12, "x")
+# At M = 1/2 the two agree, which is why the substitution survives a Schwarzschild-shader check.
+check("  ...the two agree at M = 1/2, r_s = 1 units",
+      sandbox_acceleration(3.0, 0.0, 0.5, 4.0, True)[0] - sandbox_acceleration(3.0, 0.0, 0.5, 4.0, False)[0],
+      -1.5 * 4.0 * 3.0 / 3.0**5, 1e-15, "")
+
+# -- 2.6: the correction FALLS OFF with radius. A cutoff at large r has it backwards.
+_prev = None
+for _r in (3.0, 10.0, 30.0, 100.0, 1000.0):
+    _h2 = 1.0 * _r          # near-circular: h^2 = G M r with G = M = 1
+    _ratio = 3 * _h2 / (_r * _r)
+    check(f"GR-to-Newton ratio at r={_r} is 3M/r", _ratio, 3.0 / _r, 1e-12, "")
+    if _prev is not None:
+        check(f"  ...smaller than at the radius inside it (r={_r})",
+              1.0 if _ratio < _prev else 0.0, 1.0, 0, "")
+    _prev = _ratio
+check("GR correction reaches 10% at r = 30 M", 3.0 / 30.0, 0.10, 1e-12, "")
+check("GR correction reaches 100% at r = 3 M (the photon sphere)", 3.0 / 3.0, 1.0, 1e-12, "")
+
+# -- 2.6: Yoshida-4 fidelity and the symplectic property, Newtonian.
+_R, _M = 3.0, 1.0
+_period = kepler_period(_R, _M)
+check("Kepler period at r=3, M=1", _period, 2 * math.pi * math.sqrt(27), 1e-12, "")
+_steps_per_orbit = 512
+_dt = _period / _steps_per_orbit
+
+
+def _energy(q, v, mass):
+    r = math.hypot(q[0], q[1])
+    return 0.5 * (v[0] ** 2 + v[1] ** 2) - mass / r
+
+
+_q, _v = [_R, 0.0], [0.0, math.sqrt(_M / _R)]
+_e0 = _energy(_q, _v, _M)
+_worst = 0.0
+for _step in range(_steps_per_orbit * 10):
+    _q, _v = yoshida4(_q, _v, _dt, lambda p: sandbox_acceleration(p[0], p[1], _M, 0.0, False))
+    _worst = max(_worst, abs(_energy(_q, _v, _M) - _e0) / abs(_e0))
+# After exactly ten orbits the particle must be back where it started.
+check("Yoshida-4: circular orbit closes after 10 orbits, r=3",
+      math.hypot(_q[0] - _R, _q[1]), 0.0, _R * 1e-3, "sim units")
+check("  ...radius held to 0.1% over 10 orbits", math.hypot(_q[0], _q[1]), _R, _R * 1e-3, "sim units")
+check("Yoshida-4: relative energy drift over 10 orbits", _worst, 0.0, 1e-8, "")
+
+_q, _v = [_R, 0.0], [0.0, math.sqrt(_M / _R)]
+_e0 = _energy(_q, _v, _M)
+for _step in range(100):
+    _q, _v = yoshida4(_q, _v, _dt, lambda p: sandbox_acceleration(p[0], p[1], _M, 0.0, False))
+check("Yoshida-4: relative energy drift over 100 steps (section 2.6 ASSERT)",
+      abs(_energy(_q, _v, _M) - _e0) / abs(_e0), 0.0, 1e-8, "")
+
+# -- 2.7: radial free fall. Schwarzschild PROPER time equals the Newtonian time exactly.
+def cycloid_time(r0, r, mass):
+    """tau(r) for a fall from rest at r0, identical in Newton and in Schwarzschild proper time."""
+    eta = math.acos(2 * r / r0 - 1)
+    return math.sqrt(r0**3 / (8 * mass)) * (eta + math.sin(eta))
+
+
+def newtonian_fall_time(r0, r, mass, steps=200_000):
+    """Integrate dt = dr / sqrt(2M/r - 2M/r0), as an independent check on the cycloid.
+
+    Substituting u = sqrt(r0 - r) first. The integrand diverges as 1/sqrt(r0-r) at the release
+    point, and a midpoint rule in r converges so slowly that its own error (2.6e-4 relative at
+    200k steps) swamps the thing being checked. In u the singularity is gone exactly:
+        dr = -2u du,  speed = sqrt(2M/(r r0)) u,  so  dt = 2 du sqrt(r r0 / 2M).
+    """
+    u_max = math.sqrt(r0 - r)
+    total = 0.0
+    for i in range(steps):
+        u = u_max * (i + 0.5) / steps
+        radius = r0 - u * u
+        total += 2 * (u_max / steps) * math.sqrt(radius * r0 / (2 * mass))
+    return total
+
+
+_M_UNIT = 1.0
+for _r0, _r in ((10.0, 2.001), (10.0, 4.0), (50.0, 6.0)):
+    check(f"Radial fall {_r0} -> {_r}: cycloid vs direct quadrature",
+          cycloid_time(_r0, _r, _M_UNIT), newtonian_fall_time(_r0, _r, _M_UNIT), 1e-6, "M")
+check("Radial fall from 10M to 2.001M, proper time", cycloid_time(10.0, 2.001, 1.0), 33.69975, 1e-4, "M")
+
+
+# Schwarzschild COORDINATE time for the same fall is a different, larger number. Same
+# substitution, for the same reason.
+def schwarzschild_coordinate_fall(r0, r, mass, steps=400_000):
+    rs = 2 * mass
+    e = math.sqrt(1 - rs / r0)
+    u_max = math.sqrt(r0 - r)
+    total = 0.0
+    for i in range(steps):
+        u = u_max * (i + 0.5) / steps
+        radius = r0 - u * u
+        total += 2 * (u_max / steps) * math.sqrt(radius * r0 / rs) * e / (1 - rs / radius)
+    return total
+
+
+_tau = cycloid_time(10.0, 2.001, 1.0)
+_coord = schwarzschild_coordinate_fall(10.0, 2.001, 1.0)
+check("Schwarzschild coordinate time for the same fall is larger",
+      1.0 if _coord > _tau else 0.0, 1.0, 0, "")
+check("  ...and by how much, 10M -> 2.001M", _coord / _tau, 1.677, 0.01, "x")
+# ...and it diverges as the horizon is approached, while the proper time does not.
+_deep = [schwarzschild_coordinate_fall(10.0, 2.0 + eps, 1.0) for eps in (1e-2, 1e-3, 1e-4)]
+for _i in range(1, len(_deep)):
+    check(f"Coordinate time still growing at step {_i} towards the horizon",
+          1.0 if _deep[_i] > _deep[_i - 1] + 1.0 else 0.0, 1.0, 0, "")
+check("  ...while proper time barely moves over the same stretch",
+      cycloid_time(10.0, 2.0001, 1.0) - cycloid_time(10.0, 2.01, 1.0), 0.0, 0.05, "M")
+# The GR toggle does nothing to a radial fall: h = 0, so the correction term vanishes.
+check("GR correction vanishes identically for a radial fall (h = 0)",
+      sandbox_acceleration(5.0, 0.0, 1.0, 0.0, True)[0] - sandbox_acceleration(5.0, 0.0, 1.0, 0.0, False)[0],
+      0.0, 0.0, "")
+
+# -- 2.8: clock rates, static and circular.
+def static_rate(r, mass):
+    return math.sqrt(1 - 2 * mass / r)
+
+
+def circular_rate(r, mass):
+    return math.sqrt(1 - 3 * mass / r)
+
+
+check("Circular-orbit clock rate vanishes at the photon sphere r = 3M",
+      circular_rate(3.0, 1.0), 0.0, 1e-12, "")
+check("  ...a factor 2 in the denominator would put that zero inside the horizon",
+      1.0 if 1.5 < 2.0 else 0.0, 1.0, 0, "")
+for _r in (6.0, 20.0, 1000.0):
+    check(f"Orbiting clock loses to a static one at the same radius, r={_r}M",
+          1.0 if circular_rate(_r, 1.0) < static_rate(_r, 1.0) else 0.0, 1.0, 0, "")
+# Break-even: a circular orbit at 1.5 r_A ticks with a static clock at r_A, for every M.
+for _mass in (0.5, 1.0, 7.0):
+    # Radii in units of the mass, so every one of them is comfortably outside the horizon:
+    # the identity is independent of M, and testing it at r < 2M would be testing nothing.
+    for _multiple in (10.0, 40.0, 500.0):
+        _ra = _multiple * _mass
+        check(f"Break-even r_B = 1.5 r_A at M={_mass}, r_A={_multiple}M",
+              circular_rate(1.5 * _ra, _mass), static_rate(_ra, _mass), 1e-12, "")
+# The same statement for the Earth, which is what GPS lives on.
+_RE = 6.371e6
+_break_even = 1.5 * _RE
+check("Break-even orbit radius above the Earth's surface", _break_even, 9_556_500.0, 1.0, "m")
+check("  ...GPS at 26562 km is above it, so its clock gains",
+      1.0 if 26_562_000.0 > _break_even else 0.0, 1.0, 0, "")
+check("  ...a 400 km LEO at 6771 km is below it, so its clock LOSES",
+      1.0 if 6_771_000.0 < _break_even else 0.0, 1.0, 0, "")
+
+# The brief's numbers against the repo's own, section 8 rows 5-7.
+_f_grav_gps = (GMe / _RE - GMe / 26_562_000.0) / c**2
+_v_sat = math.sqrt(GMe / 26_562_000.0)
+_v_ground = _RE * 7.292_115e-5
+_f_kin_gps = -(_v_sat**2 - _v_ground**2) / (2 * c**2)
+_per_day = 86400e6
+check("GPS gravitational, repo value", _f_grav_gps * _per_day, 45.72, 0.05, "us/day")
+check("GPS kinematic, repo value (ground station's own motion included)",
+      _f_kin_gps * _per_day, -7.109, 0.02, "us/day")
+check("GPS net, repo value", (_f_grav_gps + _f_kin_gps) * _per_day, 38.61, 0.05, "us/day")
+check("  ...dropping the ground station's motion gives -7.21, not -7.4",
+      -(_v_sat**2) / (2 * c**2) * _per_day, -7.214, 0.01, "us/day")
+
 # Kerr, PHYSICS_SPEC.md section 3 -------------------------------------------
 # Geometric units throughout: M = 1, so a is a/M and every radius is in M.
 

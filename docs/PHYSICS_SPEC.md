@@ -217,6 +217,118 @@ for **every** $L$, which is why the photon sphere has a single radius independen
 angular momentum. **ASSERT** both: $dV_{\rm photon}/dr = 0$ at exactly $3M$ for several $L$, and
 that the massive-particle $r_-$ merely tends to $3M$ without reaching it.
 
+
+### 2.6 The sandbox force law — what the GR toggle is, and what it is not
+
+The interactive sandboxes integrate
+
+$$\ddot{\mathbf r}_i = -\sum_{j\ne i} G m_j \frac{\mathbf r_{ij}}{r_{ij}^3}
+\;\underbrace{-\;\sum_{j\ne i} 3\,Gm_j\,\frac{h_{ij}^2\,\mathbf r_{ij}}{r_{ij}^5}}_{\text{GR toggle}},
+\qquad h_{ij} = |\mathbf r_{ij}\times\mathbf v_{ij}|$$
+
+The correction term is §2.5's, in its Cartesian form: $a = -(M/r^3 + 3ML^2/r^5)\mathbf r$, which is
+`orbitAcceleration` in `core/orbit.ts` and what the Mercury sim precesses with. **Three things
+about it have to be stated in the UI, because each is a way of being wrong:**
+
+**1. The coefficient is $3Gm$, not $3/2$.** $-\tfrac32 h^2\mathbf r/r^5$ is §2.3's *specialisation
+to $r_s=1$*, where $M=1/2$ — it is what the shader uses and is correct only there. In sim units
+with $G=1$ and a black hole of $m=10$, writing $3/2$ is wrong by $2m = 20$. §2.3 states the
+general form in a box for exactly this reason.
+
+**2. It is the massive-particle correction, and §2.3's is the photon one.** They share the
+$3Mh^2\mathbf r/r^5$ term and differ in whether the Newtonian $-M\mathbf r/r^3$ is present: a
+photon has no Newtonian limit to correct. Using §2.3's expression alone for a planet deletes
+gravity.
+
+**3. It is not a post-Newtonian $N$-body scheme.** Per-pair, with $h_{ij}$ conserved, it is exact
+for a test particle around one dominant mass — that is §2.5, and that is the case the presets
+set up. With several comparable masses it is **not** the 1PN equations of motion: those are
+Einstein–Infeld–Hoffmann, which carry velocity-dependent terms, cross terms between three bodies
+at once, and no per-pair decomposition at all. The sandbox's term is a plausible-looking
+interpolation with no derivation behind it in that regime, and the UI says so.
+
+#### Where it is valid, which is the opposite of far away
+
+The correction's size relative to the Newtonian term is
+
+$$\frac{|a_{\rm GR}|}{|a_{\rm N}|} = \frac{3h^2}{r^2 c^2}\Big/1 \;\longrightarrow\; \frac{3GM}{rc^2}
+\;\;\text{for a near-circular orbit } (h^2 \approx GMr)$$
+
+so it **falls off as $1/r$**: negligible far away, large close in. A post-Newtonian expansion is a
+**weak-field** expansion — it is most trustworthy at large separation and fails near the horizon,
+not the other way round. Suppressing the term *beyond* some radius has it exactly backwards; and
+suppressing it anywhere by a hard cutoff makes the force discontinuous, which destroys the very
+energy conservation §6.1 chose a symplectic integrator to obtain. **No cutoff is applied.** The
+ratio above is displayed instead, so the reader can see where the correction stops being a
+correction: it reaches 10% at $r = 30GM/c^2$ and 100% at $r = 3GM/c^2$, the photon sphere.
+
+#### The symplectic guarantee lapses when the toggle is on, and is measured either way
+
+With the toggle **off** the force is $-\nabla\Phi$ with $\Phi = -\sum Gm_im_j/r_{ij}$, the
+Hamiltonian is separable, and Yoshida-4's bounded energy error applies — **ASSERT** relative
+energy drift $< 10^{-8}$ over 100 steps and no secular growth over $10^5$.
+
+With it **on**, $h_{ij}$ is read from the current velocities, so the force is velocity-dependent,
+`createSymplectic`'s stated contract ("autonomous $q''=a(q)$") no longer holds, and the energy is
+not conserved by construction. That is a property of the model, not a bug in the integrator.
+**ASSERT** that the drift is measurably worse with the toggle on, so the claim is tested rather
+than asserted, and show it in the panel.
+
+### 2.7 Radial free fall, and the coincidence worth stating
+
+For radial infall from rest at $r_0$, Schwarzschild's proper time and Newton's time are the
+**same function**:
+
+$$\left(\frac{dr}{d\tau}\right)^2 = \frac{2GM}{r} - \frac{2GM}{r_0}
+\qquad\text{(Schwarzschild, } E=\sqrt{1-r_s/r_0}\text{)}$$
+$$\left(\frac{dr}{dt}\right)^2 = \frac{2GM}{r} - \frac{2GM}{r_0}
+\qquad\text{(Newton, energy conservation)}$$
+
+identical, so the cycloid $\tau(r) = \sqrt{\dfrac{r_0^3}{8GM}}\left(\eta + \sin\eta\right)$,
+$r = \tfrac{r_0}{2}(1+\cos\eta)$, is **exact in both theories**. This is not an approximation and
+not a coincidence of the weak field: it holds down to $r=0$.
+
+**ASSERT** that the sandbox's radial drop reproduces it to integration error rather than to a
+percentage — a 1% gate on this would be a statement about the integrator's step size and nothing
+else. Note also that the sandbox's GR toggle changes *nothing* here: $h=0$ for a radial drop, so
+the correction term vanishes identically, and a radial fall is Newtonian in the sandbox whether
+the toggle is on or off.
+
+**What is not the same is coordinate time.** $t(r)$ carries the $\ln$ of §7.4 and diverges at
+$r_s$. From $r_0=10M$ to $r=2.001M$: proper time **33.69975 M**, Schwarzschild coordinate time
+**1.677×** that and still growing — take the endpoint to $2.0001M$ and the coordinate time keeps
+climbing while the proper time moves by 0.011 M in total. **ASSERT** both, and label which clock
+the sandbox's readout is showing.
+
+### 2.8 Clock rates: static, circular, and where they cross
+
+$$\frac{d\tau}{dt}\bigg|_{\rm static} = \sqrt{1 - \frac{r_s}{r}},\qquad
+\frac{d\tau}{dt}\bigg|_{\rm circular} = \sqrt{1 - \frac{r_s}{r} - \frac{r^2\Omega^2}{c^2}}
+= \boxed{\sqrt{1 - \frac{3GM}{rc^2}}}$$
+
+using $\Omega^2 = GM/r^3$, which is **exact** in Schwarzschild coordinate time (§8 row 40). The
+circular rate vanishes at $r = 3GM/c^2 = 1.5\,r_s$ — the photon sphere, where circular timelike
+orbits cease to exist. **A factor of two in that denominator puts the zero inside the horizon**
+and is the quickest way to check the expression has been copied correctly.
+
+**ASSERT the break-even radius.** A circular orbit at $r_B$ ticks at the same rate as a *static*
+clock at $r_A$ when
+
+$$1 - \frac{3GM}{r_Bc^2} = 1 - \frac{2GM}{r_Ac^2} \;\Longleftrightarrow\;
+\boxed{r_B = \tfrac32\,r_A}$$
+
+exactly, independent of $M$. Below $1.5\,r_A$ the orbiting clock **loses**; above it, gains. This
+is the whole of the GPS trade-off in one line: $1.5\,R_\oplus = 9557$ km, GPS orbits at 26 562 km
+and so runs fast, and a satellite in low Earth orbit at ~6 771 km runs **slow**. A sim whose
+orbital-radius slider spans both must show the sign change.
+
+> **"At $r_A = r_B$ the clocks tick identically" is false**, and it is the most natural wrong
+> thing to assert. At the same radius the gravitational factors cancel exactly and the *whole*
+> remaining difference is kinematic: $d\tau_B/d\tau_A = \sqrt{(1-3\mu)/(1-2\mu)} < 1$ with
+> $\mu = GM/rc^2$. The orbiting clock always loses to a static one beside it — that is what it
+> means for the orbital motion to cost time. The radius at which the two agree is $r_B = 1.5r_A$,
+> not $r_A = r_B$.
+
 ---
 
 ## 3. Kerr (rotating) geometry
