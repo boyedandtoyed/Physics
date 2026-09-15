@@ -35,6 +35,14 @@ export const EARTH_ANGULAR_VELOCITY = 7.292_115e-5;
 export const STANDARD_GRAVITY = 9.806_65;
 /** GPS orbital semi-major axis, m. Twelve-hour orbit. */
 export const GPS_ORBIT_RADIUS = 26_562_000;
+/** Low Earth orbit, a 400 km circular orbit — the ISS band. m. Below the clock break-even
+ * radius of 1.5 R_earth (§2.8), so a clock there runs SLOW relative to the ground. */
+export const LOW_EARTH_ORBIT_RADIUS = 6_771_000;
+/** Selenocentric gravitational constant, DE430. m^3 s^-2. GM is the measured quantity; the
+ * Moon-to-Earth ratio built from these two is 0.012305, not a rounded 0.012. */
+export const MOON_GM = 4.902_800_66e12;
+/** Jovian system gravitational constant, DE430. m^3 s^-2. */
+export const JUPITER_GM = 1.266_865_341e17;
 /** Seconds in a day, for expressing clock offsets per day. */
 export const SECONDS_PER_DAY = 86_400;
 /** Days in a Julian year, the IAU definition. Exact by convention. */
