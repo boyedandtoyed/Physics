@@ -1,55 +1,84 @@
 # Progress Log
 
-## Current status — 2026-09-14
+## Current status — 2026-09-16
 
-**Phase:** 4 — Kerr (BUILD_PLAN §4). **COMPLETE.** All three sims are built, green and on
-`master`: `kerr-shadow`, `frame-dragging`, `penrose-process`. Phases 0, 1, 2, 3 and 3-Visual are
+**Phase:** 3-Sandbox (inserted). **COMPLETE.** All three sims are built, green and on `master`:
+`gravity-sandbox`, `freefall-sandbox`, `clock-comparison`. Phases 0, 1, 2, 3, 3-Visual and 4 are
 complete (3-Visual apart from the Hawking/Casimir effects, which need Phase 6 sims). Next phase:
 **5 — Spacetime geometry (BUILD_PLAN §5)**, of which the embedding diagram already exists as
 `/sims/spacetime-curvature`; what remains there is the geodesic-deviation visualiser and the
-interactive Kruskal/Penrose diagrams.
+interactive Kruskal/Penrose diagrams. **Phase 5 was deliberately not started in this session.**
 
-**Branch:** `master`. **Deployed 2026-09-15** — `physics-web:rc-5697f7f`
-(`sha256:0606d8ec…`), built, staged, verified through the Cloudflare edge and promoted. Staging
-and production run the **identical image ID**, which is what `release.sh promote` refuses to
-proceed without.
+**Branch:** `master`. **Deployed 2026-09-15** (Phase 4, twelve sims) — `physics-web:rc-5697f7f`.
+Phase 3-Sandbox brings the total to **fifteen** and is deployed on top of it; see the release
+note below.
 
-**Live:** https://abstract-physics.binodtiwari.com serves **all twelve simulations**, verified end
-to end through the public HTTPS host: the **full 123-test app suite passed against the deployed
-host** (`PHYSICS_EDGE_URL=… npx playwright test`), including every axe scan in both themes, the
-permanent-label occlusion tests at 390 px and the missing-glyph guard. Twelve gallery cards, zero
-page errors, a missing asset still a genuine 404 rather than the SPA fallback. Containers
-`physics-web-1` and `physics-staging-web-1` both healthy; the host-owned `cloudflared` systemd
-service was not touched and is active.
+**Totals at the Phase 3-Sandbox close:** **700 Vitest**, **358 Python benchmark checks**, **155
+Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and the
+production build are green.
 
-| Route | Live |
+### Phase 3-Sandbox — interactive gravity *(2026-09-16)* — COMPLETE
+
+Three sandboxes built on the existing infrastructure: the shared stage with its `permanentLabel`
+slot, the promoted `ui/gl/LineRenderer`, and `core/integrators/symplectic`.
+
+| Route | What it is |
 |---|---|
-| `/`, `/method` | 200, **twelve** simulations listed |
-| `/sims/blackhole-lensing`, `/sims/deflection-decomposition`, `/sims/interpretations` | 200 |
-| `/sims/time-dilation`, `/sims/spacetime-curvature`, `/sims/gp-river` | 200 |
-| `/sims/effective-potential`, `/sims/mercury-precession`, `/sims/isco-explorer` | 200 |
-| `/sims/kerr-shadow`, `/sims/frame-dragging`, `/sims/penrose-process` | 200 |
+| `/sims/gravity-sandbox` | N-body Newtonian playground, click to place and drag to throw, with an optional post-Newtonian correction whose cost to energy conservation is shown rather than hidden |
+| `/sims/freefall-sandbox` | One central mass, four bodies from the Earth to a black hole, and the same well around all of them |
+| `/sims/clock-comparison` | A static clock and an orbiting one, with the microsecond difference on a dial of its own |
 
-**The staging ingress rule is in place.** It had been outstanding since 2026-09-07 and needed
-root; `https://staging-abstract-physics.binodtiwari.com` now returns 200 and serves the staging
-container — confirmed by diffing its bundle hash against `127.0.0.1:8082`. **The release path is
-therefore complete for the first time**: this is the first release verified through the real edge
-*before* the public saw it, which is what the whole staging arrangement was built for.
+**New core:** `core/nbody.ts` (accelerations with the §2.6 correction, energy, momentum,
+absorption, presets, `zeroMomentum`); `core/timeDilation.ts` gains `circularClockRate`,
+`breakEvenRadius`, `clockRateDifference`, `clockDriftPerDay`, `orbitAngularVelocity` and
+`schwarzschildFromParameter`. **New spec:** §2.6, §2.7, §2.8 and §8 rows 54–59.
 
-**The Kerr bright-limb asymmetry was checked on the deployed host, not only in a unit test.** At
-a/M = 0.5 the approaching (left, α < 0) limb is visibly brighter and the far side is lensed over
-the top; at a/M = 0.998 the asymmetry is far stronger, the shadow is displaced right and its left
-edge is flattened. Both are the same side, which is the handedness gate. **Still to do on a
-GPU-backed browser:** every check so far — local and deployed — has run on SwiftShader, so the
-renderer has never been seen above about a sixth of its linear resolution. Nothing physical
-depends on that (the acceptance gates are measured off the same frames), but the *appearance* at
-full resolution is unverified.
+**New shared UI:** `ui/gl/canvasMapping.ts` promoted out of the gravity sandbox once the freefall
+one needed the same pixel↔sim map; `ui/useDarkTheme.ts` promoted out of three sims that each had
+their own copy.
 
-**Totals at the Phase 4 close:** **575 Vitest**, **288 Python benchmark checks**, **123
-Playwright app tests**, **20 acceptance tests** (11 Phase 1 lensing + 9 Phase 4 Kerr, all
-measured off real GPU frames). Typecheck, ESLint, dependency rules and the production build are
-green. Every page was driven in both themes at 1440 px and 390 px with zero horizontal overflow,
-zero axe violations and a clean console.
+**Four things in the brief were wrong, and are corrected in the spec rather than in a comment:**
+
+1. *"The post-Newtonian correction is not valid beyond 10 M."* Backwards. The ratio is
+   3GM/rc², which is **largest close in**, not far out. No cutoff was added: a cutoff would make
+   the force discontinuous and destroy the energy conservation the sandbox is built to show.
+2. *√(1 − 3GM/(2rc²))* for the circular clock rate. The 2 is spurious; the correct form is
+   √(1 − 3GM/rc²), which vanishes at the photon sphere. With the 2 the zero sits **inside the
+   horizon**, which is the quickest way to catch the error.
+3. *"At r_A = r_B the clocks tick identically."* False, and the most natural wrong thing to
+   assert. The gravitational factors cancel exactly and the **whole kinematic term is left
+   over**: the orbiting clock loses 30.073 µs/day at the Earth's surface. The break-even radius
+   is r_B = 1.5 r_A, independent of the central mass, and that is where the 10⁻¹² gate now sits.
+4. *GPS at +45.9 / −7.4 / +38.5 µs/day.* The kinematic term is −7.109 against a rotating ground
+   station (Ashby 2003) or −7.213 against a static one; −7.4 is neither, and is 2.5% out, which
+   would fail the brief's own 1% gate. Both figures are shown, and the 0.104 µs/day between them
+   is demonstrated to be the Earth's rotation and nothing else.
+
+**Defects found by driving the pages, all invisible to a green suite** — CLAUDE.md rule 3 earning
+its place again:
+
+- Trails sampled per *frame* rather than per *step*, and absorption checked only after a whole
+  batch, so a body could pass through a black hole between frames.
+- A trail buffer holding 8 M of proper time against a 44 M fall.
+- Drag-to-throw mapping to 4.5 c in geometric units, now scaled through the frame extent.
+- Click-to-expand firing on every mass placed, fixed with a `clickToExpand` prop on `StageCanvas`.
+- Playwright's default 720 px viewport putting 6 of 15 click targets below the window — the test
+  passed while clicking nothing.
+- The clock sim's draw loop closing over its palette without listing it as a dependency: the
+  canvas froze on whichever theme was current at mount, and showed a white clock face on a dark
+  page.
+- The clock sim using `.chooser` and `.readout` without defining them. Those are per-sim
+  conventions, not shared components; unstyled, the buttons fell back to the user agent's default
+  and failed AA contrast in dark mode at 4.46:1.
+
+**Known debt:** six sims now carry a near-identical copy of the `.readout` / `.chooser` panel
+CSS, scoped to their own class. It is a shared component in everything but name. Promoting it to
+`ui/components.css` is a single mechanical change and should happen before a seventh copy.
+
+**Still open from the Phase 4 deploy:** every browser check in this repo, local and deployed, has
+run on SwiftShader — the user's Chrome has no WebGL at all. Nothing physical depends on it (the
+acceptance gates are measured off the same frames), but the *appearance* of the two ray-traced
+sims at full resolution is unverified.
 
 ### Phase 4 — Kerr *(2026-09-14)* — COMPLETE
 
