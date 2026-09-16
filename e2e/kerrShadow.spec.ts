@@ -98,10 +98,17 @@ test('the ergosphere readout stays at 2M while the horizon moves', async ({ page
   expect(atZero).not.toContain('1.063 M');
 });
 
+/** This route is the heaviest in the suite: a lazy chunk, a shader compile and a first
+ * raymarched frame, all on SwiftShader in CI. Assertions made straight after `goto` need more
+ * than the 5 s default — under a full-suite run React had not rendered the prose yet, and the
+ * failure moved from test to test between runs, which is the signature of a starved renderer
+ * rather than of a regression. */
+const READY = { timeout: 20_000 };
+
 test('states that the ring’s brightness profile is not physical, permanently', async ({ page }) => {
   await page.goto(ROUTE);
   const label = page.locator('.stage-permanent-label');
-  await expect(label).toContainText('brightness profile is not physical');
+  await expect(label).toContainText('brightness profile is not physical', READY);
   // Still there in the expanded view, which hides the prose below the stage.
   await page.locator('.stage-surface').click({ position: { x: 200, y: 160 } });
   await expect(page.locator('.sim-stage')).toHaveClass(/is-focused/);
@@ -113,7 +120,7 @@ test('cinematic mode is off by default and is labelled non-physical when on', as
   await page.goto(ROUTE);
   await page.waitForTimeout(800);
   const warning = page.locator('.mode-warning');
-  await expect(warning).toContainText('Physical mode');
+  await expect(warning).toContainText('Physical mode', READY);
   await page.locator('.react-aria-Switch', { hasText: 'Cinematic mode' }).click();
   await expect(warning).toContainText('Not physical');
 });
@@ -121,14 +128,14 @@ test('cinematic mode is off by default and is labelled non-physical when on', as
 test('names the handedness check a reader can apply to any Kerr render', async ({ page }) => {
   await page.goto(ROUTE);
   await expect(page.getByText(/bright limb and the flattened edge of the shadow are the same side/))
-    .toBeVisible();
+    .toBeVisible(READY);
 });
 
 test('draws the ISCO-vs-spin curve, and the marker follows the slider', async ({ page }) => {
   // BUILD_PLAN §4 asks for this curve by name, with Teo's photon orbits as the accuracy probe.
   await page.goto(ROUTE);
   const chart = page.locator('.radii-chart');
-  await expect(chart).toBeVisible();
+  await expect(chart).toBeVisible(READY);
   // Six series plus the spin marker.
   await expect(chart.locator('path')).toHaveCount(6);
   await expect(chart).toContainText('ISCO, prograde');

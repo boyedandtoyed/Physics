@@ -9,9 +9,25 @@ complete (3-Visual apart from the Hawking/Casimir effects, which need Phase 6 si
 `/sims/spacetime-curvature`; what remains there is the geodesic-deviation visualiser and the
 interactive Kruskal/Penrose diagrams. **Phase 5 was deliberately not started in this session.**
 
-**Branch:** `master`. **Deployed 2026-09-15** (Phase 4, twelve sims) — `physics-web:rc-5697f7f`.
-Phase 3-Sandbox brings the total to **fifteen** and is deployed on top of it; see the release
-note below.
+**Branch:** `master`, pushed. **Deployed 2026-09-16** — `physics-web:rc-fef4472`
+(`sha256:db700be6…`), built, staged, verified through the Cloudflare edge and promoted. Staging
+and production run the **identical image ID**.
+
+**Live:** https://abstract-physics.binodtiwari.com serves **all fifteen simulations**. The full
+**155-test suite passed against the deployed host** through the public HTTPS edge
+(`PHYSICS_EDGE_URL=… npx playwright test --project=edge`), and against staging before promotion,
+including every axe scan in both themes and the permanent-label occlusion tests at 390 px. A
+route still falls back to the SPA with 200; a missing *asset* is still a genuine 404. Containers
+`physics-web-1` and `physics-staging-web-1` both healthy; the host-owned `cloudflared` systemd
+service was not touched.
+
+**One flaky spec was found and fixed during the release, not papered over.** Three assertions in
+`e2e/kerrShadow.spec.ts` ran straight after `goto` with the 5 s default, and that route is the
+heaviest in the suite — a lazy chunk, a shader compile and a first raymarched frame on
+SwiftShader. Under a full-suite run one of them failed per run and the *failing test moved
+between runs*, which is the signature of a starved renderer rather than of a regression; each
+passed in isolation. They now allow 20 s, and two consecutive full runs against the live host are
+clean.
 
 **Totals at the Phase 3-Sandbox close:** **700 Vitest**, **358 Python benchmark checks**, **155
 Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and the
