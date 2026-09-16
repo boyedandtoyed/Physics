@@ -1,10 +1,13 @@
 /** Pixel ↔ sim-unit mapping for a full-canvas viewport.
  *
- * The inverse of what `ui/gl/LineRenderer` does on the way in. Getting it wrong places a body
- * somewhere other than where the reader clicked, which reads as the physics being wrong rather
- * than the arithmetic, so it is separated out and tested against the forward map.
+ * The inverse of what `LineRenderer` does on the way in. Getting it wrong places a body somewhere
+ * other than where the reader clicked, which reads as the physics being wrong rather than the
+ * arithmetic, so it is separated out and tested against the forward map.
+ *
+ * Shared by every sim whose canvas is an input surface — the gravity and freefall sandboxes both
+ * place things where you click, and both need this and its inverse to agree exactly.
  */
-import { squareBounds, type Bounds } from '../../../ui/gl/LineRenderer';
+import { squareBounds, type Bounds } from './LineRenderer';
 
 export interface CanvasFrame {
   /** CSS pixels, not the backing store. Pointer events are in CSS pixels. */

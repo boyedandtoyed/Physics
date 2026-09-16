@@ -37,7 +37,7 @@ import {
   velocityFromDrag,
   type SandboxState,
 } from './description/sandboxRun';
-import { pixelToSim, simPerPixel, type CanvasFrame } from './view/canvasMapping';
+import { pixelToSim, simPerPixel, type CanvasFrame } from '../../ui/gl/canvasMapping';
 import './sandbox.css';
 
 const PhysicsPanel = lazy(() =>

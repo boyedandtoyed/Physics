@@ -93,6 +93,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/gravity-sandbox'),
   },
   {
+    id: 'freefall-sandbox',
+    title: 'Drop it and see',
+    description:
+      'Four central bodies from the Earth to a black hole, and the same well around all of them. '
+      + 'What changes is not the well\u2019s depth \u2014 in geometric units it is the same well \u2014 but '
+      + 'how far down into it the surface reaches.',
+    tags: ['Gravity', 'Free fall', 'Sandbox'],
+    load: () => import('../sims/freefall-sandbox'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:

@@ -43,6 +43,14 @@ export const LOW_EARTH_ORBIT_RADIUS = 6_771_000;
 export const MOON_GM = 4.902_800_66e12;
 /** Jovian system gravitational constant, DE430. m^3 s^-2. */
 export const JUPITER_GM = 1.266_865_341e17;
+/** Jupiter's equatorial radius at 1 bar, IAU. m. */
+export const JUPITER_EQUATORIAL_RADIUS = 7.1492e7;
+/** A canonical neutron star: 1.4 solar masses. The mass is well constrained; the radius is not,
+ *  and 12 km is a representative value from NICER's measurements, not a determined one. */
+export const NEUTRON_STAR_MASSES = 1.4;
+export const NEUTRON_STAR_RADIUS = 1.2e4;
+/** A representative stellar-mass black hole. Its "surface" is the horizon, 2GM/c². */
+export const STELLAR_BLACK_HOLE_MASSES = 10;
 /** Seconds in a day, for expressing clock offsets per day. */
 export const SECONDS_PER_DAY = 86_400;
 /** Days in a Julian year, the IAU definition. Exact by convention. */
