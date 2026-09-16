@@ -6,6 +6,7 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NumberSlider } from '../../ui/NumberSlider';
+import { useDarkTheme } from '../../ui/useDarkTheme';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
 import { SimStage, StageCanvas } from '../../ui/sim/SimStage';
 import { usePlaybackStore, usePresentation } from '../../ui/sim/playbackStore';
@@ -82,13 +83,6 @@ const DARK_SUPER: readonly [number, number, number] = [DARK_SUPER_R, DARK_SUPER_
 const LIGHT_SUPER: readonly [number, number, number] =
   [LIGHT_SUPER_R, LIGHT_SUPER_G, LIGHT_SUPER_B];
 
-function prefersDark(): boolean {
-  const explicit = document.documentElement.dataset.theme;
-  if (explicit === 'dark') return true;
-  if (explicit === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
 export default function GpRiver() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<RiverRenderer>(null);
@@ -96,8 +90,8 @@ export default function GpRiver() {
   const [controls, setControls] = useState<Controls>(INITIAL);
   const [failure, setFailure] = useState<string>();
   const [announcement, setAnnouncement] = useState('');
-  const [themeTick, setThemeTick] = useState(0);
   const presentation = usePresentation(SIM_ID);
+  const dark = useDarkTheme();
   const setFocused = usePlaybackStore(state => state.setFocused);
 
   const set = useCallback(<K extends keyof Controls>(key: K, value: Controls[K]) => {
@@ -107,15 +101,6 @@ export default function GpRiver() {
   useEffect(() => {
     if (presentation.resetToken > 0) { setControls(INITIAL); flowTime.current = 0; }
   }, [presentation.resetToken]);
-
-  useEffect(() => {
-    const bump = () => setThemeTick(tick => tick + 1);
-    const query = window.matchMedia('(prefers-color-scheme: dark)');
-    query.addEventListener('change', bump);
-    const observer = new MutationObserver(bump);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => { query.removeEventListener('change', bump); observer.disconnect(); };
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -137,7 +122,6 @@ export default function GpRiver() {
     const renderer = rendererRef.current;
     if (!canvas || !renderer || failure) return undefined;
 
-    const dark = prefersDark();
     renderer.setParams({
       outerRadius: controls.outerRadius,
       slowColour: dark ? DARK_SLOW : LIGHT_SLOW,
@@ -174,7 +158,7 @@ export default function GpRiver() {
     rendererRef.current?.render(flowTime.current);
     if (presentation.playing) handle = requestAnimationFrame(step);
     return () => { stopped = true; cancelAnimationFrame(handle); };
-  }, [controls, failure, presentation.playing, presentation.focused, themeTick]);
+  }, [controls, failure, presentation.playing, presentation.focused, dark]);
 
   const figures = useMemo(() => {
     const horizonKm = schwarzschildRadius(controls.solarMasses * SOLAR_MASS) / METRES_PER_KILOMETRE;

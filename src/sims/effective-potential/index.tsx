@@ -7,6 +7,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Switch } from 'react-aria-components';
 import { NumberSlider } from '../../ui/NumberSlider';
+import { useDarkTheme } from '../../ui/useDarkTheme';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
 import { SimStage, StageCanvas } from '../../ui/sim/SimStage';
 import { usePlaybackStore, usePresentation } from '../../ui/sim/playbackStore';
@@ -107,13 +108,6 @@ const UNBOUND_RGB: Rgb = [UNBOUND_R, UNBOUND_G, UNBOUND_B];
 const MARGINAL_LIGHT: Rgb = [MARGINAL_LIGHT_R, MARGINAL_LIGHT_G, MARGINAL_LIGHT_B];
 const MARGINAL_DARK: Rgb = [1, 1, 1];
 
-function prefersDark(): boolean {
-  const explicit = document.documentElement.dataset.theme;
-  if (explicit === 'dark') return true;
-  if (explicit === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
 /** Left half for the potential, right half for the orbit. Clip-space fractions of the canvas. */
 const VIEW_MARGIN = 0.04;
 const VIEW_BOTTOM = 0.08;
@@ -136,9 +130,9 @@ export default function EffectivePotential() {
   const [relativistic, setRelativistic] = useState(true);
   const [failure, setFailure] = useState<string>();
   const [announcement, setAnnouncement] = useState('');
-  const [themeTick, setThemeTick] = useState(0);
   const [tick, setTick] = useState(0);
   const presentation = usePresentation(SIM_ID);
+  const dark = useDarkTheme();
   const setFocused = usePlaybackStore(state => state.setFocused);
 
   const angularMomentum = lMultiple * iscoAngularMomentum(mass);
@@ -185,15 +179,6 @@ export default function EffectivePotential() {
   }, [presentation.resetToken]);
 
   useEffect(() => {
-    const bump = () => setThemeTick(value => value + 1);
-    const query = window.matchMedia('(prefers-color-scheme: dark)');
-    query.addEventListener('change', bump);
-    const observer = new MutationObserver(bump);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => { query.removeEventListener('change', bump); observer.disconnect(); };
-  }, []);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     try {
@@ -212,7 +197,6 @@ export default function EffectivePotential() {
     const canvas = canvasRef.current;
     const renderer = rendererRef.current;
     if (!canvas || !renderer || failure) return undefined;
-    const dark = prefersDark();
     const curveColour = dark ? DARK_CURVE : LIGHT_CURVE;
     const axisColour = dark ? DARK_AXIS : LIGHT_AXIS;
 
@@ -290,7 +274,7 @@ export default function EffectivePotential() {
     if (presentation.playing) handle = requestAnimationFrame(step);
     return () => { stopped = true; cancelAnimationFrame(handle); };
   }, [
-    curve, bounds, radii, energy, mass, failure, themeTick, tick,
+    curve, bounds, radii, energy, mass, failure, dark, tick,
     presentation.playing, presentation.focused,
   ]);
 

@@ -13,6 +13,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { NumberSlider } from '../../ui/NumberSlider';
 import { SimStage, StageCanvas } from '../../ui/sim/SimStage';
 import { usePresentation } from '../../ui/sim/playbackStore';
+import { useDarkTheme } from '../../ui/useDarkTheme';
 import { MisconceptionsPanel } from '../../ui/MisconceptionsPanel';
 import {
   LineRenderer,
@@ -190,25 +191,6 @@ const INITIAL: Controls = {
   releaseRadius: DEFAULT_RELEASE,
   rate: DEFAULT_RATE,
 };
-
-function useDarkTheme(): boolean {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const read = () => {
-      const attribute = document.documentElement.dataset.theme;
-      setDark(attribute
-        ? attribute === 'dark'
-        : window.matchMedia('(prefers-color-scheme: dark)').matches);
-    };
-    read();
-    const observer = new MutationObserver(read);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    const query = window.matchMedia('(prefers-color-scheme: dark)');
-    query.addEventListener('change', read);
-    return () => { observer.disconnect(); query.removeEventListener('change', read); };
-  }, []);
-  return dark;
-}
 
 export default function FrameDragging() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
