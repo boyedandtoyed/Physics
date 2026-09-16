@@ -1,0 +1,59 @@
+/* Scoped to the gravity sandbox. Colours come from the shell's theme tokens. */
+
+.sandbox { display: grid; gap: 0; }
+.sandbox .sim-head { max-width: 48rem; }
+.sandbox .sim-head .intro { color: var(--muted); margin: 0; }
+/* The canvas is a drawing surface here, not a camera: a crosshair says "click places". */
+.sandbox .stage-surface > canvas { cursor: crosshair; }
+
+.sandbox .palette { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.sandbox .palette-button {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto;
+  gap: 0.1rem 0.5rem; align-items: center; text-align: left; cursor: pointer;
+  padding: 0.5rem 0.6rem; border: 1px solid var(--line); border-radius: 0.4rem;
+  background: var(--bg); color: var(--ink); font: inherit;
+}
+.sandbox .palette-button:hover { border-color: var(--accent); }
+.sandbox .palette-button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.sandbox .palette-button.is-selected { border-color: var(--accent); background: var(--panel); }
+.sandbox .palette-button.is-selected .palette-label { font-weight: 700; }
+.sandbox .palette-glyph { grid-row: 1 / 3; width: 1.05rem; height: 1.05rem; border-radius: 50%; }
+.sandbox .palette-label { font-size: 0.86rem; }
+.sandbox .palette-mass { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The glyph colours mirror the canvas exactly; they are the legend. */
+.sandbox .glyph-planet { background: #4fa87a; }
+.sandbox .glyph-hole { background: #1a0a0c; border: 2px solid #d98c33; }
+.sandbox .glyph-satellite { background: #e8d98f; }
+.sandbox .glyph-test { background: transparent; border: 1px dashed var(--muted); }
+.sandbox .palette-hint {
+  margin: 0; font-size: 0.82rem; line-height: 1.6; color: var(--muted); min-height: 3.2em;
+}
+
+.sandbox .presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sandbox .preset-button {
+  cursor: pointer; padding: 0.35rem 0.7rem; font-size: 0.8rem; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 0.35rem; background: var(--bg); color: var(--ink);
+}
+.sandbox .preset-button:hover { border-color: var(--accent); }
+.sandbox .preset-button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.sandbox .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.sandbox .readout div { display: grid; gap: 0.15rem; }
+.sandbox .readout dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+}
+.sandbox .readout dd {
+  margin: 0; font-size: 1.05rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
+}
+.sandbox .readout dd span {
+  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
+}
+.sandbox .figure-benchmark {
+  padding: 0.55rem 0.7rem; border-radius: 0.4rem;
+  border: 1px solid var(--line); background: var(--bg);
+}
+.sandbox .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+/* When the fixed step cannot resolve the tightest pair, say so loudly: the orbit on screen is
+   then an artefact of the step rather than a trajectory. */
+.sandbox .under-resolved { border-color: var(--focus); }
+.sandbox .under-resolved dd { color: var(--focus); }

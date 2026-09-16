@@ -262,6 +262,15 @@ energy conservation §6.1 chose a symplectic integrator to obtain. **No cutoff i
 ratio above is displayed instead, so the reader can see where the correction stops being a
 correction: it reaches 10% at $r = 30GM/c^2$ and 100% at $r = 3GM/c^2$, the photon sphere.
 
+**$c$ has to be set, and setting it to 1 is not a free choice.** $G=1$ alone leaves the $c^2$ in
+that denominator unspecified, and taking it as 1 puts the sandbox deep in the strong field at
+every scale it can draw: a unit mass at $r=3$ then carries a "correction" equal to **100%** of the
+Newtonian term, and two mass-10 bodies six units apart reach **1000%**, at which point there is
+nothing left for the expansion to be an expansion of. The sandbox therefore fixes $c = 10$ in sim
+units, which puts those same two configurations at 1% and 10% — a perturbation that precesses
+visibly and stays inside its own domain, with the strong field still reachable by moving things
+closer and the panel saying so when they are.
+
 #### The symplectic guarantee lapses when the toggle is on, and is measured either way
 
 With the toggle **off** the force is $-\nabla\Phi$ with $\Phi = -\sum Gm_im_j/r_{ij}$, the

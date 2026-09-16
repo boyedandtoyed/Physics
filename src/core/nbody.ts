@@ -29,9 +29,25 @@ export interface Body {
 export const MIN_SEPARATION = 1e-9;
 
 /**
+ * The speed of light **in sim units**, which fixes how relativistic the sandbox is.
+ *
+ * G = 1 alone does not set this: the correction term is 3Gm h²/(c²r⁵), and with c left implicitly
+ * at 1 the sandbox sits deep in the strong field at every scale it can draw. A mass-1 body at
+ * r = 3 then has a "correction" equal to 100% of the Newtonian term, and the binary-hole preset
+ * reaches **1000%** — at which point the post-Newtonian expansion has failed completely and what
+ * the toggle produces is not a correction to anything.
+ *
+ * 10 puts the same configurations at 1% and 10%: a genuine perturbation that precesses visibly
+ * and stays inside the expansion's domain, with the strong-field cases still reachable by moving
+ * things closer. It is a unit convention of this sandbox, not a physical constant, which is why
+ * it lives here rather than in `units.ts`.
+ */
+export const SIM_LIGHT_SPEED = 10;
+
+/**
  * Accelerations of every body, into `out` as (ax, ay) pairs.
  *
- *     a_i = -Σ_j G m_j r_ij / r_ij³   [ - Σ_j 3 G m_j h_ij² r_ij / r_ij⁵ ]
+ *     a_i = -Σ_j G m_j r_ij / r_ij³   [ - Σ_j 3 G m_j h_ij² r_ij / (c² r_ij⁵) ]
  *
  * **The correction's coefficient is 3Gm_j.** −3/2 h²r/r⁵ is §2.3's specialisation to r_s = 1,
  * where M = 1/2; in sim units with a black hole of m = 10 it is wrong by a factor 2m = 20.
@@ -75,7 +91,8 @@ export function accelerations(
         const dvy = (velocities[i * TWO + 1] as number) - (velocities[j * TWO + 1] as number);
         // h = |r × v| for the pair, read from the velocities as they stand at this substep.
         const h = dx * dvy - dy * dvx;
-        k += (THREE * other.mass * h * h) / (r2 * r2 * r);
+        k += (THREE * other.mass * h * h)
+          / (r2 * r2 * r * SIM_LIGHT_SPEED * SIM_LIGHT_SPEED);
       }
       out[i * TWO] = (out[i * TWO] as number) - k * dx;
       out[i * TWO + 1] = (out[i * TWO + 1] as number) - k * dy;
@@ -140,8 +157,8 @@ export function relativisticFraction(bodies: readonly Body[], index: number): nu
     const r2 = dx * dx + dy * dy;
     if (!(r2 > MIN_SEPARATION * MIN_SEPARATION)) continue;
     const h = dx * (self.vy - other.vy) - dy * (self.vx - other.vx);
-    // (3 m h²/r⁵) ÷ (m/r³) = 3h²/r². The mass cancels: the ratio is a property of the orbit.
-    worst = Math.max(worst, (THREE * h * h) / r2);
+    // (3 m h²/c²r⁵) ÷ (m/r³) = 3h²/(c²r²). The mass cancels: the ratio belongs to the orbit.
+    worst = Math.max(worst, (THREE * h * h) / (r2 * SIM_LIGHT_SPEED * SIM_LIGHT_SPEED));
   }
   return worst;
 }
@@ -250,12 +267,21 @@ export function presets(): Preset[] {
 
   // Sun at the origin with the planets on circular orbits about it. Masses to scale, radii not:
   // at true scale Jupiter is 5.2 AU out and the Sun is 1/10000 of that across.
-  const sunMass = SUN_TO_EARTH;
+  //
+  // **Normalised to the Sun, not to the Earth.** The ratios are identical either way — only the
+  // unit of mass changes, and the sandbox is scale-free in mass — but with the Earth as the unit
+  // the Sun is 332946, the orbital period at r = 3 collapses to 0.057 sim time, and the fixed
+  // step resolves it at **1.6 steps per orbit**. The orbits rendered as ten-sided polygons and
+  // the integration behind them was meaningless. With the Sun as the unit it is 941.
+  const sunMass = 1;
   const solar: Body[] = [
     body({ mass: sunMass, x: 0, y: 0, kind: 'star', absorbRadius: STAR_ABSORB }),
-    body({ mass: 1, x: EARTH_ORBIT, y: 0, vy: circularSpeed(EARTH_ORBIT, sunMass), kind: 'planet' }),
     body({
-      mass: JUPITER_TO_EARTH, x: -JUPITER_ORBIT, y: 0,
+      mass: 1 / SUN_TO_EARTH, x: EARTH_ORBIT, y: 0,
+      vy: circularSpeed(EARTH_ORBIT, sunMass), kind: 'planet',
+    }),
+    body({
+      mass: JUPITER_TO_EARTH / SUN_TO_EARTH, x: -JUPITER_ORBIT, y: 0,
       vy: -circularSpeed(JUPITER_ORBIT, sunMass), kind: 'planet',
     }),
   ];
@@ -277,9 +303,9 @@ export function presets(): Preset[] {
     {
       id: 'sun-earth-jupiter',
       label: 'Sun, Earth, Jupiter',
-      note: `Masses to scale — Sun/Earth ${Math.round(SUN_TO_EARTH).toLocaleString()}, `
-        + `Jupiter/Earth ${JUPITER_TO_EARTH.toFixed(1)}. **Distances are not**: at true scale `
-        + 'Jupiter would be off screen and the Sun invisible.',
+      note: `Mass ratios to scale — Sun/Earth ${Math.round(SUN_TO_EARTH).toLocaleString()}, `
+        + `Jupiter/Earth ${JUPITER_TO_EARTH.toFixed(1)}, with the Sun as the unit. `
+        + 'Distances are not: at true scale Jupiter would be off screen and the Sun invisible.',
       bodies: zeroMomentum(solar),
     },
     {

@@ -122,16 +122,26 @@ export function SimStage({
   );
 }
 
-/** The canvas surface itself, with the click-to-expand behaviour and its keyboard equivalent. */
+/** The canvas surface itself, with the click-to-expand behaviour and its keyboard equivalent.
+ *
+ * `clickToExpand` exists because a sim whose canvas is an *input* surface cannot also treat a
+ * click as "make me bigger". The gravity sandbox places a mass where you click; with expand on,
+ * the first placement also opened focus mode, the canvas grew from 540 px to 912 px tall, and
+ * every subsequent click mapped to different sim coordinates — so a right-click aimed at the body
+ * you had just placed missed it by 67 pixels. The Expand button in the panel is the affordance in
+ * that case, and it is always present.
+ */
 export function StageCanvas({
-  simId, dragging, children,
-}: { simId: string; dragging: boolean; children: ReactNode }) {
+  simId, dragging, children, clickToExpand = true,
+}: { simId: string; dragging: boolean; children: ReactNode; clickToExpand?: boolean }) {
   const setFocused = usePlaybackStore(state => state.setFocused);
   const presentation = usePresentation(simId);
   return (
     <div
       className="stage-surface"
-      onClick={() => { if (!dragging && !presentation.focused) setFocused(simId, true); }}
+      onClick={() => {
+        if (clickToExpand && !dragging && !presentation.focused) setFocused(simId, true);
+      }}
     >
       {children}
     </div>

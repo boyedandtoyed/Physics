@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MIN_SEPARATION,
+  SIM_LIGHT_SPEED,
   MOON_TO_EARTH,
   JUPITER_TO_EARTH,
   SUN_TO_EARTH,
@@ -69,24 +70,25 @@ describe('the force law', () => {
       accelerations(bodies, corrected, true, velocities);
       const extra = corrected[2]! - newtonian[2]!;
       const h = 3 * 2; // r × v for the test particle relative to the centre
-      expect(extra).toBeCloseTo(-(3 * mass * h * h * 3) / 3 ** 5, 12);
+      const c2 = SIM_LIGHT_SPEED ** 2;
+      expect(extra).toBeCloseTo(-(3 * mass * h * h * 3) / (3 ** 5 * c2), 12);
       // The literal 3/2 form agrees only at M = 1/2, which is why the slip survives a
       // Schwarzschild-shader check and nothing else.
-      const literal = -(1.5 * h * h * 3) / 3 ** 5;
+      const literal = -(1.5 * h * h * 3) / (3 ** 5 * c2);
       if (mass === 0.5) expect(extra).toBeCloseTo(literal, 12);
       else expect(extra / literal).toBeCloseTo(2 * mass, 10);
     }
   });
 
   it('makes the correction grow inward, not outward', () => {
-    // The whole validity argument of §2.6 in one assertion: 3h²/r², with h² = GMr for a
-    // near-circular orbit, is 3GM/r — biggest close in.
+    // The whole validity argument of §2.6 in one assertion: 3h²/(c²r²), with h² = GMr for a
+    // near-circular orbit, is 3GM/(rc²) — biggest close in.
     let previous = Number.POSITIVE_INFINITY;
     for (const radius of [3, 10, 30, 100, 1000]) {
       const speed = circularSpeed(radius, 1);
       const bodies = [make({ mass: 1, x: 0, y: 0 }), make({ mass: 0, x: radius, y: 0, vy: speed })];
       const fraction = relativisticFraction(bodies, 1);
-      expect(fraction).toBeCloseTo(3 / radius, 9);
+      expect(fraction).toBeCloseTo(3 / (radius * SIM_LIGHT_SPEED ** 2), 9);
       expect(fraction).toBeLessThan(previous);
       previous = fraction;
     }
@@ -160,6 +162,18 @@ describe('Yoshida-4 on the sandbox force', () => {
     expect(Math.abs((after - before) / before)).toBeLessThan(1e-8);
   });
 
+  it('keeps the sandbox inside the expansion at the scales it draws', () => {
+    // With c implicit at 1 the binary-hole preset's "correction" is 1000% of the Newtonian term
+    // and the expansion has failed outright. SIM_LIGHT_SPEED is what puts it back at 10%.
+    for (const preset of presets()) {
+      let worst = 0;
+      for (let i = 0; i < preset.bodies.length; i++) {
+        worst = Math.max(worst, relativisticFraction(preset.bodies, i));
+      }
+      expect(worst, preset.id).toBeLessThan(0.2);
+    }
+  });
+
   it('loses that guarantee with the correction on, measurably — which is the point', () => {
     // §2.6: h is read from the current velocities, so the force is velocity-dependent and
     // `createSymplectic`'s contract no longer holds. Asserted rather than asserted-away.
@@ -199,6 +213,16 @@ describe('the presets', () => {
   it('gets the Sun and Jupiter ratios right too', () => {
     expect(SUN_TO_EARTH).toBeCloseTo(332946, 0);
     expect(JUPITER_TO_EARTH).toBeCloseTo(317.83, 2);
+  });
+
+  it('keeps those ratios exact with the Sun as the unit, not the Earth', () => {
+    // Normalising to the Sun is what makes the preset integrable at the fixed step; the ratios
+    // it exists to show must survive the change of unit exactly.
+    const solar = presets().find(p => p.id === 'sun-earth-jupiter')!.bodies;
+    const [sun, earth, jupiter] = solar;
+    expect(sun!.mass / earth!.mass).toBeCloseTo(SUN_TO_EARTH, 4);
+    expect(jupiter!.mass / earth!.mass).toBeCloseTo(JUPITER_TO_EARTH, 8);
+    expect(sun!.mass).toBeCloseTo(1, 6);
   });
 
   it('says in every note which quantities are to scale and which are not', () => {

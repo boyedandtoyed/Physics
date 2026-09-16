@@ -83,6 +83,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/mercury-precession'),
   },
   {
+    id: 'gravity-sandbox',
+    title: 'Put something in orbit',
+    description:
+      'An N-body playground. Click to place a mass, drag to throw it, and watch Yoshida-4 hold '
+      + 'the energy to one part in 10\u2078 \u2014 with an optional post-Newtonian correction whose '
+      + 'cost to that is shown rather than hidden.',
+    tags: ['Gravity', 'N-body', 'Sandbox'],
+    load: () => import('../sims/gravity-sandbox'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:

@@ -600,6 +600,8 @@ check("  ...the two agree at M = 1/2, r_s = 1 units",
       -1.5 * 4.0 * 3.0 / 3.0**5, 1e-15, "")
 
 # -- 2.6: the correction FALLS OFF with radius. A cutoff at large r has it backwards.
+# c = 1 here, which is the geometric statement; the sandbox's own c = 10 rescales every ratio by
+# 1/100 and is checked in src/core/nbody.test.ts.
 _prev = None
 for _r in (3.0, 10.0, 30.0, 100.0, 1000.0):
     _h2 = 1.0 * _r          # near-circular: h^2 = G M r with G = M = 1

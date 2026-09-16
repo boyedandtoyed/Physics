@@ -61,6 +61,7 @@ const SIM_ROUTES = [
   '/sims/kerr-shadow',
   '/sims/frame-dragging',
   '/sims/penrose-process',
+  '/sims/gravity-sandbox',
 ];
 
 for (const width of [360, 390]) {
