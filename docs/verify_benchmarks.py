@@ -754,6 +754,61 @@ check("GPS net, repo value", (_f_grav_gps + _f_kin_gps) * _per_day, 38.61, 0.05,
 check("  ...dropping the ground station's motion gives -7.21, not -7.4",
       -(_v_sat**2) / (2 * c**2) * _per_day, -7.214, 0.01, "us/day")
 
+# Section 8 rows 54-59: the clock-comparison sim's own figures. Everything here is the exact
+# pair (static at r_A, circular geodesic at r_B) rather than a weak-field itemisation, so the
+# two named terms below add up to the total exactly and not merely to first order.
+_rs_earth = 2 * GMe / c**2
+check("Earth Schwarzschild radius from GM", _rs_earth * 1000, 8.870056, 1e-5, "mm")
+
+
+def _pair(r_a, r_b, rs=_rs_earth):
+    """(orbiting - static) rate, split into its two terms, without cancellation."""
+    rate_a = math.sqrt(1 - rs / r_a)
+    rate_b = math.sqrt(1 - 1.5 * rs / r_b)
+    total = (rs / r_a - 1.5 * rs / r_b) / (rate_a + rate_b)
+    grav = (rs / r_a - rs / r_b) / (rate_a + rate_b)
+    kin = -(0.5 * rs / r_b) / (rate_a + rate_b)
+    return total, grav, kin
+
+
+_gps_total, _gps_grav, _gps_kin = _pair(_RE, 26_562_000.0)
+check("Row 56: GPS gravitational, static ground clock", _gps_grav * _per_day, 45.719, 0.01, "us/day")
+check("Row 56: GPS kinematic, static ground clock", _gps_kin * _per_day, -7.213, 0.01, "us/day")
+check("Row 56: GPS net, static ground clock", _gps_total * _per_day, 38.506, 0.01, "us/day")
+check("Row 56: the two terms add up EXACTLY, not to first order",
+      (_gps_grav + _gps_kin) * _per_day, _gps_total * _per_day, 1e-12, "us/day")
+check("Row 57: the gap to the published +38.610 IS the Earth's rotation",
+      (_f_grav_gps + _f_kin_gps) * _per_day - _gps_total * _per_day, 0.1038, 0.002, "us/day")
+
+# Row 55. The claim "at r_A = r_B the clocks tick identically" is false, and this is by how much.
+for _label, _r in (("Earth's surface", _RE), ("6771 km", 6_771_000.0)):
+    _same_total, _same_grav, _same_kin = _pair(_r, _r)
+    check(f"Row 55: gravitational term vanishes at a common radius ({_label})",
+          _same_grav * _per_day, 0.0, 1e-12, "us/day")
+    check(f"Row 55: and the orbiting clock still LOSES ({_label})",
+          _same_total * _per_day, -30.073 if _r == _RE else -28.296, 0.01, "us/day")
+
+# Row 58. Low Earth orbit comes out with the opposite sign to GPS.
+_leo_total, _leo_grav, _leo_kin = _pair(_RE, 6_771_000.0)
+check("Row 58: low Earth orbit net", _leo_total * _per_day, -24.743, 0.01, "us/day")
+check("  ...gravitational still positive", 1.0 if _leo_grav > 0 else 0.0, 1.0, 0, "")
+check("  ...but the kinematic term is four times larger",
+      _leo_kin / _leo_grav, -7.964, 0.01, "")
+
+# Row 54, again, through the difference rather than through the two rates.
+for _multiple in (1.0, 2.0, 7.5):
+    _ra = _multiple * _RE
+    _even, _, _ = _pair(_ra, 1.5 * _ra)
+    check(f"Row 54: difference vanishes at r_B = 1.5 r_A (r_A = {_multiple} R_earth)",
+          _even, 0.0, 1e-25, "")
+
+# Row 59. The reason none of the above is computed by subtracting the two rates.
+_naive = math.sqrt(1 - 1.5 * _rs_earth / 26_562_000.0) - math.sqrt(1 - _rs_earth / _RE)
+check("Row 59: naive subtraction loses at least 7 of 16 digits",
+      1.0 if abs(_naive - _gps_total) / _gps_total > 1e-8 else 0.0, 1.0, 0, "")
+check("  ...and is still right to better than a part in 10^5",
+      1.0 if abs(_naive - _gps_total) / _gps_total < 1e-5 else 0.0, 1.0, 0, "")
+
 # Kerr, PHYSICS_SPEC.md section 3 -------------------------------------------
 # Geometric units throughout: M = 1, so a is a/M and every radius is in M.
 

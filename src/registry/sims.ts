@@ -103,6 +103,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/freefall-sandbox'),
   },
   {
+    id: 'clock-comparison',
+    title: 'Which clock is ahead?',
+    description:
+      'One clock held still, one in orbit, and a dial that turns once per microsecond of the '
+      + 'difference. Height makes the orbiting clock gain and motion makes it lose; they cross '
+      + 'at exactly 1.5 r_A, with GPS above the crossing and the space station below it.',
+    tags: ['General relativity', 'Time dilation', 'GPS'],
+    load: () => import('../sims/clock-comparison'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:

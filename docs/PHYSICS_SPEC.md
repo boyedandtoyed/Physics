@@ -1516,6 +1516,12 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 51 | Penrose maximum efficiency | $\tfrac12(\sqrt{2M/r_+}-1)$ | **0.20710678** at $a=M$, i.e. $\tfrac12(\sqrt2-1)$ — **not** $1-1/\sqrt2=0.2929$ | 1e-12 |
 | 52 | Penrose gain at the static limit | LNRF split at $r=2M$ | **exactly 0**, with $E_1=0$ | 1e-9 |
 | 53 | Penrose split reproduces row 51 | LNRF turning-point split as $r\to r_+$ | matches the closed form at $a/M=0.5,0.9,0.998$ | 1e-5 |
+| 54 | Break-even orbit radius | $1-3GM/r_Bc^2 = 1-2GM/r_Ac^2$ | **exactly $r_B=\tfrac32 r_A$**, independent of $M$; asserted at three central masses | 1e-15 |
+| 55 | Clocks at a common radius | $\sqrt{(1-3\mu)/(1-2\mu)}$, $\mu=GM/rc^2$ | the orbiting clock **loses**: $-30.073$ µs/day at $R_\oplus$, $-28.296$ at 6 771 km — **not** zero | 1% |
+| 56 | GPS, static ground clock | $r_s/r_A - \tfrac32 r_s/r_B$ split | $+45.719$, $-7.213$, net $+38.506$ µs/day | 1% |
+| 57 | GPS, rotating ground clock | row 56 plus $R_\oplus^2\Omega_\oplus^2/2c^2$ | $+45.719$, $-7.109$, net $+38.610$ µs/day (Ashby 2003); the $0.104$ difference **is** the Earth's rotation | 1% |
+| 58 | Low Earth orbit | same, at 6 771 km | $-24.743$ µs/day — **opposite sign to GPS** | 1% |
+| 59 | Rate difference without cancellation | $(r_B^2-r_A^2)$ form vs direct subtraction | direct subtraction loses **7 of 16 digits** (rel. err. $>10^{-8}$) | exact form to 1e-15 |
 
 **Rows 42–47 — a Kerr renderer is gated on the shape of the shadow, not just its size.** Row 44
 is the one worth reading twice: the vertical half-extent of the Kerr shadow seen edge-on is

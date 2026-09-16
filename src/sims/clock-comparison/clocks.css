@@ -1,0 +1,222 @@
+/* SIM I. The canvas draws the faces; these are the labels that sit over it, and the GPS panel.
+   The panel classes below are scoped to this sim, as they are in every other sim: `.readout` and
+   `.chooser` are conventions rather than shared components, and a sim that uses the class names
+   without the rules gets the user agent's default button — which fails contrast in dark mode. */
+
+.clock-comparison .stage-surface {
+  position: relative;
+}
+
+.clock-caption {
+  position: absolute;
+  margin: 0;
+  transform: translate(-50%, 0);
+  display: grid;
+  gap: 0.1rem;
+  justify-items: center;
+  text-align: center;
+  pointer-events: none;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: var(--ink);
+  text-shadow: 0 1px 3px var(--panel), 0 0 6px var(--panel);
+}
+
+.clock-caption strong {
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+}
+
+.clock-caption span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-caption .clock-reading {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
+}
+
+.clock-caption-dial strong {
+  font-size: 0.8rem;
+}
+
+.gps-case {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--bg);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.gps-case h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.gps-case > p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.gps-terms {
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.gps-terms > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.gps-terms dt {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.gps-terms dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86rem;
+}
+
+.gps-net {
+  border-top: 1px solid var(--line);
+  padding-top: 0.25rem;
+  font-weight: 600;
+}
+
+.gps-net dt {
+  color: var(--ink);
+}
+
+.gps-case summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+.gps-case summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.derivation {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.derivation p {
+  margin: 0;
+}
+
+.derivation ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.derivation strong {
+  color: var(--ink);
+}
+
+@media (max-width: 40rem) {
+  .clock-caption {
+    font-size: 0.7rem;
+  }
+
+  .clock-caption .clock-reading {
+    font-size: 0.68rem;
+  }
+}
+
+.clock-comparison .chooser {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.clock-comparison .chooser-button {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.clock-comparison .chooser-button span {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-comparison .chooser-button:hover { border-color: var(--accent); }
+
+.clock-comparison .chooser-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.clock-comparison .chooser-button.is-selected {
+  border-color: var(--accent);
+  background: var(--panel);
+  font-weight: 700;
+}
+
+.clock-comparison .chooser-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.clock-comparison .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.clock-comparison .readout div { display: grid; gap: 0.15rem; }
+
+.clock-comparison .readout dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.clock-comparison .readout dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-family: Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-comparison .readout dd span {
+  display: block;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.clock-comparison .figure-benchmark {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.clock-comparison .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

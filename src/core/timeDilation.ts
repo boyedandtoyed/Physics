@@ -20,10 +20,21 @@ import {
 export { HAFELE_KEATING_EASTWARD, HAFELE_KEATING_WESTWARD, HAFELE_KEATING_PREDICTIONS } from './units';
 
 const TWO = 2;
+const THREE = 3;
 
 /** Schwarzschild radius of a mass, metres. */
 export function schwarzschildRadius(massKilograms: number): number {
   return (TWO * G * massKilograms) / C ** TWO;
+}
+
+/**
+ * Schwarzschild radius from a gravitational parameter GM rather than a mass.
+ *
+ * GM is what is actually measured — GM_earth is known to about one part in 10^9, G itself to one
+ * part in 10^5 — so anything quoted per-body should come in this way rather than through a mass.
+ */
+export function schwarzschildFromParameter(gravitationalParameter: number): number {
+  return (TWO * gravitationalParameter) / C ** TWO;
 }
 
 /**
@@ -144,4 +155,77 @@ export function radiusForClockRate(rate: number, schwarzschild: number): number 
     throw new RangeError('Clock rate must lie strictly between 0 and 1.');
   }
   return schwarzschild / (1 - rate ** TWO);
+}
+
+/** 3/2, as it appears in both the circular-orbit rate and the break-even radius. */
+const THREE_HALVES = 1.5;
+
+/**
+ * Rate of a clock on a **circular geodesic orbit** at `radius`, relative to one at infinity:
+ * sqrt(1 - 3GM/(rc^2)) = sqrt(1 - 1.5 r_s/r). PHYSICS_SPEC §2.8, §8 row 40.
+ *
+ * Exact in Schwarzschild coordinate time, not a weak-field expansion: substituting the exact
+ * Omega^2 = GM/r^3 into sqrt(1 - r_s/r - r^2 Omega^2/c^2) collapses the two terms into one.
+ * It vanishes at r = 3GM/c^2 = 1.5 r_s, the photon sphere, where circular timelike orbits stop
+ * existing — a factor of two astray in that denominator puts the zero inside the horizon, which
+ * is the quickest way to check the expression.
+ */
+export function circularClockRate(radius: number, schwarzschild: number): number {
+  if (!(radius > 0) || !(schwarzschild > 0)) {
+    throw new RangeError('Radius and Schwarzschild radius must be positive.');
+  }
+  if (radius <= THREE_HALVES * schwarzschild) {
+    throw new RangeError('No circular timelike orbit exists at or inside the photon sphere.');
+  }
+  return Math.sqrt(1 - (THREE_HALVES * schwarzschild) / radius);
+}
+
+/**
+ * Radius at which an orbiting clock ticks at the same rate as a static clock at `staticRadius`.
+ *
+ * 1 - 3GM/r_B c^2 = 1 - 2GM/r_A c^2 gives r_B = 1.5 r_A exactly, independent of the mass. Below
+ * it the orbiting clock loses, above it gains; GPS is above, the ISS is below.
+ */
+export function breakEvenRadius(staticRadius: number): number {
+  return THREE_HALVES * staticRadius;
+}
+
+/**
+ * (orbiting rate) - (static rate), computed without catastrophic cancellation.
+ *
+ * Both rates are 1 - 1e-9 around the Earth, so subtracting them directly throws away nine of the
+ * sixteen digits before the answer starts. The difference of squares is exact and its numerator
+ * is a difference of two quantities that are themselves small, so nothing is lost:
+ *
+ *     rate_B - rate_A = (rate_B^2 - rate_A^2)/(rate_B + rate_A)
+ *                     = (r_s/r_A - 1.5 r_s/r_B)/(rate_A + rate_B)
+ *
+ * Positive: the orbiting clock gains. Zero exactly at r_B = 1.5 r_A.
+ */
+export function clockRateDifference(
+  staticRadius: number, orbitRadius: number, schwarzschild: number,
+): number {
+  const rateA = staticClockRate(staticRadius, schwarzschild);
+  const rateB = circularClockRate(orbitRadius, schwarzschild);
+  const numerator = schwarzschild / staticRadius - (THREE_HALVES * schwarzschild) / orbitRadius;
+  return numerator / (rateA + rateB);
+}
+
+/**
+ * Microseconds the orbiting clock gains on the static one per day of **coordinate** time.
+ *
+ * Coordinate rather than either proper time, because that is the frame in which "per day" is
+ * unambiguous for both clocks at once; the two choices differ by one part in 10^9 of an already
+ * microsecond-sized number.
+ */
+export function clockDriftPerDay(
+  staticRadius: number, orbitRadius: number, schwarzschild: number,
+): number {
+  return clockRateDifference(staticRadius, orbitRadius, schwarzschild)
+    * SECONDS_PER_DAY * MICROSECONDS_PER_SECOND;
+}
+
+/** Coordinate angular velocity of a circular orbit, sqrt(GM/r^3). Exact in Schwarzschild t. */
+export function orbitAngularVelocity(radius: number, gravitationalParameter: number): number {
+  return Math.sqrt(gravitationalParameter / radius ** THREE);
 }

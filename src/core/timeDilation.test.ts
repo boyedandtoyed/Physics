@@ -3,8 +3,14 @@ import {
   HAFELE_KEATING_EASTWARD,
   HAFELE_KEATING_PREDICTIONS,
   HAFELE_KEATING_WESTWARD,
+  breakEvenRadius,
+  circularClockRate,
+  clockDriftPerDay,
+  clockRateDifference,
   clockRateRatio,
   gpsOffsets,
+  orbitAngularVelocity,
+  schwarzschildFromParameter,
   hafeleKeating,
   perpendicularRadius,
   properTimeAt,
@@ -12,7 +18,9 @@ import {
   schwarzschildRadius,
   staticClockRate,
 } from './timeDilation';
-import { EARTH_ANGULAR_VELOCITY, SOLAR_MASS } from './units';
+import {
+  EARTH_ANGULAR_VELOCITY, EARTH_GM, EARTH_MEAN_RADIUS, GPS_ORBIT_RADIUS, SOLAR_MASS,
+} from './units';
 
 describe('static clock rate', () => {
   // Never gated at one radius, and never at r = r_s where the normalised variable is 1 and
@@ -161,5 +169,58 @@ describe('Hafele-Keating (§8 rows 8, 9, 19)', () => {
     );
     for (let i = 1; i < values.length; i++) expect(values[i]!).toBeLessThan(values[i - 1]!);
     expect(perpendicularRadius(60) / perpendicularRadius(0)).toBeCloseTo(0.5, 9);
+  });
+});
+
+describe('circular-orbit clock rates', () => {
+  it('vanishes at the photon sphere and not inside the horizon', () => {
+    // PHYSICS_SPEC §2.8: the factor-of-two check. sqrt(1 - 1.5 r_s/r) hits zero at 1.5 r_s;
+    // sqrt(1 - 3 r_s/r) would hit it at 3 r_s and a "1 - 0.75 r_s/r" at 0.75 r_s, inside the
+    // horizon, which is the giveaway that the expression has been copied wrong.
+    expect(() => circularClockRate(1.5, 1)).toThrow(RangeError);
+    expect(circularClockRate(1.5 * (1 + 1e-12), 1)).toBeLessThan(2e-6);
+    expect(circularClockRate(3, 1)).toBeCloseTo(Math.SQRT1_2, 12);
+  });
+
+  it('always loses to a static clock at the same radius', () => {
+    for (const radius of [2, 5, 20, 1e3, 1e9]) {
+      expect(circularClockRate(radius, 1)).toBeLessThan(staticClockRate(radius, 1));
+    }
+  });
+
+  it('agrees with a static clock exactly at 1.5 r_A, for any mass', () => {
+    for (const schwarzschild of [1, 8.87e-3, 3e3]) {
+      for (const multiple of [4, 100, 1e6]) {
+        const radius = multiple * schwarzschild;
+        const orbit = breakEvenRadius(radius);
+        expect(circularClockRate(orbit, schwarzschild))
+          .toBeCloseTo(staticClockRate(radius, schwarzschild), 15);
+        expect(clockRateDifference(radius, orbit, schwarzschild)).toBeCloseTo(0, 15);
+      }
+    }
+  });
+
+  it('takes the difference without catastrophic cancellation', () => {
+    const rs = schwarzschildFromParameter(EARTH_GM);
+    const ground = EARTH_MEAN_RADIUS;
+    const exact = clockRateDifference(ground, GPS_ORBIT_RADIUS, rs);
+    const naive = circularClockRate(GPS_ORBIT_RADIUS, rs) - staticClockRate(ground, rs);
+    expect(exact).toBeCloseTo(4.4567410224e-10, 20);
+    // Seven digits survive the naive subtraction; sixteen survive this one.
+    expect(Math.abs(naive - exact) / exact).toBeGreaterThan(1e-8);
+  });
+
+  it('reproduces the GPS net offset from the two radii alone', () => {
+    const rs = schwarzschildFromParameter(EARTH_GM);
+    expect(clockDriftPerDay(EARTH_MEAN_RADIUS, GPS_ORBIT_RADIUS, rs)).toBeCloseTo(38.506, 2);
+  });
+
+  it('gives the Earth a Schwarzschild radius of 8.870 mm from GM alone', () => {
+    expect(schwarzschildFromParameter(EARTH_GM)).toBeCloseTo(8.8700560e-3, 9);
+  });
+
+  it('returns the exact Keplerian angular velocity', () => {
+    const period = (2 * Math.PI) / orbitAngularVelocity(GPS_ORBIT_RADIUS, EARTH_GM);
+    expect(period / 3600).toBeCloseTo(11.9674, 3);
   });
 });
