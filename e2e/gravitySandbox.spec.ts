@@ -30,7 +30,8 @@ async function place(
   const box = (await canvas.boundingBox())!;
   const viewport = page.viewportSize()!;
   // A click outside the window is discarded silently, so assert rather than discover it later
-  // as "the sim lost a body".
+  // as "the sim lost a body". The view is a perspective one now, so a click ABOVE the horizon
+  // line misses the equatorial plane and is discarded too — targets belong in the lower half.
   expect(box.y + y + dy, 'click target is below the viewport').toBeLessThan(viewport.height);
   expect(box.x + x + dx, 'click target is right of the viewport').toBeLessThan(viewport.width);
   await page.mouse.move(box.x + x, box.y + y);
@@ -104,7 +105,7 @@ test('every slider and every preset survives, with the console clean', async ({ 
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto(ROUTE);
   await page.waitForTimeout(800);
-  for (const name of ['Speed', 'Zoom']) {
+  for (const name of ['Speed', 'Camera distance', 'Camera height', 'Sheet depth']) {
     const slider = page.getByRole('slider', { name });
     await slider.focus();
     for (const key of ['Home', 'End'] as const) {
@@ -149,7 +150,9 @@ test('the energy drift stays tiny with the correction off and worsens with it on
   expect(newtonian).toBeLessThan(1e-6);
 
   await page.locator('.react-aria-Switch', { hasText: 'Post-Newtonian correction' }).click();
-  await expect(page.locator('.mode-warning')).toContainText('NOT the 1PN N-body equations');
+  // Three switches now, each with its own notice; this one is the first.
+  await expect(page.locator('.mode-warning').first())
+    .toContainText('NOT the 1PN N-body equations');
   await page.getByRole('button', { name: 'Binary black holes' }).click();
   await page.waitForTimeout(3000);
   const corrected = await drift();
@@ -196,4 +199,164 @@ test('corrects the validity domain of the correction, in the misconceptions', as
   await expect(page.getByText(/Exactly backwards/)).toBeVisible();
   await expect(page.getByText(/10% of the Newtonian term/)).toBeVisible();
   await expect(page.getByText(/Einstein–Infeld–Hoffmann/).first()).toBeVisible();
+});
+
+// ---------------------------------------------------------------------------------------------
+// The 3D view: the camera, the deforming sheet, and the two switches that are new with it.
+// ---------------------------------------------------------------------------------------------
+
+test('the camera orbits from the keyboard, and the readout says where it is', async ({ page }) => {
+  await page.goto(ROUTE);
+  await page.waitForTimeout(800);
+  await expect(readout(page, 'camera')).toContainText('30.0°');
+  await expect(readout(page, 'camera')).toContainText('above the plane');
+
+  const azimuth = async () => {
+    const text = await readout(page, 'camera').innerText();
+    return Number(/azimuth\s+([\d.]+)°/.exec(text)?.[1] ?? NaN);
+  };
+  const before = await azimuth();
+  const canvas = page.locator('.stage-surface canvas');
+  await canvas.focus();
+  for (let i = 0; i < 5; i++) await canvas.press('ArrowLeft');
+  await page.waitForTimeout(300);
+  expect(await azimuth()).not.toBeCloseTo(before, 1);
+
+  // Up and down change the height, and the pole is clamped rather than reached.
+  for (let i = 0; i < 60; i++) await canvas.press('ArrowUp');
+  await page.waitForTimeout(300);
+  const height = Number(/^([\d.]+)°/.exec(await readout(page, 'camera').innerText())?.[1] ?? NaN);
+  expect(height).toBeGreaterThan(60);
+  expect(height, 'the camera basis degenerates at the pole, so it must stop short').toBeLessThan(90);
+});
+
+test('the camera sliders reach both ends and the scene survives edge-on', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.goto(ROUTE);
+  await page.getByRole('button', { name: 'Binary black holes' }).click();
+  const height = page.getByRole('slider', { name: 'Camera height' });
+  await height.focus();
+  // Edge-on: the plane is a line, and the pixel-to-plane map has no solution for most of the
+  // frame. It must not throw, and the sim must not stop drawing.
+  await height.press('Home');
+  await page.waitForTimeout(700);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
+  await height.press('End');
+  await page.waitForTimeout(700);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('the sheet deepens when a heavier mass goes on it', async ({ page }) => {
+  // The sheet is the Newtonian potential (§2.9), so this is a claim about the field and not
+  // about pixels: -3M/2R at the centre of a uniform sphere.
+  await page.goto(ROUTE);
+  await page.waitForTimeout(600);
+  expect(await numberIn(page, 'well')).toBe(0);
+
+  await place(page, 300, 330);
+  await page.waitForTimeout(400);
+  const planet = await numberIn(page, 'well');
+  expect(planet).toBeCloseTo(-7.5, 1);
+
+  // The palette entry, not the "Binary black holes" preset that also matches the words.
+  await page.getByRole('button', { name: 'Black hole M =' }).click();
+  await place(page, 480, 360);
+  await page.waitForTimeout(400);
+  const hole = await numberIn(page, 'well');
+  // Ten times the mass in half the volume: far deeper, and deeper than a mere factor of ten.
+  expect(hole).toBeLessThan(planet * 5);
+});
+
+test('the sheet’s depth slider changes the drawing and not the field', async ({ page }) => {
+  await page.goto(ROUTE);
+  await page.getByRole('button', { name: 'Binary black holes' }).click();
+  await page.waitForTimeout(600);
+  const before = await numberIn(page, 'well');
+  const depth = page.getByRole('slider', { name: 'Sheet depth' });
+  await depth.focus();
+  await depth.press('Home');
+  await page.waitForTimeout(600);
+  // Flat sheet, identical physics: the readout is the potential, which the slider never touches.
+  expect(await numberIn(page, 'well')).toBeCloseTo(before, 1);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
+});
+
+test('a click near the middle of the canvas places a mass near the origin', async ({ page }) => {
+  // The real test of the perspective pixel-to-plane map, in a browser: the sheet's deepest point
+  // is at the body, so placing one mass makes the readout its own central potential exactly.
+  await page.goto(ROUTE);
+  await page.waitForTimeout(600);
+  const box = (await page.locator('.stage-surface canvas').boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.62);
+  await page.waitForTimeout(400);
+  expect(await numberIn(page, 'bodies')).toBe(1);
+  expect(await numberIn(page, 'well')).toBeCloseTo(-7.5, 1);
+});
+
+test('radiation is what makes the inspiral inspiral, and it is off by default', async ({ page }) => {
+  await page.goto(ROUTE);
+  const radiation = page.locator('.react-aria-Switch', { hasText: 'Gravitational radiation' });
+  await expect(radiation.locator('input')).not.toBeChecked();
+  await expect(page.getByText(/Nothing here inspirals until this is on/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Inspiral', exact: true }).click();
+  await page.getByRole('slider', { name: 'Speed' }).focus();
+  await page.getByRole('slider', { name: 'Speed' }).press('End');
+  await page.waitForTimeout(4000);
+  // Conservative: the pair is still a pair, and the orbit has not shrunk into the absorb radius.
+  expect(await numberIn(page, 'bodies')).toBe(2);
+
+  await radiation.click();
+  await expect(page.getByText(/Peters gives 659 sim units to merger/)).toBeVisible();
+  await page.getByRole('button', { name: 'Inspiral', exact: true }).click();
+  // Peters gives 659 sim units from this separation, which at 100x is about seven seconds.
+  await expect.poll(() => numberIn(page, 'bodies'), { timeout: 60_000 }).toBe(1);
+});
+
+test('the schematic distortion is off by default and is labelled as not lensing', async ({ page }) => {
+  // CLAUDE.md: physical is the default, and a non-physical view is labelled as one. A radial
+  // pull on finished pixels is about as non-physical as this repo gets.
+  await page.goto(ROUTE);
+  const distortion = page.locator('.react-aria-Switch', { hasText: 'Schematic distortion' });
+  await expect(distortion.locator('input')).not.toBeChecked();
+  await expect(page.getByText(/physical is the default here/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Binary black holes' }).click();
+  await distortion.click();
+  await expect(page.getByText(/NOT PHYSICAL/)).toBeVisible();
+  await expect(page.getByText(/It is not lensing: no ray is traced/)).toBeVisible();
+  await page.waitForTimeout(1200);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
+});
+
+test('says the grid is the Newtonian potential and not an embedding diagram', async ({ page }) => {
+  await page.goto(ROUTE);
+  const label = page.locator('.stage-permanent-label');
+  await expect(label).toContainText('Newtonian potential, not a solution of Einstein');
+  await expect(label).toContainText('not');
+  await expect(label).toContainText('Flamm paraboloid');
+  await expect(label).toBeVisible();
+  await expect(page.getByText(/There is no embedding diagram of two stars/)).toBeVisible();
+});
+
+test('the three new presets load and are what they say they are', async ({ page }) => {
+  await page.goto(ROUTE);
+  await page.getByRole('button', { name: 'Inner planets' }).click();
+  await page.waitForTimeout(500);
+  expect(await numberIn(page, 'bodies')).toBe(5);
+
+  await page.getByRole('button', { name: 'Figure eight' }).click();
+  await page.waitForTimeout(500);
+  expect(await numberIn(page, 'bodies')).toBe(3);
+  // The choreography is a genuine solution, so it must still be a three-body system a while in.
+  await page.waitForTimeout(4000);
+  expect(await numberIn(page, 'bodies')).toBe(3);
+  expect(Math.abs(await numberIn(page, 'drift'))).toBeLessThan(1e-4);
+
+  await page.getByRole('button', { name: 'Inspiral', exact: true }).click();
+  await page.waitForTimeout(500);
+  expect(await numberIn(page, 'bodies')).toBe(2);
 });

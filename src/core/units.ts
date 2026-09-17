@@ -41,6 +41,20 @@ export const LOW_EARTH_ORBIT_RADIUS = 6_771_000;
 /** Selenocentric gravitational constant, DE430. m^3 s^-2. GM is the measured quantity; the
  * Moon-to-Earth ratio built from these two is 0.012305, not a rounded 0.012. */
 export const MOON_GM = 4.902_800_66e12;
+
+/** Planetary gravitational parameters, IAU 2015 / DE440. m^3/s^2.
+ *
+ * GM is the measured quantity — these are known to nine or ten figures while G alone is known to
+ * five — so a mass ratio must be built from these and never from rounded masses in kilograms. */
+export const MERCURY_GM = 2.203_186_855_1e13;
+export const VENUS_GM = 3.248_585_92e14;
+export const MARS_GM = 4.282_837_362e13;
+
+/** Semi-major axes of the inner planets, in astronomical units. IAU/JPL mean elements. */
+export const MERCURY_AU = 0.387_098_93;
+export const VENUS_AU = 0.723_331_99;
+export const EARTH_AU = 1.000_000_11;
+export const MARS_AU = 1.523_662_31;
 /** Jovian system gravitational constant, DE430. m^3 s^-2. */
 export const JUPITER_GM = 1.266_865_341e17;
 /** Jupiter's equatorial radius at 1 bar, IAU. m. */

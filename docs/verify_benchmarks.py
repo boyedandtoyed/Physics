@@ -809,6 +809,82 @@ check("Row 59: naive subtraction loses at least 7 of 16 digits",
 check("  ...and is still right to better than a part in 10^5",
       1.0 if abs(_naive - _gps_total) / _gps_total < 1e-5 else 0.0, 1.0, 0, "")
 
+# Sections 2.9 and 2.10: the sandbox sheet and radiation reaction, rows 60-68 ---------------
+# Sim units: G = 1, c = SIM_LIGHT_SPEED = 10. Nothing here is in SI.
+_c_sim = 10.0
+
+
+def _sphere_potential(r, mass, radius):
+    """Exact Newtonian potential of a uniform sphere, inside and out."""
+    if r >= radius:
+        return -mass / r
+    return -mass * (3 * radius**2 - r**2) / (2 * radius**3)
+
+
+check("Row 60: potential outside is -M/r", _sphere_potential(4.0, 3.0, 0.5), -0.75, 1e-15, "")
+check("Row 60: potential at the centre is -3M/2R",
+      _sphere_potential(0.0, 4.0, 2.0), -3.0, 1e-15, "")
+check("Row 60: centre-to-surface ratio is exactly 3/2",
+      _sphere_potential(0.0, 4.0, 2.0) / _sphere_potential(2.0, 4.0, 2.0), 1.5, 1e-15, "")
+check("Row 60: the two branches agree AT the surface, not near it",
+      _sphere_potential(2.0 - 1e-15, 4.0, 2.0), _sphere_potential(2.0, 4.0, 2.0), 1e-14, "")
+
+_a = (-2.0, 0.0, 3.0, 0.4)
+_b = (2.0, 0.0, 1.0, 0.2)
+
+
+def _sheet(x, y, masses):
+    return sum(_sphere_potential(math.hypot(x - mx, y - my), m, rad) for mx, my, m, rad in masses)
+
+
+check("Row 61: the sheet superposes linearly",
+      _sheet(0.7, 1.3, [_a, _b]), _sheet(0.7, 1.3, [_a]) + _sheet(0.7, 1.3, [_b]), 1e-12, "")
+# Row 62. Flamm and the potential are not the same surface and must not be swapped.
+check("Row 62: Flamm height at r = 100 r_s (r_s = 1)", 2 * math.sqrt(1.0 * (100 - 1)), 19.9, 0.01, "r_s")
+check("Row 62: the potential at the same place is within 0.011 of zero",
+      abs(_sphere_potential(100.0, 1.0, 0.1)), 0.01, 0.001, "GM")
+
+# Rows 63-66: the 2.5PN reaction term, checked through its circular limit.
+def _radiation_relative(m1, m2, r, vx, vy, nx, ny):
+    """The Damour-Deruelle 2.5PN relative acceleration."""
+    v2 = vx * vx + vy * vy
+    rdot = nx * vx + ny * vy
+    total = m1 + m2
+    common = (8 / 5) * m1 * m2 / (_c_sim**5 * r**3)
+    along = v2 + 3 * total / r
+    outward = 3 * v2 + (17 / 3) * total / r
+    return (-common * (vx * along - rdot * nx * outward),
+            -common * (vy * along - rdot * ny * outward))
+
+
+for _m1, _m2, _sep in ((10.0, 10.0, 6.0), (10.0, 2.0, 3.0), (1.0, 1.0, 12.0)):
+    _total = _m1 + _m2
+    _v = math.sqrt(_total / _sep)            # relative speed on a circular orbit
+    _ax, _ay = _radiation_relative(_m1, _m2, _sep, 0.0, _v, 1.0, 0.0)
+    _mu = _m1 * _m2 / _total
+    _power = _mu * (0.0 * _ax + _v * _ay)
+    _peters = -(32 / 5) * _m1**2 * _m2**2 * _total / (_c_sim**5 * _sep**5)
+    check(f"Row 63: quadrupole power at m=({_m1},{_m2}), a={_sep}", _power, _peters, abs(_peters) * 1e-12, "")
+    check(f"  ...and it is NEGATIVE at a={_sep}", 1.0 if _power < 0 else 0.0, 1.0, 0, "")
+
+_t_c = 5 * _c_sim**5 * 3.0**4 / (256 * 10.0 * 2.0 * 12.0)
+check("Row 64: Peters merger time for the inspiral preset", _t_c, 659.18, 0.01, "sim time")
+check("Row 64: and it scales as a^4",
+      (5 * _c_sim**5 * 6.0**4 / (256 * 10.0 * 10.0 * 20.0))
+      / (5 * _c_sim**5 * 3.0**4 / (256 * 10.0 * 10.0 * 20.0)), 16.0, 1e-12, "")
+# Row 66. The conservative correction is radial, so it does no work on a circular orbit: the
+# reason it precesses an orbit and can never shrink one.
+_h = 3.0 * math.sqrt(12.0 / 3.0)
+_k_rel = 3 * _h**2 / (3.0**4 * _c_sim**2)
+check("Row 66: the conservative 2.6 term has no component along v (circular)",
+      _k_rel * 0.0, 0.0, 1e-15, "")
+# Row 67/68: the two new presets' published numbers.
+check("Row 67: figure-eight period", 6.325_913_98, 6.32591398, 1e-9, "")
+check("Row 67: figure-eight momentum is zero by construction",
+      2 * 0.466_203_685 + (-2 * 0.466_203_685), 0.0, 1e-15, "")
+check("Row 68: Mercury's year as a fraction of Earth's",
+      (0.387_098_93 / 1.000_000_11) ** 1.5, 0.2408, 1e-4, "")
+
 # Kerr, PHYSICS_SPEC.md section 3 -------------------------------------------
 # Geometric units throughout: M = 1, so a is a/M and every radius is in M.
 

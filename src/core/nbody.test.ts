@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MIN_SEPARATION,
-  SIM_LIGHT_SPEED,
-  MOON_TO_EARTH,
   JUPITER_TO_EARTH,
+  MERCURY_YEAR_RATIO,
+  MIN_SEPARATION,
+  MOON_TO_EARTH,
+  SIM_LIGHT_SPEED,
   SUN_TO_EARTH,
   accelerations,
   binary,
@@ -11,12 +12,15 @@ import {
   escapeSpeed,
   findAbsorptions,
   orbitalPeriod,
+  petersEnergyLossRate,
+  petersMergerTime,
   presets,
+  radiationReaction,
   relativisticFraction,
   totalEnergy,
-  zeroMomentum,
   totalMomentum,
   type Body,
+  zeroMomentum,
 } from './nbody';
 import { createYoshida4 } from './integrators/symplectic';
 
@@ -231,7 +235,10 @@ describe('the presets', () => {
       expect(preset.bodies.length).toBeGreaterThan(1);
     }
     expect(presets().find(p => p.id === 'sun-earth-jupiter')!.note).toContain('not');
-    expect(presets().find(p => p.id === 'binary-holes')!.note).toContain('no gravitational radiation');
+    // This note used to say the sandbox had no gravitational radiation. It has, now, so the
+    // note says what the conservative correction can and cannot do instead.
+    expect(presets().find(p => p.id === 'binary-holes')!.note).toContain('conservative');
+    expect(presets().find(p => p.id === 'inspiral')!.note).toContain('Peters');
   });
 
   it('boosts to the barycentre frame, which is a Galilean boost and changes nothing', () => {
@@ -323,5 +330,149 @@ describe('absorption and the trail colouring', () => {
       make({ mass: 0, x: 0, y: 0 }),
     ];
     expect(escapeSpeed(bodies, 2)).toBeCloseTo(Math.sqrt(2 * (1 / 2 + 1 / 2)), 12);
+  });
+});
+
+describe('quadrupole radiation reaction', () => {
+  const rate = (bodies: Body[]) => {
+    const velocities = Float64Array.from(bodies.flatMap(b => [b.vx, b.vy]));
+    const out = new Float64Array(bodies.length * 2);
+    radiationReaction(bodies, velocities, out);
+    // dE/dt = sum m_i v_i . a_i, which for a reactive force is the radiated power.
+    let power = 0;
+    bodies.forEach((b, i) => {
+      power += b.mass * (b.vx * out[i * 2]! + b.vy * out[i * 2 + 1]!);
+    });
+    return { out, power };
+  };
+
+  const circular = (massA: number, massB: number, separation: number) =>
+    zeroMomentum(binary(massA, massB, separation));
+
+  it('reproduces Peters’ circular energy-loss rate exactly', () => {
+    // The gate on the whole term: get any coefficient wrong and this misses.
+    for (const [a, b, r] of [[10, 10, 6], [10, 2, 3], [1, 1, 12]] as const) {
+      const { power } = rate(circular(a, b, r));
+      expect(power).toBeCloseTo(petersEnergyLossRate(a, b, r), 12);
+      expect(power).toBeLessThan(0);
+    }
+  });
+
+  it('takes energy out and never puts it in', () => {
+    const bodies = circular(10, 2, 3);
+    expect(rate(bodies).power).toBeLessThan(0);
+    // ...at every separation, not just one.
+    for (const r of [1, 2, 4, 8, 16]) expect(rate(circular(10, 2, r)).power).toBeLessThan(0);
+  });
+
+  it('conserves momentum: the two reactive forces are equal and opposite', () => {
+    const bodies = circular(10, 2, 3);
+    const { out } = rate(bodies);
+    const fx = bodies.reduce((sum, b, i) => sum + b.mass * out[i * 2]!, 0);
+    const fy = bodies.reduce((sum, b, i) => sum + b.mass * out[i * 2 + 1]!, 0);
+    expect(Math.abs(fx)).toBeLessThan(1e-18);
+    expect(Math.abs(fy)).toBeLessThan(1e-18);
+  });
+
+  it('falls off as a^-5 in the power and so as a^4 in the merger time', () => {
+    const near = rate(circular(10, 10, 3)).power;
+    const far = rate(circular(10, 10, 6)).power;
+    expect(near / far).toBeCloseTo(2 ** 5, 6);
+    expect(petersMergerTime(10, 10, 6) / petersMergerTime(10, 10, 3)).toBeCloseTo(2 ** 4, 12);
+  });
+
+  it('vanishes for a lone body and for a massless companion', () => {
+    const out = new Float64Array(4);
+    radiationReaction(
+      [{ mass: 10, x: 0, y: 0, vx: 0, vy: 0, absorbRadius: 0, kind: 'hole' },
+        { mass: 0, x: 3, y: 0, vx: 0, vy: 1, absorbRadius: 0, kind: 'test' }],
+      Float64Array.from([0, 0, 0, 1]), out,
+    );
+    expect(Array.from(out)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('is what makes an inspiral an inspiral: the conservative term alone cannot shrink an orbit', () => {
+    // PHYSICS_SPEC §2.10. The §2.6 correction is conservative; run it for many orbits and the
+    // separation comes back.
+    const bodies = circular(10, 2, 3);
+    const velocities = new Float64Array(4);
+    const out = new Float64Array(4);
+    bodies.forEach((b, i) => { velocities[i * 2] = b.vx; velocities[i * 2 + 1] = b.vy; });
+    accelerations(bodies, out, true, velocities);
+    // The conservative correction is purely radial: no component along v for a circular orbit.
+    const alongVelocity = bodies.reduce(
+      (sum, b, i) => sum + b.mass * (b.vx * out[i * 2]! + b.vy * out[i * 2 + 1]!), 0,
+    );
+    expect(Math.abs(alongVelocity)).toBeLessThan(1e-12);
+    // Radiation reaction, by contrast, is almost entirely along -v.
+    expect(rate(bodies).power).toBeLessThan(-1e-6);
+  });
+});
+
+describe('the new presets', () => {
+  const find = (id: string) => presets().find(entry => entry.id === id)!;
+
+  it('places the inner planets at exact ratios of radius and of period', () => {
+    const inner = find('inner-planets');
+    expect(inner.bodies).toHaveLength(5);
+    const [sun, mercury, venus, earth, mars] = inner.bodies as [Body, Body, Body, Body, Body];
+    expect(sun.mass).toBe(1);
+    // Masses from measured GM, normalised to the Sun.
+    expect(mercury.mass).toBeCloseTo(1.6601e-7, 10);
+    expect(venus.mass).toBeCloseTo(2.4478e-6, 9);
+    expect(earth.mass).toBeCloseTo(3.0035e-6, 9);
+    expect(mars.mass).toBeCloseTo(3.2271e-7, 10);
+    // Radius ratios are the real ones, because one factor scales them all.
+    const radius = (b: Body) => Math.hypot(b.x - sun.x, b.y - sun.y);
+    expect(radius(mercury) / radius(earth)).toBeCloseTo(0.387_098_93 / 1.000_000_11, 9);
+    expect(radius(mars) / radius(earth)).toBeCloseTo(1.523_662_31 / 1.000_000_11, 9);
+  });
+
+  it('gives Mercury a year 0.2408 of Earth’s, as Kepler’s third law requires', () => {
+    expect(MERCURY_YEAR_RATIO).toBeCloseTo(0.2408, 4);
+    const inner = find('inner-planets').bodies;
+    const [sun, mercury, , earth] = inner as [Body, Body, Body, Body];
+    const period = (b: Body) => orbitalPeriod(Math.hypot(b.x - sun.x, b.y - sun.y), 1);
+    expect(period(mercury) / period(earth)).toBeCloseTo(MERCURY_YEAR_RATIO, 9);
+  });
+
+  it('starts the figure eight at the published initial conditions', () => {
+    const eight = find('figure-eight').bodies;
+    expect(eight).toHaveLength(3);
+    expect(eight.every(b => b.mass === 1)).toBe(true);
+    const [a, b, c] = eight as [Body, Body, Body];
+    expect(a.x).toBeCloseTo(0.97000436, 8);
+    expect(a.y).toBeCloseTo(-0.24308753, 8);
+    expect(b.x).toBeCloseTo(-a.x, 12);
+    expect(b.y).toBeCloseTo(-a.y, 12);
+    expect(c.x).toBe(0);
+    expect(c.y).toBe(0);
+    // The third body carries minus twice the others' velocity, which is what zeroes the momentum.
+    expect(c.vx).toBeCloseTo(-0.93240737, 8);
+    expect(c.vy).toBeCloseTo(-0.86473146, 8);
+    const momentum = totalMomentum(eight);
+    expect(Math.abs(momentum.x)).toBeLessThan(1e-15);
+    expect(Math.abs(momentum.y)).toBeLessThan(1e-15);
+  });
+
+  it('gives the inspiral a merger time Peters can be asked to confirm', () => {
+    const inspiral = find('inspiral').bodies;
+    expect(inspiral).toHaveLength(2);
+    const separation = Math.hypot(
+      inspiral[0]!.x - inspiral[1]!.x, inspiral[0]!.y - inspiral[1]!.y,
+    );
+    expect(separation).toBeCloseTo(3, 12);
+    expect(petersMergerTime(10, 2, 3)).toBeCloseTo(659.18, 1);
+    // Long enough to watch and short enough to finish: tens of orbits, not thousands.
+    const orbits = petersMergerTime(10, 2, 3) / orbitalPeriod(3, 12);
+    expect(orbits).toBeGreaterThan(20);
+    expect(orbits).toBeLessThan(200);
+  });
+
+  it('keeps every preset momentum-free, so nothing drifts off screen', () => {
+    for (const preset of presets()) {
+      const momentum = totalMomentum(preset.bodies);
+      expect(Math.hypot(momentum.x, momentum.y), preset.id).toBeLessThan(1e-12);
+    }
   });
 });

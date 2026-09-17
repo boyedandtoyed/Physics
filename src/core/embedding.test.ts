@@ -4,7 +4,10 @@ import {
   embeddingHeight,
   embeddingResidual,
   embeddingSlope,
+  sheetHeight,
   spatialShareOfDeflection,
+  uniformSphereField,
+  uniformSpherePotential,
 } from './embedding';
 
 // Never one radius, and never only r = r_s, where the normalised variable is 1 and a wrong
@@ -79,5 +82,88 @@ describe('what the funnel is not a picture of', () => {
     expect(spatialShareOfDeflection(7700 / 299792458)).toBeCloseTo(6.6e-10, 12);
     expect(() => spatialShareOfDeflection(0)).toThrow(RangeError);
     expect(() => spatialShareOfDeflection(1.5)).toThrow(RangeError);
+  });
+});
+
+describe('the rubber sheet the sandboxes draw', () => {
+  it('is the exact Newtonian potential outside the body', () => {
+    for (const r of [1, 2, 10, 1e3]) {
+      expect(uniformSpherePotential(r, 3, 0.5)).toBeCloseTo(-3 / r, 12);
+    }
+  });
+
+  it('is the exact uniform-sphere interior, not a softening parameter', () => {
+    const mass = 4;
+    const radius = 2;
+    // -3M/2R at the centre, -M/R at the surface, and a ratio of exactly 3/2 between them.
+    expect(uniformSpherePotential(0, mass, radius)).toBeCloseTo(-1.5 * mass / radius, 12);
+    expect(uniformSpherePotential(radius, mass, radius)).toBeCloseTo(-mass / radius, 12);
+    expect(uniformSpherePotential(0, mass, radius) / uniformSpherePotential(radius, mass, radius))
+      .toBeCloseTo(1.5, 12);
+  });
+
+  it('joins continuously, and with a continuous slope, at the surface', () => {
+    const mass = 4;
+    const radius = 2;
+    // Both branches evaluated AT the surface rather than either side of it: the interior form
+    // -M(3R^2-r^2)/(2R^3) collapses to -M/R at r = R exactly, and MR/R^3 to M/R^2, so this is a
+    // statement about the algebra and not about how small an epsilon was chosen.
+    const interior = (-mass * (3 * radius * radius - radius * radius)) / (2 * radius ** 3);
+    expect(interior).toBe(-mass / radius);
+    expect(uniformSpherePotential(radius, mass, radius)).toBe(-mass / radius);
+    expect((mass * radius) / radius ** 3).toBe(mass / (radius * radius));
+    expect(uniformSphereField(radius, mass, radius)).toBe(mass / (radius * radius));
+    // And the step across the join is what a slope of M/R^2 over 2e-9 gives, not a jump.
+    const epsilon = 1e-9;
+    const step = uniformSpherePotential(radius + epsilon, mass, radius)
+      - uniformSpherePotential(radius - epsilon, mass, radius);
+    expect(step).toBeCloseTo(2 * epsilon * (mass / (radius * radius)), 15);
+    // The field is finite everywhere, including dead centre, which is why no epsilon is needed.
+    expect(uniformSphereField(0, mass, radius)).toBe(0);
+  });
+
+  it('is NOT the Flamm paraboloid, and the two disagree in sign of slope', () => {
+    // Flamm rises outward as +2 sqrt(r_s r); the potential rises to zero from below as -M/r.
+    // Both "rise", but one is unbounded above and the other is bounded by zero — they are not
+    // the same picture and the sims say which one they are drawing.
+    expect(embeddingHeight(4)).toBeGreaterThan(embeddingHeight(2));
+    expect(uniformSpherePotential(4, 1, 0.1)).toBeGreaterThan(uniformSpherePotential(2, 1, 0.1));
+    expect(embeddingHeight(100)).toBeGreaterThan(10);
+    expect(uniformSpherePotential(100, 1, 0.1)).toBeGreaterThan(-0.011);
+  });
+
+  it('superposes linearly, which is exactly why it can be drawn for several masses at all', () => {
+    const a = { x: -2, y: 0, mass: 3, radius: 0.4 };
+    const b = { x: 2, y: 0, mass: 1, radius: 0.2 };
+    const point = { x: 0.7, y: 1.3 };
+    expect(sheetHeight(point.x, point.y, [a, b])).toBeCloseTo(
+      sheetHeight(point.x, point.y, [a]) + sheetHeight(point.x, point.y, [b]), 12,
+    );
+  });
+
+  it('is deepest at a mass and shallower between two of them', () => {
+    const masses = [
+      { x: -2, y: 0, mass: 1, radius: 0.3 },
+      { x: 2, y: 0, mass: 1, radius: 0.3 },
+    ];
+    expect(sheetHeight(-2, 0, masses)).toBeLessThan(sheetHeight(0, 0, masses));
+    expect(sheetHeight(0, 0, masses)).toBeLessThan(sheetHeight(20, 0, masses));
+    // Symmetric, as two equal masses must be.
+    expect(sheetHeight(-2, 0, masses)).toBeCloseTo(sheetHeight(2, 0, masses), 12);
+  });
+
+  it('scales the whole sheet without changing its shape', () => {
+    const masses = [{ x: 0, y: 0, mass: 2, radius: 0.5 }];
+    expect(sheetHeight(3, 0, masses, 4)).toBeCloseTo(4 * sheetHeight(3, 0, masses), 12);
+  });
+
+  it('is finite everywhere, including dead centre of a mass', () => {
+    const masses = [{ x: 0, y: 0, mass: 5, radius: 0.25 }];
+    expect(Number.isFinite(sheetHeight(0, 0, masses))).toBe(true);
+    expect(sheetHeight(0, 0, masses)).toBeCloseTo(-1.5 * 5 / 0.25, 12);
+  });
+
+  it('refuses a body with no radius rather than returning an infinity', () => {
+    expect(() => uniformSpherePotential(0, 1, 0)).toThrow(RangeError);
   });
 });

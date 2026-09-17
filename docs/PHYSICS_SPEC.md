@@ -338,6 +338,90 @@ orbital-radius slider spans both must show the sign change.
 > means for the orbital motion to cost time. The radius at which the two agree is $r_B = 1.5r_A$,
 > not $r_A = r_B$.
 
+### 2.9 The rubber sheet, drawn honestly
+
+The funnel is the most-abused picture in the subject, and a sandbox that draws one for **several**
+masses at once is making a claim the picture cannot support. Two things are true and must not be
+confused.
+
+**The Flamm paraboloid** (§2.1a) is the *exact* isometric embedding of the equatorial constant-$t$
+slice of **one** Schwarzschild mass:
+
+$$z(r) = 2\sqrt{r_s(r-r_s)},\qquad r \ge r_s$$
+
+It is not linear, it is defined only outside the horizon, and it **rises outward** as
+$2\sqrt{r_s r}$ without bound. Adding two of them is not an embedding of anything: general
+relativity is non-linear, and a slice containing two masses has **no** isometric embedding in flat
+3-space at all. Any multi-mass "sum of Flamm depressions" is a drawing, not a geometry.
+
+**The Newtonian potential**, by contrast, superposes exactly, because Poisson's equation is
+linear. For uniform spheres of mass $M_i$ and radius $R_i$,
+
+$$\Phi(\mathbf x) = \sum_i \phi_i,\qquad
+\phi_i = \begin{cases} -GM_i/r_i & r_i \ge R_i \\[2pt]
+-GM_i\dfrac{3R_i^2-r_i^2}{2R_i^3} & r_i < R_i\end{cases}$$
+
+The interior branch is the **exact** potential inside a uniform sphere, not a softening
+parameter: it is continuous and $C^1$ at $r=R$, it bottoms out at $-3GM/2R$, and it removes the
+$1/r$ singularity without anyone choosing a number for looks.
+
+**Which sim draws which.** The gravity sandbox is a Newtonian N-body integrator, so its sheet is
+$\Phi$ — the exact field it integrates, drawn as a height, and honest for any number of masses.
+The freefall sandbox has one Schwarzschild mass, so its sheet is the genuine Flamm paraboloid.
+**Neither sim draws a Flamm paraboloid for more than one mass**, and both say on screen which
+surface they are showing.
+
+**ASSERT.** $\phi$ is $-GM/r$ outside; $-3GM/2R$ at the centre; the centre-to-surface ratio is
+exactly $3/2$; $\Phi$ superposes linearly to $10^{-12}$; and the two surfaces are *not*
+interchangeable — Flamm exceeds $10\,r_s$ in height by $r=100\,r_s$ while $\Phi$ is within
+$0.011\,GM$ of zero there.
+
+---
+
+### 2.10 Radiation reaction: what makes an inspiral an inspiral
+
+The §2.6 correction is **conservative**. It reproduces perihelion precession and it can never
+shrink an orbit, because it does no net work around a closed one. A binary run with it alone
+orbits forever. An inspiral needs the dissipative 2.5PN term.
+
+Relative acceleration of a pair, standard Damour–Deruelle form ($G=1$, $M=m_1+m_2$,
+$\mathbf n = \mathbf r/r$, $\dot r = \mathbf n\cdot\mathbf v$):
+
+$$\mathbf a_{2.5} = -\frac{8}{5}\frac{m_1m_2}{c^5r^3}
+\left[\mathbf v\left(v^2+\frac{3M}{r}\right)
+- \dot r\,\mathbf n\left(3v^2+\frac{17M}{3r}\right)\right]$$
+
+split between the bodies as an equal and opposite force, which is what conserves momentum at this
+order.
+
+**The circular limit is the gate.** Setting $\dot r=0$ and $v^2=M/r$ leaves
+$\mathbf a_{2.5} = -\tfrac{8}{5}\frac{m_1m_2}{c^5r^3}\cdot\frac{4M}{r}\mathbf v$, so
+
+$$\frac{dE}{dt} = \mu\,\mathbf v\cdot\mathbf a_{2.5}
+= -\frac{32}{5}\frac{m_1^2m_2^2M}{c^5r^5}$$
+
+which is Peters' quadrupole rate exactly, and integrating $dE/da$ against it gives Peters' merger
+time
+
+$$t_c = \frac{5}{256}\frac{c^5a^4}{m_1m_2M}$$
+
+Peters 1964, Phys. Rev. **136**, B1224, eqs. (5.6) and (5.10). Get any coefficient in the
+acceleration wrong and the energy-loss rate misses this, which is why it is the test.
+
+**Two limitations stated rather than hidden.** (i) The $\dot r$ terms are carried in their
+standard form but no published number in this repo pins them down, so the sandbox ships a
+*quasi-circular* preset and says so. (ii) Radiation reaction is **not additive over pairs** for
+$N>2$ — the radiation field is sourced by the whole system's quadrupole moment — so the pairwise
+sum is exact for the two-body preset and an approximation beyond it.
+
+**ASSERT.** The circular energy-loss rate matches Peters to $10^{-12}$ at three mass ratios; the
+reactive force is equal and opposite to $10^{-18}$; the power scales as $a^{-5}$ and $t_c$ as
+$a^{4}$; the power is negative at every separation; and the conservative §2.6 term has **zero**
+component along $\mathbf v$ for a circular orbit, which is the statement that it cannot cause an
+inspiral.
+
+---
+
 ---
 
 ## 3. Kerr (rotating) geometry
@@ -1522,6 +1606,15 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 57 | GPS, rotating ground clock | row 56 plus $R_\oplus^2\Omega_\oplus^2/2c^2$ | $+45.719$, $-7.109$, net $+38.610$ µs/day (Ashby 2003); the $0.104$ difference **is** the Earth's rotation | 1% |
 | 58 | Low Earth orbit | same, at 6 771 km | $-24.743$ µs/day — **opposite sign to GPS** | 1% |
 | 59 | Rate difference without cancellation | $(r_B^2-r_A^2)$ form vs direct subtraction | direct subtraction loses **7 of 16 digits** (rel. err. $>10^{-8}$) | exact form to 1e-15 |
+| 60 | Uniform-sphere potential, interior | $-GM(3R^2-r^2)/2R^3$ | $-3GM/2R$ at the centre; ratio to the surface value exactly $3/2$; $C^1$ at $r=R$ | 1e-15 |
+| 61 | The sheet superposes | $\Phi=\sum\phi_i$ | linear to 1e-12, which is why a multi-mass sheet is drawable at all | 1e-12 |
+| 62 | Flamm is not the potential | $2\sqrt{r_s r}$ vs $-GM/r$ | at $r=100r_s$: Flamm $>10\,r_s$, $\Phi$ within $0.011$ of zero — **not interchangeable** | — |
+| 63 | Quadrupole energy-loss rate | $\mu\,\mathbf v\cdot\mathbf a_{2.5}$, circular | $-\tfrac{32}{5}m_1^2m_2^2M/c^5a^5$ exactly (Peters 1964 eq. 5.6) | 1e-12 |
+| 64 | Peters merger time | $5c^5a^4/256\,m_1m_2M$ | 659.18 sim units for $m=(10,2)$, $a=3$, $c=10$; scales as $a^4$ | 1e-12 |
+| 65 | Radiation reaction conserves momentum | $\sum m_i\mathbf a_i$ | 0 to 1e-18 | 1e-18 |
+| 66 | The conservative term cannot inspiral | $\sum m_i\mathbf v_i\cdot\mathbf a_{2.6}$, circular | **exactly 0** — §2.6 does no net work, so it precesses and never shrinks | 1e-12 |
+| 67 | Figure-eight choreography | Chenciner–Montgomery, Simó's ICs | period 6.32591398, zero total momentum, survives many periods under Yoshida-4 | 1e-15 on the ICs |
+| 68 | Inner planets, period ratios | Kepler III on uniformly scaled radii | Mercury/Earth $=0.2408$ exactly, because one factor scales out of a ratio | 1e-9 |
 
 **Rows 42–47 — a Kerr renderer is gated on the shape of the shadow, not just its size.** Row 44
 is the one worth reading twice: the vertical half-extent of the Kerr shadow seen edge-on is

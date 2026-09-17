@@ -23,6 +23,12 @@ export interface ContextOptions {
    * wants an opaque buffer.
    */
   alpha?: boolean;
+  /**
+   * Allocate a depth buffer. Off by default because every renderer in this repo up to now has
+   * drawn a single flat pass; a 3D scene with a grid, trails and bodies at different depths
+   * needs one, or near geometry is painted over by whatever is drawn after it.
+   */
+  depth?: boolean;
 }
 
 export function createContext(
@@ -33,7 +39,7 @@ export function createContext(
     alpha: options.alpha ?? false,
     premultipliedAlpha: false,
     antialias: false,
-    depth: false,
+    depth: options.depth ?? false,
     stencil: false,
     powerPreference: 'high-performance',
     preserveDrawingBuffer: options.preserveDrawingBuffer ?? false,

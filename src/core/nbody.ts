@@ -6,7 +6,19 @@
  *
  * Framework-free, float64. Nothing here knows about a canvas.
  */
-import { JUPITER_GM, EARTH_GM, MOON_GM, SOLAR_GM } from './units';
+import {
+  EARTH_AU,
+  EARTH_GM,
+  JUPITER_GM,
+  MARS_AU,
+  MARS_GM,
+  MERCURY_AU,
+  MERCURY_GM,
+  MOON_GM,
+  SOLAR_GM,
+  VENUS_AU,
+  VENUS_GM,
+} from './units';
 
 const TWO = 2;
 const THREE = 3;
@@ -23,6 +35,8 @@ export interface Body {
   absorbRadius: number;
   /** For the UI: which palette entry produced this body. The core does not read it. */
   kind: string;
+  /** For the UI: a label to draw beside it, where the body is a named thing. Optional. */
+  name?: string;
 }
 
 /** Separations below this are a numerical event, not a physical one, and are refused. */
@@ -98,6 +112,101 @@ export function accelerations(
       out[i * TWO + 1] = (out[i * TWO + 1] as number) - k * dy;
     }
   }
+}
+
+/** The rationals of the quadrupole reaction term and of Peters' two closed forms, named because
+ * `no-magic-numbers` is on over core/ and because each one is a coefficient worth recognising. */
+const FOUR = 4;
+const FIVE = 5;
+const EIGHT = 8;
+const SEVENTEEN = 17;
+const THIRTY_TWO = 32;
+const TWO_FIFTY_SIX = 256;
+const RADIATION_PREFACTOR = EIGHT / FIVE;
+const SEVENTEEN_THIRDS = SEVENTEEN / THREE;
+
+/**
+ * Quadrupole radiation reaction: the 2.5PN term, added to `out` rather than replacing it.
+ * PHYSICS_SPEC §2.10.
+ *
+ * This is the only dissipative force in the sandbox and it is what makes an inspiral an
+ * inspiral. The §2.6 correction is **conservative** — it precesses an orbit and never shrinks
+ * it — so a binary run with that alone orbits forever, which is what the binary-hole preset
+ * used to say in its own note.
+ *
+ * Relative acceleration of a pair, in the standard Damour-Deruelle form (G = 1):
+ *
+ *     a_rel = -(8/5)(m1 m2 / c^5 r^3) [ v (v^2 + 3M/r) - rdot n (3v^2 + (17/3)M/r) ]
+ *
+ * split between the two bodies as an equal and opposite force, which is what conserves momentum
+ * at this order. **The circular limit is what this repo benchmarks**: setting rdot = 0 and
+ * v^2 = M/r gives dE/dt = -(32/5) m1^2 m2^2 M / (c^5 r^5) exactly, Peters' quadrupole rate, and
+ * from it Peters' merger time. The rdot terms are carried in their standard form but no
+ * published number in this repo pins them down, so the preset that uses this is quasi-circular
+ * and says so.
+ *
+ * **Pairwise summation is an approximation for N > 2.** Radiation reaction is not additive over
+ * pairs in general — the radiation field is sourced by the whole system's quadrupole moment. For
+ * a two-body inspiral, which is the only configuration this ships a preset for, it is exact.
+ */
+export function radiationReaction(
+  bodies: readonly Body[], velocities: Float64Array, out: Float64Array,
+): void {
+  const count = bodies.length;
+  if (out.length < count * TWO) throw new RangeError('Output is too small for this many bodies.');
+  const c5 = SIM_LIGHT_SPEED ** FIVE;
+  for (let i = 0; i < count; i++) {
+    const self = bodies[i] as Body;
+    if (self.mass === 0) continue;
+    for (let j = i + 1; j < count; j++) {
+      const other = bodies[j] as Body;
+      if (other.mass === 0) continue;
+      const dx = self.x - other.x;
+      const dy = self.y - other.y;
+      const r = Math.hypot(dx, dy);
+      if (!(r > MIN_SEPARATION)) {
+        throw new RangeError('Two bodies are on top of each other; absorb or separate them first.');
+      }
+      const nx = dx / r;
+      const ny = dy / r;
+      const dvx = (velocities[i * TWO] as number) - (velocities[j * TWO] as number);
+      const dvy = (velocities[i * TWO + 1] as number) - (velocities[j * TWO + 1] as number);
+      const speedSquared = dvx * dvx + dvy * dvy;
+      const radial = nx * dvx + ny * dvy;
+      const total = self.mass + other.mass;
+      const common = (RADIATION_PREFACTOR * self.mass * other.mass) / (c5 * r * r * r);
+      const along = speedSquared + THREE * (total / r);
+      const outward = THREE * speedSquared + SEVENTEEN_THIRDS * (total / r);
+      const relativeX = -common * (dvx * along - radial * nx * outward);
+      const relativeY = -common * (dvy * along - radial * ny * outward);
+      // Equal and opposite: a_1 = a_rel m_2/M, a_2 = -a_rel m_1/M.
+      out[i * TWO] = (out[i * TWO] as number) + (relativeX * other.mass) / total;
+      out[i * TWO + 1] = (out[i * TWO + 1] as number) + (relativeY * other.mass) / total;
+      out[j * TWO] = (out[j * TWO] as number) - (relativeX * self.mass) / total;
+      out[j * TWO + 1] = (out[j * TWO + 1] as number) - (relativeY * self.mass) / total;
+    }
+  }
+}
+
+/**
+ * Peters' merger time for a circular binary: t_c = 5 c^5 a^4 / (256 m1 m2 M), with G = 1.
+ *
+ * Peters 1964, eq. (5.10). Exported so the sim can print how long an inspiral should take and
+ * the tests can check that it does.
+ */
+export function petersMergerTime(massA: number, massB: number, separation: number): number {
+  const total = massA + massB;
+  return (FIVE * SIM_LIGHT_SPEED ** FIVE * separation ** FOUR)
+    / (TWO_FIFTY_SIX * massA * massB * total);
+}
+
+/** Peters' circular energy-loss rate, dE/dt = -(32/5) m1^2 m2^2 M / (c^5 a^5). Negative. */
+export function petersEnergyLossRate(
+  massA: number, massB: number, separation: number,
+): number {
+  const total = massA + massB;
+  return -(THIRTY_TWO / FIVE) * (massA * massA * massB * massB * total)
+    / (SIM_LIGHT_SPEED ** FIVE * separation ** FIVE);
 }
 
 /** Total energy, kinetic plus pairwise potential. Constant to integration error, Newtonian. */
@@ -234,6 +343,34 @@ const MOON_ORBIT = 2.4;
 /** The star's absorb radius: big enough to read as a disc, small enough not to eat the orbits. */
 const STAR_ABSORB = 0.35;
 
+/** The inner planets, placed at their real semi-major axes scaled by ONE factor.
+ *
+ * Scaling every radius by the same number leaves every *ratio* exact — including the orbital
+ * periods, since T ∝ r^{3/2} scales out of a ratio. Mercury's year is 0.2408 of Earth's on
+ * screen because it is 0.2408 of Earth's in the sky. Only the absolute period is sim units. */
+const INNER_PLANET_SCALE = 4.2;
+/** Drawn radius of the Sun in the inner-planet preset. At true scale it would be 0.009. */
+const SUN_ABSORB = 0.3;
+const PLANET_DOT = 0.05;
+
+/** Chenciner–Montgomery figure eight, Simó's numerical initial conditions. Equal unit masses,
+ * G = 1, and a period of 6.32591398. Published to eight figures and used verbatim: the orbit is
+ * a genuine solution only at these numbers, and it is linearly stable but not robust to a
+ * rounded start. */
+const EIGHT_X = 0.970_004_36;
+const EIGHT_Y = -0.243_087_53;
+const EIGHT_VX = 0.466_203_685;
+const EIGHT_VY = 0.432_365_73;
+export const FIGURE_EIGHT_PERIOD = 6.325_913_98;
+
+/** The inspiral preset: a 10-mass hole and a 2-mass companion at separation 3. */
+const INSPIRAL_PRIMARY = 10;
+const INSPIRAL_SECONDARY = 2;
+const INSPIRAL_SEPARATION = 3;
+
+/** Kepler's third law on the scaled radii: the ratio survives the scaling exactly. */
+export const MERCURY_YEAR_RATIO = (MERCURY_AU / EARTH_AU) ** (THREE / TWO);
+
 const body = (partial: Partial<Body> & Pick<Body, 'mass' | 'x' | 'y'>): Body => ({
   vx: 0, vy: 0, absorbRadius: PLANET_ABSORB, kind: 'planet', ...partial,
 });
@@ -292,6 +429,46 @@ export function presets(): Preset[] {
     { ...holeB, kind: 'hole', absorbRadius: BINARY_MASS * HOLE_ABSORB_PER_MASS },
   ];
 
+  // Inner planets. Masses from the measured GM values, radii from the real semi-major axes
+  // scaled by one factor, both normalised to the Sun.
+  const planet = (gm: number, au: number, label: string): Body => body({
+    mass: gm / SOLAR_GM,
+    x: au * INNER_PLANET_SCALE,
+    y: 0,
+    vy: circularSpeed(au * INNER_PLANET_SCALE, 1),
+    kind: 'planet',
+    absorbRadius: PLANET_DOT,
+    name: label,
+  });
+  const innerPlanets: Body[] = [
+    body({ mass: 1, x: 0, y: 0, kind: 'star', absorbRadius: SUN_ABSORB, name: 'Sun' }),
+    planet(MERCURY_GM, MERCURY_AU, 'Mercury'),
+    planet(VENUS_GM, VENUS_AU, 'Venus'),
+    planet(EARTH_GM, EARTH_AU, 'Earth'),
+    planet(MARS_GM, MARS_AU, 'Mars'),
+  ];
+
+  const figureEight: Body[] = [
+    body({
+      mass: 1, x: EIGHT_X, y: EIGHT_Y, vx: EIGHT_VX, vy: EIGHT_VY,
+      kind: 'planet', absorbRadius: 0,
+    }),
+    body({
+      mass: 1, x: -EIGHT_X, y: -EIGHT_Y, vx: EIGHT_VX, vy: EIGHT_VY,
+      kind: 'planet', absorbRadius: 0,
+    }),
+    body({
+      mass: 1, x: 0, y: 0, vx: -TWO * EIGHT_VX, vy: -TWO * EIGHT_VY,
+      kind: 'planet', absorbRadius: 0,
+    }),
+  ];
+
+  const [primary, secondary] = binary(INSPIRAL_PRIMARY, INSPIRAL_SECONDARY, INSPIRAL_SEPARATION);
+  const inspiral: Body[] = [
+    { ...primary, kind: 'hole', absorbRadius: INSPIRAL_PRIMARY * HOLE_ABSORB_PER_MASS },
+    { ...secondary, kind: 'hole', absorbRadius: INSPIRAL_SECONDARY * HOLE_ABSORB_PER_MASS },
+  ];
+
   return [
     {
       id: 'earth-moon',
@@ -311,9 +488,34 @@ export function presets(): Preset[] {
     {
       id: 'binary-holes',
       label: 'Binary black holes',
-      note: 'Two equal masses on a mutual circular orbit about their barycentre. Newtonian: '
-        + 'there is no inspiral here, because this sandbox has no gravitational radiation.',
+      note: 'Two equal masses on a mutual circular orbit about their barycentre. With radiation '
+        + 'off this orbit is closed forever; the §2.6 correction precesses it but cannot shrink '
+        + 'it, because it is conservative. Turn radiation on to see the difference.',
       bodies: zeroMomentum(holes),
+    },
+    {
+      id: 'inner-planets',
+      label: 'Inner planets',
+      note: `Sun, Mercury, Venus, Earth and Mars. Masses from the measured GM values; radii are `
+        + `the real semi-major axes scaled by one factor, so every ratio is exact — Mercury's `
+        + `year is ${MERCURY_YEAR_RATIO.toFixed(4)} of Earth's here because it is that in the sky.`,
+      bodies: zeroMomentum(innerPlanets),
+    },
+    {
+      id: 'figure-eight',
+      label: 'Figure eight',
+      note: 'The Chenciner–Montgomery choreography: three equal masses chasing each other round '
+        + `one curve, period ${FIGURE_EIGHT_PERIOD}. A genuine exact solution of the three-body `
+        + 'problem, at these initial conditions and no others.',
+      bodies: figureEight,
+    },
+    {
+      id: 'inspiral',
+      label: 'Inspiral',
+      note: 'A 10-mass hole and a 2-mass companion, quasi-circular. Turn RADIATION on: Peters '
+        + `gives ${petersMergerTime(INSPIRAL_PRIMARY, INSPIRAL_SECONDARY, INSPIRAL_SEPARATION)
+          .toFixed(0)} sim-time units to merger from here, and the sandbox should take that long.`,
+      bodies: zeroMomentum(inspiral),
     },
   ];
 }

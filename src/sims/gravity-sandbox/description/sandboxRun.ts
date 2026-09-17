@@ -4,8 +4,11 @@
  * Pure: it takes a step size and returns a new state, and knows nothing about a canvas.
  */
 import { createYoshida4 } from '../../../core/integrators/symplectic';
+import { uniformSpherePotential } from '../../../core/embedding';
+import type { FabricMass } from '../../../ui/gl/fabric';
 import {
   accelerations,
+  radiationReaction,
   escapeSpeed,
   findAbsorptions,
   orbitalPeriod,
@@ -19,7 +22,7 @@ const THREE = 3;
 const FLOATS_PER_VERTEX = 3;
 
 /** Trail samples kept per body, as the brief asks. */
-export const TRAIL_LENGTH = 200;
+export const TRAIL_LENGTH = 300;
 /** An absorption notice stays up this long, in seconds of wall time. */
 export const ABSORBED_NOTICE_SECONDS = 2;
 /**
@@ -42,11 +45,22 @@ export const FIXED_STEP = orbitalPeriod(REFERENCE_RADIUS, REFERENCE_MASS)
  */
 export const ABSORB_PER_MASS = 0.05;
 
-/** Drawn glyph radii, sim units. Display only: the physics is point masses throughout. */
-const PLANET_GLYPH = 0.16;
-const HOLE_GLYPH = 0.3;
-const SATELLITE_GLYPH = 0.07;
-const TEST_GLYPH = 0.05;
+/**
+ * Drawn glyph radii, sim units. Display only: the force law is point masses throughout.
+ *
+ * They are not *only* cosmetic, though, and it is worth being precise about where they enter.
+ * The sheet is the potential of a uniform sphere of this radius (§2.9), so the radius sets how
+ * wide the bowl around a body is — a point mass would give a needle one grid cell across, which
+ * is the honest shape of -1/r and tells the reader nothing. Widening the sphere widens the bowl
+ * and is still the exact potential of *a* sphere; what it is not is a claim about the body's
+ * real size, which the sandbox has no scale for.
+ */
+const PLANET_GLYPH = 0.2;
+const HOLE_GLYPH = 0.38;
+const SATELLITE_GLYPH = 0.08;
+const TEST_GLYPH = 0.06;
+/** Presets place stars, which are not in the palette and would otherwise be planet-sized. */
+const STAR_GLYPH = 0.45;
 const HOLE_MASS = 10;
 const SATELLITE_MASS = 0.001;
 
@@ -90,6 +104,16 @@ export interface TrailPoint {
   y: number;
   /** Speed as a fraction of the local escape speed at that moment. Sets the colour band. */
   escapeFraction: number;
+  /**
+   * The potential this body sat in when the sample was taken, **excluding its own**.
+   *
+   * Stored rather than recomputed at draw time so the trail lies where the sheet was, not where
+   * it is now. Excluding the body's own potential is the physical choice as well as the pretty
+   * one: a body's own field is not something it falls into, so a lone planet rides at height
+   * zero and a satellite rides down inside the planet's well, which is the well it is actually
+   * in. Raw: the view scales it.
+   */
+  potential: number;
 }
 
 export interface AbsorbedNotice {
@@ -166,10 +190,10 @@ export function bodyNear(state: SandboxState, x: number, y: number, radius: numb
  * The stepper is rebuilt whenever the body count changes, because `createYoshida4` is built for
  * one dimension and holds its own scratch buffer.
  *
- * **Trails are sampled every step, not every frame.** Sampled per frame, a trail covers 200 of
+ * **Trails are sampled every step, not every frame.** Sampled per frame, a trail covers 300 of
  * whatever the speed slider is doing, so it means a different span of sim time at 1× and at
  * 100× — it stretches as you speed up, which reads as the orbit changing. Per step it is always
- * the same 200 × FIXED_STEP of sim time, about two fifths of an orbit at the reference radius,
+ * the same 300 × FIXED_STEP of sim time, about three fifths of an orbit at the reference radius,
  * whatever the playback speed.
  *
  * **Absorption is checked every step, and stops the batch.** Checked only at the end of the
@@ -180,6 +204,7 @@ export function bodyNear(state: SandboxState, x: number, y: number, radius: numb
  */
 export function advance(
   state: SandboxState, steps: number, relativistic: boolean, wallSeconds: number,
+  radiation = false,
 ): SandboxState {
   const count = state.bodies.length;
   const notices = state.notices
@@ -198,6 +223,10 @@ export function advance(
   const force = (position: Float64Array, out: Float64Array) => {
     bodies.forEach((b, i) => { b.x = position[i * TWO]!; b.y = position[i * TWO + 1]!; });
     accelerations(bodies, out, relativistic, v);
+    // Dissipative, and added on top: §2.10. Yoshida-4's energy bound is a statement about a
+    // conservative autonomous force and this is neither, which is the point — the orbit is
+    // supposed to shrink. The drift readout goes on reporting the real number.
+    if (radiation) radiationReaction(bodies, v, out);
   };
   const unpack = () => {
     bodies.forEach((b, i) => {
@@ -226,7 +255,12 @@ export function advance(
       const escape = escapeSpeed(bodies, i);
       const speed = Math.hypot(body.vx, body.vy);
       const trail = trails[i] as TrailPoint[];
-      trail.push({ x: body.x, y: body.y, escapeFraction: escape > 0 ? speed / escape : 0 });
+      trail.push({
+        x: body.x,
+        y: body.y,
+        escapeFraction: escape > 0 ? speed / escape : 0,
+        potential: potentialAt(bodies, body.x, body.y, i),
+      });
       if (trail.length > TRAIL_LENGTH) trail.shift();
     }
 
@@ -366,3 +400,166 @@ export function dragVertices(
 export const velocityFromDrag = (
   fromX: number, fromY: number, toX: number, toY: number,
 ): { vx: number; vy: number } => ({ vx: toX - fromX, vy: toY - fromY });
+
+// ---------------------------------------------------------------------------------------------
+// The 3D scene. Geometry only: everything below reads the state and writes vertex buffers.
+// ---------------------------------------------------------------------------------------------
+
+/** Drawn radius for a kind, from the palette. Display only; the physics is point masses. */
+export const glyphRadiusOf = (kind: string): number =>
+  PALETTE.find(entry => entry.kind === kind)?.glyphRadius
+  ?? (kind === 'star' ? STAR_GLYPH : PLANET_GLYPH);
+
+/**
+ * The potential at a point, optionally leaving one body out of the sum.
+ *
+ * PHYSICS_SPEC §2.9: the exact uniform-sphere potential, superposed — which is legitimate
+ * because Poisson's equation is linear, and is the same field `accelerations` differentiates.
+ */
+export function potentialAt(
+  bodies: readonly Body[], x: number, y: number, exclude = -1,
+): number {
+  let total = 0;
+  for (let i = 0; i < bodies.length; i++) {
+    if (i === exclude) continue;
+    const source = bodies[i] as Body;
+    if (source.mass === 0) continue;
+    total += uniformSpherePotential(
+      Math.hypot(x - source.x, y - source.y), source.mass, glyphRadiusOf(source.kind),
+    );
+  }
+  return total;
+}
+
+/** The masses the fabric shader needs, packed from the bodies on screen. */
+export const fabricMasses = (state: SandboxState): FabricMass[] =>
+  state.bodies
+    .filter(body => body.mass > 0)
+    .map(body => ({
+      x: body.x, y: body.y, mass: body.mass, radius: glyphRadiusOf(body.kind),
+    }));
+
+export type Rgb = readonly [number, number, number];
+
+const clampHeight = (potential: number, heightScale: number, floor: number): number =>
+  Math.max(potential * heightScale, -Math.abs(floor));
+
+/**
+ * Trails as coloured 3D line segments: x, y, z, r, g, b, a.
+ *
+ * One buffer for every body and every band together — the colour is per vertex now, so the three
+ * separate band buffers the flat view needed collapse into one draw call. Alpha ramps from 0 at
+ * the oldest sample to 1 at the newest, which is what makes a trail read as a direction of
+ * travel rather than as a smear.
+ */
+export function trailVertices3d(
+  state: SandboxState, colours: Record<Band, Rgb>, heightScale: number, floor: number,
+): Float32Array {
+  const data: number[] = [];
+  for (const trail of state.trails) {
+    for (let i = 1; i < trail.length; i++) {
+      const from = trail[i - 1] as TrailPoint;
+      const to = trail[i] as TrailPoint;
+      const age = trail.length < TWO ? 1 : i / (trail.length - 1);
+      const colour = colours[bandOf(from.escapeFraction)];
+      data.push(
+        from.x, clampHeight(from.potential, heightScale, floor), from.y,
+        colour[0], colour[1], colour[2], age,
+        to.x, clampHeight(to.potential, heightScale, floor), to.y,
+        colour[0], colour[1], colour[2], age,
+      );
+    }
+  }
+  return new Float32Array(data);
+}
+
+export interface GlowStyle {
+  colour: Rgb;
+  /** True for a body drawn as a dark disc with a bright rim rather than as a glowing one. */
+  rim: boolean;
+}
+
+/**
+ * Bodies as glow instances: centre xyz, radius, rgb, core fraction, rim flag.
+ *
+ * `include` selects a subset, because rim bodies and glowing ones need different blend modes and
+ * therefore different draw calls — a dark disc added to a dark background is not dark, it is
+ * absent.
+ */
+export function glowInstances(
+  state: SandboxState, styleOf: (kind: string) => GlowStyle, heightScale: number, floor: number,
+  haloFactor: number, include: (kind: string) => boolean = () => true,
+): Float32Array {
+  const bodies = state.bodies
+    .map((body, index) => ({ body, index }))
+    .filter(entry => include(entry.body.kind));
+  const data = new Float32Array(bodies.length * GLOW_FLOATS);
+  bodies.forEach(({ body, index: source }, index) => {
+    const { colour, rim } = styleOf(body.kind);
+    const glyph = glyphRadiusOf(body.kind);
+    const base = index * GLOW_FLOATS;
+    data[base] = body.x;
+    data[base + 1] = clampHeight(
+      potentialAt(state.bodies, body.x, body.y, source), heightScale, floor,
+    );
+    data[base + TWO] = body.y;
+    data[base + THREE] = glyph * haloFactor;
+    data[base + GLOW_COLOUR] = colour[0];
+    data[base + GLOW_COLOUR + 1] = colour[1];
+    data[base + GLOW_COLOUR + TWO] = colour[2];
+    // The core's share of the billboard is the real radius; the rest is halo and means nothing.
+    data[base + GLOW_CORE] = 1 / haloFactor;
+    data[base + GLOW_RIM] = rim ? 1 : 0;
+  });
+  return data;
+}
+
+const GLOW_FLOATS = 9;
+/** Offsets into a glow instance: centre xyz, radius, rgb, core fraction. */
+const GLOW_COLOUR = 4;
+const GLOW_CORE = 7;
+const GLOW_RIM = 8;
+/** The drag arrow starts faint at the placement point and reaches full at the cursor. */
+const DRAG_TAIL_ALPHA = 0.35;
+
+/** Where a body sits on the sheet, for the drag arrow and the absorbed notices. */
+export const heightOf = (
+  state: SandboxState, x: number, y: number, heightScale: number, floor: number, exclude = -1,
+): number => clampHeight(potentialAt(state.bodies, x, y, exclude), heightScale, floor);
+
+/** The drag arrow as a 3D coloured line, lying on the sheet at both ends. */
+export function dragVertices3d(
+  state: SandboxState, fromX: number, fromY: number, toX: number, toY: number,
+  colour: Rgb, heightScale: number, floor: number,
+): Float32Array {
+  return new Float32Array([
+    fromX, heightOf(state, fromX, fromY, heightScale, floor), fromY,
+    colour[0], colour[1], colour[2], DRAG_TAIL_ALPHA,
+    toX, heightOf(state, toX, toY, heightScale, floor), toY,
+    colour[0], colour[1], colour[2], 1,
+  ]);
+}
+
+/** A small ring lying flat on the sheet, marking where something was absorbed. */
+export function noticeVertices3d(
+  state: SandboxState, colour: Rgb, radius: number, heightScale: number, floor: number,
+  segments = 24,
+): Float32Array {
+  const data: number[] = [];
+  for (const notice of state.notices) {
+    const fade = Math.min(1, notice.remaining / ABSORBED_NOTICE_SECONDS);
+    for (let i = 0; i < segments; i++) {
+      const a = (i / segments) * Math.PI * TWO;
+      const b = ((i + 1) / segments) * Math.PI * TWO;
+      const ax = notice.x + radius * Math.cos(a);
+      const ay = notice.y + radius * Math.sin(a);
+      const bx = notice.x + radius * Math.cos(b);
+      const by = notice.y + radius * Math.sin(b);
+      data.push(
+        ax, heightOf(state, ax, ay, heightScale, floor), ay, colour[0], colour[1], colour[2], fade,
+        bx, heightOf(state, bx, by, heightScale, floor), by, colour[0], colour[1], colour[2], fade,
+      );
+    }
+  }
+  return new Float32Array(data);
+}
