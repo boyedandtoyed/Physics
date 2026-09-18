@@ -2,30 +2,109 @@
 
 ## Current status — 2026-09-18
 
-**Phase:** 3-Immersive (inserted). **COMPLETE.** The two gravity sandboxes are 3D scenes on a
-deforming sheet, and the collection page has a live backdrop and a baked still on every card.
-Phases 0, 1, 2, 3, 3-Visual, 3-Sandbox and 4 are complete (3-Visual apart from the
-Hawking/Casimir effects, which need Phase 6 sims). Next phase: **5 — Spacetime geometry
-(BUILD_PLAN §5)**, of which the embedding diagram already exists as `/sims/spacetime-curvature`;
-what remains there is the geodesic-deviation visualiser and the interactive Kruskal/Penrose
-diagrams. **Phase 5 was deliberately not started in this session.**
+**Phase:** 5 — Spacetime geometry and causal structure (BUILD_PLAN §5). **COMPLETE** for its
+Kruskal/Penrose half: `kruskal-diagram`, `penrose-schwarzschild`, `penrose-kerr`. Phases 0, 1, 2,
+3, 3-Visual, 3-Sandbox, 3-Immersive and 4 are complete. **What remains in Phase 5 is the
+geodesic-deviation / tidal-tensor visualiser**, the one bullet of BUILD_PLAN §5 this session did
+not cover; the embedding diagram already exists as `/sims/spacetime-curvature`. Next after that:
+**Phase 6 — Quantum field theory, honestly**.
 
-**Branch:** `master`, pushed. **Deployed 2026-09-18** — `physics-web:rc-a3b76f6`
-(`sha256:5d750961…`), built, staged, verified through the Cloudflare edge and promoted. Staging
-and production run the **identical image ID**. The full **177-test suite passed against staging
+**Branch:** `master`, pushed. **Deployed 2026-09-18** — `physics-web:rc-97cc06e`
+(`sha256:156dd5a4…`), built, staged, verified through the Cloudflare edge and promoted. Staging
+and production run the **identical image ID**. The full **210-test suite passed against staging
 before promotion and against production after**.
 
-**The release caught a packaging defect a smoke test could not.** The Dockerfile copied `src`,
-`index.html` and the two configs into the build stage but never `public/` — which did not exist
-in this repo until the card stills did — so the image shipped with no thumbnails at all. Because
-the SPA fallback answers any unknown path with `index.html` and a 200, `curl` reported 200 for
-every missing PNG and only the content-type gave it away; the gallery spec, which asserts the
-images actually decode, failed against staging and is why this did not reach production.
-`/thumbnails/` now returns a real 404 like `/assets/` does.
+**Live:** https://abstract-physics.binodtiwari.com serves **eighteen simulations**.
 
-**Totals at the Phase 3-Immersive close:** **773 Vitest**, **377 Python benchmark checks**,
-**177 Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and
-the production build are green.
+**Totals at the Phase 5 close:** **879 Vitest**, **405 Python benchmark checks**, **210
+Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and the
+production build are green.
+
+### Phase 5 — Kruskal, Penrose and Kerr causal structure *(2026-09-18)*
+
+| Route | What it is |
+|---|---|
+| `/sims/kruskal-diagram` | The maximally extended Schwarzschild spacetime, all four regions, light at 45° everywhere |
+| `/sims/penrose-schwarzschild` | The conformal diagram, with every boundary and corner named |
+| `/sims/penrose-kerr` | The Kerr block tower at a/M = ½, three repetitions, Cauchy horizon flagged |
+
+**New core:** `core/kruskal.ts` — the Kruskal *chart*, as distinct from `core/infall.ts`'s one
+worldline. `core/kerr.ts` gains `surfaceGravity`, `massInflationRatio`, `radialTortoise` and
+`tortoiseDerivative`. **New spec:** §7.4a, §7.4b, §8 rows 69–77.
+
+**`core/infall.ts` was read first, as instructed, and it cannot draw these diagrams.** Three
+measured reasons, all now recorded in §7.4a: its normalisation is a **boost** anchored to one
+fall's horizon crossing, so it returns X = 5.525, T = −4.810 where the standard chart at
+r = 2 r_s, t = 0 has X = e, T = 0; it routes through `schwarzschildTime`, which rightly throws
+inside the horizon, so it cannot reach regions II and III at all; and `radiusFromKruskal` refuses
+UV < 0, which is every event inside. `core/kruskal.ts` therefore provides the chart, imports
+`lambertW0` rather than rewriting it, and is tied to the benchmarked module by a test asserting
+the two agree on **UV exactly** — a boost multiplies V and divides U, so the product is invariant.
+
+**Five things in the brief were wrong, and are corrected in the spec rather than in a comment:**
+
+1. *"A static observer follows a vertical line in Kruskal coordinates."* It follows a
+   **hyperbola**. dr/dt = 0 means UV constant, which is X² − T² constant — the same curve a
+   Rindler observer follows in flat space, and for the same reason: hovering outside a horizon
+   takes proper acceleration forever. A vertical line X = const is not a curve of constant r at
+   all, and above |T| = X it is not even timelike.
+2. *"Verify X² − T² near r = 2M+ε is positive, not negative from float cancellation."* Measured,
+   it does not go negative — at r = (1+10⁻⁶)r_s and t = 40 it returns **exactly zero**, and so
+   does the usual rescue **(X − T)(X + T)**, because by then the two coordinates are bitwise
+   equal and the subtraction has already destroyed what the factorisation would need. The fix is
+   not a better formula in X and T; it is not forming them. Row 72 asserts both.
+3. *"The infalling observer crosses ℐ⁺ in finite conformal time."* It cannot. Null infinity is
+   where escaping **light** ends up, and is a null boundary no massive body reaches. The faller
+   crosses the **horizon** and terminates on r = 0.
+4. *"Top and bottom corners: i⁺, i⁻."* The top of the diagram is the **singularity**. i⁺ is the
+   corner of region I where ℐ⁺ meets the future horizon. Putting timelike infinity at the top
+   quietly asserts that something inside the horizon has an infinite future, when every worldline
+   in region II ends in finite proper time.
+5. *"No new benchmarks needed"* for Kerr. The horizon radii were benchmarked in Phase 4; the
+   **surface gravities, the mass-inflation ratio and the tortoise coefficients were not**. Rows
+   75–77 add them: κ₊ = 0.2320508076/M, κ₋ = −3.2320508076/M, |κ₋|/κ₊ = 13.9282 = r₊/r₋ exactly.
+
+**What the Kerr diagram computes and what it does not, stated on screen.** Computed: both
+horizons, both surface gravities, the exact r*(r) whose coefficients are exactly 1/2κ±, and from
+it every contour's position and direction. Taken from Carter 1966: the arrangement of the blocks.
+Kerr admits **no single conformal map** of the whole manifold — each horizon must be regularised
+by its own κ — so a derived-looking diagram would misrepresent its own provenance. That is not
+abstract: using κ₊ throughout puts the Cauchy horizon at 0.43 across its block instead of 0.94,
+drawn in the middle of the region rather than at its boundary, and a test asserts both numbers.
+
+**Two computed facts the diagrams turn on**, both new benchmarks. W₀ has a square-root branch
+point at −1/e, so near the Schwarzschild singularity the error in r is the **square root** of the
+error in UV: UV = −1 known to machine epsilon returns r = 1.3×10⁻⁸ and no iteration improves it.
+And r*(0) for Kerr is **finite** — 0.2688 M — while both horizons are at r* = ∓∞, which is why
+the ring is a timelike line at a definite place, avoidable, and why the spacetime continues past
+it. The equatorial slice drawn is exactly the one slice in which it cannot be dodged, and says so.
+
+**Defects found by driving the pages:**
+
+- `radiusAtProperTime(0, r₀)` can return r₀ plus an ulp, which `core/infall` correctly refuses —
+  so clicking at certain radii took the Kruskal sim into its error boundary. Clamped at both ends.
+- r* **decreases** with r between the Kerr horizons, where Δ < 0, so the bisection placing
+  contours assumed the wrong direction and put every contour in that band at the wrong end.
+- `window` shadowed the global in the Kerr sim, breaking `window.devicePixelRatio`.
+- The constant-t lines stack up near 45° on the Kruskal diagram; a dozen translucent lines
+  composited into an opaque one that hid the horizon they were crowding towards.
+- The Penrose diagram is twice as wide as it is tall and a canvas rarely is, and `squareBounds`
+  puts its extent on the **short** axis — so a fixed extent either wasted the width or clipped
+  the i⁰ labels off a narrow canvas.
+- **The missing-glyph guard fired for the third time**, on U+208A/U+208B in the Kerr sim's
+  permanent label and block names — the pair that once turned "r₊" into "r." across four sims and
+  survived a screenshot because it reads as a typo. Seventeen occurrences in the page, seven in
+  the labels.
+
+**Three of my own test expectations were wrong and are fixed rather than loosened**: an
+asymptotic series asserted as exact, float32 vertex buffers compared against float64 tolerances
+(twice), and a static observer's worldline asserted strictly inside region I at a time where
+`arctan` has saturated and the correct answer *is* the corner.
+
+**Known debt, unchanged:** the `.readout` / `.chooser` panel CSS is now copied into nine sims. It
+is a shared component in everything but name and should be promoted to `ui/components.css`.
+
+**Still open:** every browser check here runs on SwiftShader — the user's Chrome has no WebGL.
 
 ### Phase 3-Immersive — the sandboxes in three dimensions *(2026-09-18)* — COMPLETE
 
