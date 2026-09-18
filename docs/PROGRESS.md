@@ -10,6 +10,19 @@ Hawking/Casimir effects, which need Phase 6 sims). Next phase: **5 — Spacetime
 what remains there is the geodesic-deviation visualiser and the interactive Kruskal/Penrose
 diagrams. **Phase 5 was deliberately not started in this session.**
 
+**Branch:** `master`, pushed. **Deployed 2026-09-18** — `physics-web:rc-a3b76f6`
+(`sha256:5d750961…`), built, staged, verified through the Cloudflare edge and promoted. Staging
+and production run the **identical image ID**. The full **177-test suite passed against staging
+before promotion and against production after**.
+
+**The release caught a packaging defect a smoke test could not.** The Dockerfile copied `src`,
+`index.html` and the two configs into the build stage but never `public/` — which did not exist
+in this repo until the card stills did — so the image shipped with no thumbnails at all. Because
+the SPA fallback answers any unknown path with `index.html` and a 200, `curl` reported 200 for
+every missing PNG and only the content-type gave it away; the gallery spec, which asserts the
+images actually decode, failed against staging and is why this did not reach production.
+`/thumbnails/` now returns a real 404 like `/assets/` does.
+
 **Totals at the Phase 3-Immersive close:** **773 Vitest**, **377 Python benchmark checks**,
 **177 Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and
 the production build are green.
