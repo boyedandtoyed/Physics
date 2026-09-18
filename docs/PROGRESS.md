@@ -1,37 +1,91 @@
 # Progress Log
 
-## Current status — 2026-09-16
+## Current status — 2026-09-18
 
-**Phase:** 3-Sandbox (inserted). **COMPLETE.** All three sims are built, green and on `master`:
-`gravity-sandbox`, `freefall-sandbox`, `clock-comparison`. Phases 0, 1, 2, 3, 3-Visual and 4 are
-complete (3-Visual apart from the Hawking/Casimir effects, which need Phase 6 sims). Next phase:
-**5 — Spacetime geometry (BUILD_PLAN §5)**, of which the embedding diagram already exists as
-`/sims/spacetime-curvature`; what remains there is the geodesic-deviation visualiser and the
-interactive Kruskal/Penrose diagrams. **Phase 5 was deliberately not started in this session.**
+**Phase:** 3-Immersive (inserted). **COMPLETE.** The two gravity sandboxes are 3D scenes on a
+deforming sheet, and the collection page has a live backdrop and a baked still on every card.
+Phases 0, 1, 2, 3, 3-Visual, 3-Sandbox and 4 are complete (3-Visual apart from the
+Hawking/Casimir effects, which need Phase 6 sims). Next phase: **5 — Spacetime geometry
+(BUILD_PLAN §5)**, of which the embedding diagram already exists as `/sims/spacetime-curvature`;
+what remains there is the geodesic-deviation visualiser and the interactive Kruskal/Penrose
+diagrams. **Phase 5 was deliberately not started in this session.**
 
-**Branch:** `master`, pushed. **Deployed 2026-09-16** — `physics-web:rc-fef4472`
-(`sha256:db700be6…`), built, staged, verified through the Cloudflare edge and promoted. Staging
-and production run the **identical image ID**.
+**Totals at the Phase 3-Immersive close:** **773 Vitest**, **377 Python benchmark checks**,
+**177 Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and
+the production build are green.
 
-**Live:** https://abstract-physics.binodtiwari.com serves **all fifteen simulations**. The full
-**155-test suite passed against the deployed host** through the public HTTPS edge
-(`PHYSICS_EDGE_URL=… npx playwright test --project=edge`), and against staging before promotion,
-including every axe scan in both themes and the permanent-label occlusion tests at 390 px. A
-route still falls back to the SPA with 200; a missing *asset* is still a genuine 404. Containers
-`physics-web-1` and `physics-staging-web-1` both healthy; the host-owned `cloudflared` systemd
-service was not touched.
+### Phase 3-Immersive — the sandboxes in three dimensions *(2026-09-18)* — COMPLETE
 
-**One flaky spec was found and fixed during the release, not papered over.** Three assertions in
-`e2e/kerrShadow.spec.ts` ran straight after `goto` with the 5 s default, and that route is the
-heaviest in the suite — a lazy chunk, a shader compile and a first raymarched frame on
-SwiftShader. Under a full-suite run one of them failed per run and the *failing test moved
-between runs*, which is the signature of a starved renderer rather than of a regression; each
-passed in isolation. They now allow 20 s, and two consecutive full runs against the live host are
-clean.
+| Route | What changed |
+|---|---|
+| `/sims/gravity-sandbox` | Perspective scene, orbit camera, a sheet deformed in the vertex shader by every mass on it, glowing bodies with 300-sample trails, dark-disc black holes, radiation reaction, and three new presets |
+| `/sims/freefall-sandbox` | The same scene with the genuine Flamm funnel, plus gravity-field arrows and a Gullstrand–Painlevé river layer |
+| `/` | A live star field and slowly turning funnel behind the collection, and a baked still on each of the fifteen cards |
 
-**Totals at the Phase 3-Sandbox close:** **700 Vitest**, **358 Python benchmark checks**, **155
-Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and the
-production build are green.
+**New shared UI:** `ui/gl/camera3d.ts` (pose to matrices, and pixels back to the equatorial
+plane), `ui/gl/fabric.ts` (the displacement, its CPU twin and the meshes), `ui/gl/Scene3D.ts`
+(fabric, coloured 3D lines, instanced glow billboards, a star-field pass and an optional
+screen-space distortion). **New core:** `core/embedding.ts` gains the uniform-sphere potential and
+the sheet; `core/nbody.ts` gains `radiationReaction` and Peters' two closed forms;
+`core/schwarzschild.ts` gains `hoverAcceleration`. **New spec:** §2.9, §2.10, §8 rows 60–68.
+
+**Four things in the brief were wrong, and are corrected in the spec rather than in a comment:**
+
+1. *"Render the Flamm paraboloid… multiple masses = sum of depressions."* Flamm's embedding is
+   exact for **one** Schwarzschild mass, is not linear, and rises outward as $+2\sqrt{r_s r}$ —
+   so a sum of them is neither a geometry nor the right shape, and **no multi-mass embedding
+   diagram exists at all**, because general relativity is not linear. What superposes exactly is
+   the Newtonian potential, which is the field the sandbox integrates. §2.9 sets out both; the
+   gravity sandbox draws the potential and the freefall sandbox draws the real Flamm surface,
+   and each says on screen which it is.
+2. *"Its well deepens as M increases on the slider."* That is the exact misconception the
+   freefall sim exists to refute, and its own panel says so: in geometric units every
+   Schwarzschild well is the same well. What moves is where the **surface** sits on it — and
+   there is no mass slider, only a body selector.
+3. *"Kerr inspiral… GR correction on."* Nothing in the sandbox has spin, and the §2.6 correction
+   is **conservative**: it does no net work around a closed orbit, so it precesses and can never
+   shrink one. §2.10 adds the 2.5PN quadrupole term, whose circular limit reproduces Peters 1964
+   exactly; the preset merges in the 659 sim units Peters predicts.
+4. *"Bake the thumbnails with OffscreenCanvas in a Vite plugin."* A build plugin runs in Node,
+   which has neither OffscreenCanvas nor a GPU, so it cannot render a WebGL frame — it would
+   have had to launch a browser anyway. `scripts/bake-thumbnails.mjs` drives the real pages with
+   the Playwright already in the repo and commits fifteen PNGs, so the build stays a pure bundle
+   step and a change to a card is visible in a diff.
+
+**The screen-space distortion ships OFF.** It is a radial pull on finished pixels, not lensing —
+no ray is traced and nothing is bent around anything — and CLAUDE.md says physical is the default
+and a non-physical mode is labelled as one. Same for the freefall funnel's vertical exaggeration,
+which defaults to 1: heights are in M, the same unit as the plane.
+
+**Defects found by driving the pages, all invisible to a green suite:**
+
+- The gravity sandbox's draw loop closed over its colour palette without listing it as a
+  dependency, so the canvas froze on whichever theme was current at mount.
+- The star field rendered as large flat blocks: `starField`'s Jacobian maps radians to **pixels**,
+  and a bare identity means one pixel per radian, so every star's half-pixel kernel spanned half
+  the sky. The first fix attempt lowered the backdrop's opacity to solve a contrast problem that
+  was really the blocks — the canvas is transparent everywhere a star is not, and can sit at high
+  opacity over body text at no cost to contrast.
+- `window.matchMedia` was called unguarded by the promoted theme hook. Where that API is absent
+  it threw out of render and took the whole collection page down through its error boundary; it
+  had been latent since the hook was promoted and only surfaced when the backdrop put it on a
+  route that is rendered in a unit test.
+- A wide 8:1 figures row baked as a card still, which `object-fit: cover` then cropped to three
+  letters of a label.
+
+**Two tests of mine were wrong and are fixed rather than loosened.** One asserted an asymptotic
+series is exact — the hover acceleration exceeds GM/r² by 1/2r + 3/8r² + O(1/r³), and eight
+places of the leading term alone fails at r = 100. One compared float32 buffer contents against a
+float64 tolerance. Both now state the error budget they are actually working against.
+
+**Known debt, unchanged and deliberately not touched this session:** six sims carry a
+near-identical copy of the `.readout` / `.chooser` panel CSS, and the clock comparison makes a
+seventh. It is a shared component in everything but name, and promoting it to
+`ui/components.css` is a single mechanical change that should happen before an eighth copy.
+
+**Still open:** every browser check in this repo, local and deployed, runs on SwiftShader — the
+user's Chrome has no WebGL at all. Nothing physical depends on it, but the *appearance* of the
+ray-traced sims and of the new 3D scenes at full resolution is unverified.
 
 ### Phase 3-Sandbox — interactive gravity *(2026-09-16)* — COMPLETE
 
