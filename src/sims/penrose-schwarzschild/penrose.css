@@ -1,0 +1,140 @@
+/* SIM K. The labels sit over the canvas, positioned from the same coordinates it draws with.
+   Panel classes are scoped here as in every other sim. */
+
+.penrose-schwarzschild .stage-surface { position: relative; }
+.penrose-schwarzschild .stage-surface canvas { cursor: crosshair; }
+
+.penrose-region-label,
+.penrose-edge-label,
+.penrose-corner-label {
+  position: absolute;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px var(--panel), 0 0 5px var(--panel), 0 0 9px var(--panel);
+}
+
+.penrose-region-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+.penrose-edge-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.penrose-edge-label.is-singularity { color: var(--ink); font-weight: 600; }
+
+.penrose-corner-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.penrose-schwarzschild .control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.penrose-schwarzschild .preset-button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.penrose-schwarzschild .preset-button:hover { border-color: var(--accent); }
+.penrose-schwarzschild .preset-button.is-selected {
+  border-color: var(--accent);
+  background: var(--panel);
+  font-weight: 700;
+}
+.penrose-schwarzschild .preset-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.penrose-schwarzschild .chooser-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.penrose-schwarzschild .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.penrose-schwarzschild .readout div { display: grid; gap: 0.15rem; }
+
+.penrose-schwarzschild .readout dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.penrose-schwarzschild .readout dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-family: Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.penrose-schwarzschild .readout dd span {
+  display: block;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.penrose-schwarzschild .figure-benchmark {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.boundary-key summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+.boundary-key summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.boundary-key dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.boundary-key dt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.boundary-key dd {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.penrose-schwarzschild .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+@media (max-width: 48rem) {
+  .penrose-edge-label { font-size: 0.62rem; }
+  .penrose-region-label { font-size: 0.7rem; }
+}

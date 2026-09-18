@@ -123,6 +123,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/kruskal-diagram'),
   },
   {
+    id: 'penrose-schwarzschild',
+    title: 'All of it, on one page',
+    description:
+      'The Penrose conformal diagram: infinity brought onto the paper without bending a single '
+      + 'light ray. Every boundary named \u2014 and i\u207a is the corner of region I, not the '
+      + 'top of the picture, which is the singularity.',
+    tags: ['General relativity', 'Causal structure', 'Penrose diagram'],
+    load: () => import('../sims/penrose-schwarzschild'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:
