@@ -6,4 +6,6 @@
 !index.html
 !src
 !src/**
+!public
+!public/**
 !nginx.conf
