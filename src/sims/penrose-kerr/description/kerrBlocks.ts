@@ -66,9 +66,9 @@ export function blockTower(repetitions: number): Block[] {
   const { outer, inner } = horizonRadii(SPIN);
   const blocks: Block[] = [];
   const pattern: readonly [BlockKind, string, number, number][] = [
-    ['exterior', 'I — exterior (r > r₊)', outer, Number.POSITIVE_INFINITY],
-    ['between', 'II — between the horizons (r₋ < r < r₊)', inner, outer],
-    ['inner', 'III — inside the Cauchy horizon (0 < r < r₋)', 0, inner],
+    ['exterior', 'I — exterior (r > r_+)', outer, Number.POSITIVE_INFINITY],
+    ['between', 'II — between the horizons (r_− < r < r_+)', inner, outer],
+    ['inner', 'III — inside the Cauchy horizon (0 < r < r_−)', 0, inner],
     ['between', 'II′ — between the horizons again', inner, outer],
     ['exterior', 'I′ — a new exterior', outer, Number.POSITIVE_INFINITY],
   ];
@@ -115,8 +115,8 @@ export function radialPosition(radius: number, block: Block): number {
  * The compression a block uses, with **each horizon regularised by its own surface gravity**.
  *
  * This is the piece that cannot be papered over. A single κ cannot straighten both ends of the
- * between-horizons block: κ₊ = 0.232/M and |κ₋| = 3.232/M differ by a factor of fourteen, and
- * using κ₊ throughout leaves the inner edge bunched at 0.43 instead of 0.94 — the outer horizon
+ * between-horizons block: κ_+ = 0.232/M and |κ_−| = 3.232/M differ by a factor of fourteen, and
+ * using κ_+ throughout leaves the inner edge bunched at 0.43 instead of 0.94 — the outer horizon
  * looking like a boundary and the inner one looking like the middle of the block. Kerr has no
  * one conformal map of the whole manifold for exactly this reason; the blocks are Kruskalised
  * separately and glued, and this function is that statement in arithmetic.
@@ -127,7 +127,7 @@ function compress(tortoise: number, block: Block): number {
     ? gravity.outer
     : block.kind === 'inner'
       ? Math.abs(gravity.inner)
-      // Between the horizons r* runs to −∞ at r₊ and +∞ at r₋, so which horizon is near depends
+      // Between the horizons r* runs to −∞ at r_+ and +∞ at r_−, so which horizon is near depends
       // on the sign, and so does which κ straightens it.
       : (tortoise < 0 ? gravity.outer : Math.abs(gravity.inner));
   return Math.atan(scale * tortoise);
@@ -240,7 +240,7 @@ export function horizonEdges(blocks: readonly Block[]): HorizonEdge[] {
     edges.push({
       atHeight: below.top,
       isCauchy,
-      label: isCauchy ? 'r₋ — Cauchy horizon' : 'r₊ — event horizon',
+      label: isCauchy ? 'r_− — Cauchy horizon' : 'r_+ — event horizon',
     });
   }
   return edges;

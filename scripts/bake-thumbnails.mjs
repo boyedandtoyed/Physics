@@ -50,6 +50,9 @@ const SHOTS = [
   { id: 'frame-dragging', settle: 6000 },
   { id: 'penrose-process', settle: 6000 },
   { id: 'isco-explorer', settle: 6000 },
+  { id: 'kruskal-diagram', settle: 5000 },
+  { id: 'penrose-schwarzschild', settle: 5000, press: ['Observer in region I', 'Infalling observer'] },
+  { id: 'penrose-kerr', settle: 5000 },
 ];
 
 async function bake(browser, shot) {

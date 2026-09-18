@@ -8,6 +8,9 @@ import AxeBuilder from '@axe-core/playwright';
  * they found it when they cannot run at all. */
 
 const BACKDROP = '.gallery-backdrop';
+/** Kept in one place: three sims joined the registry in Phase 5 and two assertions hard-coded
+ * the old count, one of which passed anyway because the missing stills hide themselves. */
+const SIM_COUNT = 18;
 
 for (const theme of ['light', 'dark'] as const) {
   test(`${theme}: the collection renders with its backdrop and stays accessible`, async ({ page }) => {
@@ -57,7 +60,7 @@ test('falls back to the plain page when WebGL2 is unavailable', async ({ page })
   await expect(page.locator('[role="alert"]')).toHaveCount(0);
   // And the page it decorates is untouched.
   await expect(page.getByRole('heading', { name: /The collection/ })).toBeVisible();
-  await expect(page.locator('.sim-grid > article')).toHaveCount(15);
+  await expect(page.locator('.sim-grid > article')).toHaveCount(SIM_COUNT);
   await expect(page.getByRole('link', { name: 'When light meets a black hole' })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -69,7 +72,7 @@ test('every card carries a baked still, and every still actually loads', async (
   });
   await page.goto('/');
   const thumbnails = page.locator('.sim-thumbnail');
-  await expect(thumbnails).toHaveCount(15);
+  await expect(thumbnails).toHaveCount(SIM_COUNT);
   await page.waitForTimeout(2000);
   expect(notFound, 'a thumbnail 404 would silently blank a card').toEqual([]);
 

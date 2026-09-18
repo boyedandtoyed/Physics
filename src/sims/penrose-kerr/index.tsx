@@ -4,8 +4,8 @@
  * horizons, both surface gravities, the exact tortoise coordinate, and therefore where every
  * r = const contour sits and which way it runs — while the **arrangement of the blocks** is the
  * standard one from the literature (Carter 1966; Hawking & Ellis fig. 29). Kerr has no single
- * conformal map of the whole manifold: each horizon must be regularised by its own κ, and κ₊
- * and |κ₋| differ by a factor of fourteen at this spin.
+ * conformal map of the whole manifold: each horizon must be regularised by its own κ, and κ_+
+ * and |κ_−| differ by a factor of fourteen at this spin.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NumberSlider } from '../../ui/NumberSlider';
@@ -339,7 +339,7 @@ export default function PenroseKerr() {
             gravities, the exact tortoise coordinate r*(r) and therefore every r = const contour’s
             position and direction are computed. The <em>arrangement</em> of the blocks is the
             standard one from Carter 1966 — Kerr has no single conformal map of the whole
-            manifold, because each horizon must be regularised by its own κ, and κ₊ and |κ₋|
+            manifold, because each horizon must be regularised by its own κ, and κ_+ and |κ_−|
             differ by a factor of {geometry.ratio.toFixed(1)} here.
           </p>
         </>}
@@ -363,7 +363,7 @@ export default function PenroseKerr() {
                 <dt>The two horizons</dt>
                 <dd>
                   {geometry.outer.toFixed(PLACES_4)} / {geometry.inner.toFixed(PLACES_4)}
-                  <span>r₊ / r₋ in M, at a/M = {SPIN} — M ± √(M² − a²)</span>
+                  <span>r_+ / r_− in M, at a/M = {SPIN} — M ± √(M² − a²)</span>
                 </dd>
               </div>
               <div className="figure-benchmark" data-readout="gravity">
@@ -372,7 +372,7 @@ export default function PenroseKerr() {
                   {geometry.gravity.outer.toFixed(PLACES_4)} /{' '}
                   {geometry.gravity.inner.toFixed(PLACES_4)}
                   <span>
-                    κ₊ / κ₋ in 1/M. κ₋ is negative and {geometry.ratio.toFixed(PLACES_2)}× larger
+                    κ_+ / κ_− in 1/M. κ_− is negative and {geometry.ratio.toFixed(PLACES_2)}× larger
                     in magnitude — that ratio is the mass-inflation instability
                   </span>
                 </dd>
@@ -418,8 +418,8 @@ export default function PenroseKerr() {
           </div>
 
           <p className="chooser-hint">
-            Yellow crossings are the event horizon at r₊. <strong>Red crossings are the Cauchy
-            horizon at r₋</strong>, drawn as a warning because that is what it is. The magenta
+            Yellow crossings are the event horizon at r_+. <strong>Red crossings are the Cauchy
+            horizon at r_−</strong>, drawn as a warning because that is what it is. The magenta
             line is the ring singularity, vertical because it is timelike.
           </p>
         </>}
@@ -428,16 +428,16 @@ export default function PenroseKerr() {
           {
             myth: 'The extra regions are somewhere you could actually travel to.',
             reality: 'Almost certainly not, and the diagram’s own inner boundary is why. An '
-              + 'ingoing perturbation is blueshifted at the Cauchy horizon as e^{|κ₋|v} while '
+              + 'ingoing perturbation is blueshifted at the Cauchy horizon as e^{|κ_−|v} while '
               + 'the outgoing tail from the collapse decays only as a power of v, so the flux '
               + 'measured there diverges — mass inflation. At a/M = 0.5 the inner surface '
               + 'gravity is 13.93 times the outer one, and that ratio is the instability. The '
               + 'maximal extension is a solution of the vacuum equations; it is not a prediction '
               + 'about what a real rotating hole contains.',
             figures: [
-              { label: 'κ₊', value: '0.2321 / M' },
-              { label: 'κ₋', value: '−3.2321 / M' },
-              { label: '|κ₋| / κ₊', value: '13.93 — the blueshift rate' },
+              { label: 'κ_+', value: '0.2321 / M' },
+              { label: 'κ_−', value: '−3.2321 / M' },
+              { label: '|κ_−| / κ_+', value: '13.93 — the blueshift rate' },
             ],
           },
           {
@@ -458,7 +458,7 @@ export default function PenroseKerr() {
           {
             myth: 'Between the horizons is just more of the inside.',
             reality: 'It is the only part where r is a TIME. Δ = r² − 2Mr + a² is negative only '
-              + 'between r₋ and r₊, and where Δ < 0 the r direction is timelike — so r = const is '
+              + 'between r_− and r_+, and where Δ < 0 the r direction is timelike — so r = const is '
               + 'a spacelike slice, shrinking r is as unavoidable as the clock advancing, and '
               + 'the contours in that band are drawn horizontal for that reason. Cross the '
               + 'Cauchy horizon and Δ turns positive again: r becomes a place, you can hover, '
@@ -482,7 +482,7 @@ export default function PenroseKerr() {
               'Kerr, a/M = 0.5, M = 1, equatorial slice only. The two suppressed directions are not symmetric here the way they are in Schwarzschild, and the off-equatorial structure — including the passage through the ring to r < 0 — is not drawn.',
               'COMPUTED: r± = M ± √(M² − a²); κ± = (r± − r∓)/4Mr±, which uses r±² + a² = 2Mr±; the exact tortoise coordinate r*(r), whose coefficients are exactly 1/2κ±; and from it every contour’s position and orientation.',
               'FROM THE LITERATURE: the arrangement of the blocks — exterior, between-horizons, inner, repeating. Carter 1966 and Hawking & Ellis fig. 29. Kerr admits no single conformal map of the whole manifold, so this cannot be derived from one formula and is not presented as though it were.',
-              'Each horizon is regularised by its OWN surface gravity. Using κ₊ throughout puts the Cauchy horizon at 0.43 across its block instead of 0.94 — it would look like the middle of the region rather than its boundary. The factor of 13.93 between κ₊ and |κ₋| is exactly why.',
+              'Each horizon is regularised by its OWN surface gravity. Using κ_+ throughout puts the Cauchy horizon at 0.43 across its block instead of 0.94 — it would look like the middle of the region rather than its boundary. The factor of 13.93 between κ_+ and |κ_−| is exactly why.',
               'r*(0) is FINITE — 0.2688 M — while both horizons sit at r* = ∓∞. That is the computed reason the ring is a timelike line at a definite place and the spacetime continues past it, rather than a spacelike end like Schwarzschild’s.',
               'The Cauchy horizon is unstable. Mass inflation (Poisson & Israel 1990) makes the curvature there diverge under any realistic perturbation, so everything above the first Cauchy horizon in this picture is a feature of the exact vacuum solution and not a claim about a real black hole.',
               'No matter, no charge, no quantum effects, and no attempt to draw the r < 0 region reached through the ring.',
@@ -497,12 +497,12 @@ export default function PenroseKerr() {
         </Suspense>
 
         <p className="verification-note">
-          Asserted numerically: r₊ = 1.8660 M and r₋ = 0.1340 M at a/M = ½; κ₊ = 0.2320508076/M
-          and κ₋ = −3.2320508076/M, agreeing with the (r± − r∓)/2(r±² + a²) form to 10⁻¹⁵; their
-          ratio is 13.9282, and exactly r₊/r₋; the tortoise coefficients are exactly 1/2κ±, and
+          Asserted numerically: r_+ = 1.8660 M and r_− = 0.1340 M at a/M = ½; κ_+ = 0.2320508076/M
+          and κ_− = −3.2320508076/M, agreeing with the (r± − r∓)/2(r±² + a²) form to 10⁻¹⁵; their
+          ratio is 13.9282, and exactly r_+/r_−; the tortoise coefficients are exactly 1/2κ±, and
           differentiating r* recovers (r² + a²)/Δ; r*(0) = 0.2688 M is finite while both horizons
           run to ∓∞; Δ is negative only between the horizons, which is what flips every contour
-          in that band from vertical to horizontal; and using κ₊ alone would put the Cauchy
+          in that band from vertical to horizontal; and using κ_+ alone would put the Cauchy
           horizon at 0.43 of its block instead of 0.94, which is the assertion that the two
           surface gravities are both needed.
         </p>

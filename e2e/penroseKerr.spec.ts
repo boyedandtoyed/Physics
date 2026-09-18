@@ -55,7 +55,7 @@ test('draws three repetitions of the five-block pattern', async ({ page }) => {
   await expect(readout(page, 'pattern')).toContainText('no top and no bottom');
   // The bands are labelled, and the labels include the repeated ones.
   await expect(page.locator('.kerr-band-label').first()).toBeVisible();
-  await expect(page.getByText('III — inside the Cauchy horizon (0 < r < r₋)')).toBeVisible();
+  await expect(page.getByText('III — inside the Cauchy horizon (0 < r < r_−)')).toBeVisible();
 });
 
 test('says where r is a time and where it is a place', async ({ page }) => {
@@ -128,7 +128,7 @@ test('every slider reaches both ends with the console clean', async ({ page }) =
 
 test('names the Cauchy horizon in a warning colour, in words', async ({ page }) => {
   await page.goto(ROUTE);
-  await expect(page.getByText(/Red crossings are the Cauchy horizon at r₋/)).toBeVisible();
+  await expect(page.getByText(/Red crossings are the Cauchy horizon at r_−/)).toBeVisible();
   await expect(page.getByText(/drawn as a warning because that is what it is/)).toBeVisible();
   await expect(page.getByText(/magenta line is the ring singularity, vertical because it is timelike/))
     .toBeVisible();

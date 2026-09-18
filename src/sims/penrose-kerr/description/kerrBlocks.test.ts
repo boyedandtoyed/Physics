@@ -114,7 +114,7 @@ describe('the radial map', () => {
       expect(Math.abs(position)).toBeLessThanOrEqual(1);
       previous = position;
     }
-    // …and it really is r*, not r: the exterior block's map is arctan(κ₊ r*), normalised.
+    // …and it really is r*, not r: the exterior block's map is arctan(κ_+ r*), normalised.
     const gravity = surfaceGravity(SPIN);
     expect(radialPosition(3, exterior)).toBeCloseTo(
       (2 / Math.PI) * Math.atan(gravity.outer * radialTortoise(3, SPIN)), 12,
@@ -128,7 +128,7 @@ describe('the radial map', () => {
     const between = tower[1]!;
     expect(radialPosition(outer + 1e-10, exterior)).toBeLessThan(-0.94);
     expect(radialPosition(outer - 1e-10, between)).toBeLessThan(-0.94);
-    // The inner edge of the between-block needs |κ₋|, not κ₊: the two differ by a factor of
+    // The inner edge of the between-block needs |κ_−|, not κ_+: the two differ by a factor of
     // fourteen, and using the outer one throughout leaves this at 0.43 — the Cauchy horizon
     // drawn in the middle of the block instead of at its edge.
     expect(radialPosition(inner + 1e-10, between)).toBeGreaterThan(0.94);
@@ -139,7 +139,7 @@ describe('the radial map', () => {
     expect(Math.abs(gravity.inner) / gravity.outer).toBeCloseTo(13.9282, 3);
     const { outer, inner } = horizonRadii(SPIN);
     const between = blockTower(1)[1]!;
-    // A single κ₊ would put the inner edge here instead, which is the defect this avoids.
+    // A single κ_+ would put the inner edge here instead, which is the defect this avoids.
     const withOuterOnly = (2 / Math.PI)
       * Math.atan(gravity.outer * radialTortoise(inner + 1e-10, SPIN));
     expect(withOuterOnly).toBeLessThan(0.5);
