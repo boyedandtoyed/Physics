@@ -183,3 +183,26 @@ function requireCircularOrbitExists(radius: number) {
     throw new RangeError('No circular orbit exists at or inside the photon sphere.');
   }
 }
+
+/**
+ * Proper acceleration a static observer must sustain to hover at `radius`. Units: r_s = 1.
+ *
+ *     a = (GM/r^2) / sqrt(1 - r_s/r)
+ *
+ * This, and not GM/r^2, is "the strength of gravity there" in a way an observer could measure —
+ * it is what a scale under their feet reads. The Newtonian expression is the numerator alone and
+ * is perfectly finite at the horizon, which is exactly the wrong answer: no static observer
+ * exists there, and the acceleration required diverges. A field diagram drawn from GM/r^2 alone
+ * says the horizon is an ordinary place to stand.
+ *
+ * Diverges at r = r_s and is undefined inside it, where nothing can be static.
+ */
+export function hoverAcceleration(radius: number): number {
+  if (!(radius > HORIZON_RADIUS)) {
+    throw new RangeError('No static observer exists at or inside the horizon.');
+  }
+  return MASS / (radius * radius * Math.sqrt(1 - HORIZON_RADIUS / radius));
+}
+
+/** The Newtonian GM/r^2 at the same radius, for the comparison the above is worth making. */
+export const newtonianField = (radius: number): number => MASS / (radius * radius);

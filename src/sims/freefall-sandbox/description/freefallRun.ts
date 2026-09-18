@@ -9,6 +9,9 @@
  * as the parameter. §2.7 is why that matters and why a radial drop is exactly right anyway.
  */
 import { createYoshida4 } from '../../../core/integrators/symplectic';
+import { embeddingHeight } from '../../../core/embedding';
+import { hoverAcceleration } from '../../../core/schwarzschild';
+import { advect, infallTime, riverSpeedOverC } from '../../../core/river';
 import { orbitAcceleration, specificAngularMomentum } from '../../../core/orbit';
 import {
   C,
@@ -25,12 +28,10 @@ import {
 
 const TWO = 2;
 const HALF = 0.5;
-const FLOATS_PER_VERTEX = 3;
 const KILOMETRES_PER_METRE = 1e-3;
 /** The 8 in the cycloid's √(r₀³/8GM), with G = M = 1. */
 const CYCLOID_DENOMINATOR = 8;
 /** Quadrature steps for the proper-distance rings. */
-const RING_QUADRATURE_STEPS = 4000;
 
 /** Geometric mass GM/c², in metres, for a body given its GM. */
 const geometricLength = (gm: number): number => gm / C ** TWO;
@@ -278,58 +279,7 @@ export function cycloidTime(from: number, to: number): number {
   return Math.sqrt(from ** 3 / CYCLOID_DENOMINATOR) * (eta + Math.sin(eta));
 }
 
-/** Trail vertices as (x, y, age), oldest first. */
-export function trailVertices(trail: readonly Sample[]): Float32Array {
-  const data = new Float32Array(trail.length * FLOATS_PER_VERTEX);
-  trail.forEach((sample, index) => {
-    data[index * FLOATS_PER_VERTEX] = sample.x;
-    data[index * FLOATS_PER_VERTEX + 1] = sample.y;
-    data[index * FLOATS_PER_VERTEX + 2] = trail.length < TWO ? 1 : index / (trail.length - 1);
-  });
-  return data;
-}
 
-export const pointVertex = (track: Track): Float32Array =>
-  new Float32Array([track.x, track.y, 1]);
-
-/**
- * Radii at equal **proper** radial separation, outward from the surface.
- *
- * This is the well, drawn top-down and without a fake third dimension. Proper radial distance is
- * dℓ = dr/√(1 − r_s/r), so rings laid down at equal proper spacing bunch up in coordinate r near
- * the horizon — and that bunching *is* the depth of the Flamm paraboloid, seen from above. For
- * Earth the rings come out evenly spaced, because at 1.4 billion M the geometry is flat; for a
- * black hole they crowd against the horizon. Nothing is exaggerated, and nothing needs to be.
- */
-export function properDistanceRings(
-  surfaceRadius: number, outerRadius: number, count: number,
-): number[] {
-  if (count < TWO || !(outerRadius > surfaceRadius)) return [];
-  // Proper distance from the surface, by quadrature in a variable with no endpoint singularity.
-  const steps = RING_QUADRATURE_STEPS;
-  const radii: number[] = [];
-  const distances: number[] = [];
-  let total = 0;
-  for (let index = 0; index <= steps; index++) {
-    const radius = surfaceRadius + ((outerRadius - surfaceRadius) * index) / steps;
-    if (index > 0) {
-      const previous = surfaceRadius + ((outerRadius - surfaceRadius) * (index - 1)) / steps;
-      const mid = (radius + previous) * HALF;
-      const factor = mid > TWO ? 1 / Math.sqrt(1 - TWO / mid) : 1;
-      total += (radius - previous) * factor;
-    }
-    radii.push(radius);
-    distances.push(total);
-  }
-  const rings: number[] = [];
-  for (let ring = 1; ring < count; ring++) {
-    const target = (total * ring) / count;
-    let index = distances.findIndex(distance => distance >= target);
-    if (index < 0) index = distances.length - 1;
-    rings.push(radii[index] as number);
-  }
-  return rings;
-}
 
 /**
  * Velocity a drag encodes, given the frame's half-extent.
@@ -359,3 +309,134 @@ export const circularSpeedAt = (radius: number): number => Math.sqrt(1 / radius)
 /** Distance in kilometres, for the readout beside the geometric number. */
 export const toKilometres = (radius: number, body: CentralBody): number =>
   radius * body.geometricMetres * KILOMETRES_PER_METRE;
+
+// ---------------------------------------------------------------------------------------------
+// The 3D scene: the Flamm funnel, the field arrows and the river overlay. Geometry only.
+// ---------------------------------------------------------------------------------------------
+
+/** r_s in these units: M = 1, so the horizon is at 2. */
+export const HORIZON_RADIUS = 2;
+
+/**
+ * Height of the Flamm funnel at a radius, hung so the outer edge of the mesh sits at zero.
+ *
+ * The **exact** embedding, z = 2√(r_s(r − r_s)), of the one Schwarzschild mass this sim has —
+ * unlike the gravity sandbox next door, which has several and therefore cannot draw one at all
+ * (§2.9). It is the same funnel for every central body in the panel: the geometry depends on
+ * r/M alone, so changing the mass rescales the picture and changes nothing about its shape.
+ * What moves from Earth to a black hole is where the *surface* sits on it.
+ */
+export function funnelHeight(radius: number, outerRadius: number): number {
+  const r = Math.max(radius, HORIZON_RADIUS);
+  const outer = Math.max(outerRadius, HORIZON_RADIUS);
+  return embeddingHeight(r, HORIZON_RADIUS) - embeddingHeight(outer, HORIZON_RADIUS);
+}
+
+/**
+ * Proper acceleration needed to hover at a radius, in units of 1/M.
+ *
+ * Not GM/r²: that is the numerator alone and stays finite at the horizon, which would draw the
+ * horizon as an ordinary place to stand. The lapse in the denominator is what makes the arrows
+ * run away as they approach it. `core/schwarzschild` carries this in r_s = 1; here r_s = 2.
+ */
+export const hoverFieldAt = (radius: number): number =>
+  radius > HORIZON_RADIUS ? hoverAcceleration(radius / HORIZON_RADIUS) / HORIZON_RADIUS : Infinity;
+
+/** The Newtonian M/r² at the same radius, for the comparison that is worth drawing. */
+export const newtonianFieldAt = (radius: number): number => 1 / (radius * radius);
+
+export interface Arrow {
+  x: number;
+  y: number;
+  /** Unit vector pointing at the centre. */
+  dx: number;
+  dy: number;
+  /** Proper hover acceleration there, 1/M. */
+  magnitude: number;
+  /** Drawn length after the cap, sim units. */
+  length: number;
+}
+
+/**
+ * A square lattice of field arrows in the equatorial plane, each pointing at the centre.
+ *
+ * **The cap is the honest part.** |g| goes as 1/r² and then diverges at the horizon, so an
+ * uncapped arrow near the middle is a hundred times the length of one at the edge and the
+ * diagram becomes one enormous spike surrounded by invisible stubs — which shows the reader
+ * nothing at all. Lengths are therefore clamped, and the magnitude is carried separately so the
+ * colour can keep saying what the length no longer can.
+ */
+export function fieldArrows(
+  divisions: number, extent: number, surfaceRadius: number, maxLength: number,
+): Arrow[] {
+  if (divisions < TWO || !(extent > 0)) return [];
+  const arrows: Arrow[] = [];
+  const scale = maxLength * ARROW_REFERENCE_RADIUS * ARROW_REFERENCE_RADIUS;
+  for (let i = 0; i < divisions; i++) {
+    for (let j = 0; j < divisions; j++) {
+      const x = -extent + (TWO * extent * (i + HALF)) / divisions;
+      const y = -extent + (TWO * extent * (j + HALF)) / divisions;
+      const radius = Math.hypot(x, y);
+      // Inside the body there is no vacuum field to draw, and inside a horizon no static
+      // observer to measure one. Outside `extent` there is no drawn surface for an arrow to lie
+      // on, and the lattice's corners reach extent*sqrt(2) — so they are dropped rather than
+      // left floating off the edge of the mesh.
+      if (!(radius > Math.max(surfaceRadius, HORIZON_RADIUS))) continue;
+      if (radius > extent) continue;
+      const magnitude = hoverFieldAt(radius);
+      arrows.push({
+        x,
+        y,
+        dx: -x / radius,
+        dy: -y / radius,
+        magnitude,
+        length: Math.min(scale * magnitude, maxLength),
+      });
+    }
+  }
+  return arrows;
+}
+
+/** Radius at which an uncapped arrow would be exactly `maxLength`, so the cap has a stated edge. */
+const ARROW_REFERENCE_RADIUS = 8;
+
+/**
+ * River flow speed at a radius, as a fraction of c: √(r_s/r). Exactly 1 at the horizon.
+ *
+ * `core/river` works in units of r_s and this sim in units of M, which is the whole of the
+ * conversion. PHYSICS_SPEC §5.1–§5.4: the flow is the metric's shift vector in one particular
+ * slicing, and is not a current in anything.
+ */
+export const riverSpeedAt = (radius: number): number => riverSpeedOverC(radius / HORIZON_RADIUS);
+
+export interface FlowMarker {
+  radius: number;
+  angle: number;
+  speed: number;
+}
+
+/**
+ * Markers riding the river inward, spread over `spokes` radial lines.
+ *
+ * Each marker is advected by the closed form in `core/river` rather than stepped, and respawned
+ * at the outer edge when it reaches the horizon — so the pattern is steady while every individual
+ * marker moves at exactly √(r_s/r).
+ */
+export function flowMarkers(
+  spokes: number, perSpoke: number, outerRadius: number, phase: number,
+): FlowMarker[] {
+  if (spokes < 1 || perSpoke < 1 || !(outerRadius > HORIZON_RADIUS)) return [];
+  const markers: FlowMarker[] = [];
+  // Time for a marker to fall from the outer edge to the horizon, in r_s/c.
+  const span = infallTime(outerRadius / HORIZON_RADIUS, 1);
+  for (let spoke = 0; spoke < spokes; spoke++) {
+    const angle = (spoke / spokes) * Math.PI * TWO;
+    for (let index = 0; index < perSpoke; index++) {
+      const offset = ((phase + index / perSpoke) % 1) * span;
+      const radius = advect(outerRadius / HORIZON_RADIUS, offset) * HORIZON_RADIUS;
+      if (!(radius > HORIZON_RADIUS)) continue;
+      markers.push({ radius, angle, speed: riverSpeedAt(radius) });
+    }
+  }
+  return markers;
+}

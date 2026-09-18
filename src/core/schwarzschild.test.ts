@@ -7,6 +7,8 @@ import {
   NT_PEAK_FLUX,
   PHOTON_SPHERE_RADIUS,
   circularOrbitEnergy,
+  hoverAcceleration,
+  newtonianField,
   novikovThorneFlux,
   novikovThorneTemperature,
   orbitalAngularVelocity,
@@ -141,5 +143,37 @@ describe('redshift factor (§4.3)', () => {
     expect(orbitalAngularVelocity(ISCO_RADIUS)).toBeCloseTo(Math.sqrt(MASS / ISCO_RADIUS ** 3), 14);
     // Unit sanity: b_crit is a length in the same r_s units, so Omega*b is dimensionless.
     expect(orbitalAngularVelocity(ISCO_RADIUS) * CRITICAL_IMPACT_PARAMETER).toBeLessThan(1);
+  });
+});
+
+describe('what a scale under a hovering observer’s feet reads', () => {
+  it('is the Newtonian field divided by the lapse, and exceeds it everywhere', () => {
+    for (const r of [1.5, 3, 10, 1e3]) {
+      expect(hoverAcceleration(r))
+        .toBeCloseTo(newtonianField(r) / Math.sqrt(1 - 1 / r), 12);
+      expect(hoverAcceleration(r)).toBeGreaterThan(newtonianField(r));
+    }
+  });
+
+  it('diverges at the horizon, where the Newtonian expression is merely finite', () => {
+    // The whole reason to carry the lapse: a field diagram drawn from GM/r² alone says the
+    // horizon is an ordinary place to stand.
+    expect(newtonianField(1)).toBeCloseTo(0.5, 12);
+    expect(hoverAcceleration(1 + 1e-12)).toBeGreaterThan(1e5);
+    expect(() => hoverAcceleration(1)).toThrow(RangeError);
+    expect(() => hoverAcceleration(0.9)).toThrow(RangeError);
+  });
+
+  it('tends to the Newtonian value far away, exceeding it by exactly r_s/2r', () => {
+    // 1/sqrt(1 - 1/r) = 1 + 1/2r + O(1/r^2), so the excess is a number rather than a vibe: one
+    // part in two million at a million r_s, and one part in twenty at r = 10.
+    for (const r of [1e6, 1e4, 100]) {
+      expect(hoverAcceleration(r) / newtonianField(r) - 1).toBeCloseTo(1 / (2 * r), 8);
+    }
+    expect(hoverAcceleration(1e6) / newtonianField(1e6)).toBeCloseTo(1, 5);
+  });
+
+  it('falls off as 1/r² far out, to the precision that claim deserves', () => {
+    expect(newtonianField(100) / newtonianField(200)).toBeCloseTo(4, 12);
   });
 });

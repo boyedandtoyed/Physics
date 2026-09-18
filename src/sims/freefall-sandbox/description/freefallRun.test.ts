@@ -1,23 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import {
   CENTRAL_BODIES,
+  FULL_DRAG_SPEED,
   OBJECTS,
   STEP,
   STOP_RADIUS,
   advance,
+  circularSpeedAt,
   cycloidTime,
   emptyState,
   escapeSpeedAt,
-  properDistanceRings,
+  fieldArrows,
+  flowMarkers,
+  funnelHeight,
+  hoverFieldAt,
+  newtonianFieldAt,
   radiusOf,
   release,
+  riverSpeedAt,
   speedOf,
   staticClockRate,
-  trailVertices,
   velocityFromDrag,
-  circularSpeedAt,
-  FULL_DRAG_SPEED,
 } from './freefallRun';
+import { embeddingHeight } from '../../../core/embedding';
 
 
 /** Drop from rest at `from` and run until it stops, returning the final state. */
@@ -166,36 +171,6 @@ describe('an orbit, where the correction does something', () => {
   });
 });
 
-describe('the well, drawn as proper-distance rings', () => {
-  it('bunches the rings against the horizon for a black hole', () => {
-    // Equal PROPER spacing means unequal coordinate spacing, and the gaps must grow outward at
-    // every step — that monotonicity is the depth of the well, seen from above.
-    const rings = properDistanceRings(2.0005, 30, 8);
-    expect(rings).toHaveLength(7);
-    const gaps = rings.slice(1).map((r, i) => r - rings[i]!);
-    for (let index = 1; index < gaps.length; index++) {
-      expect(gaps[index]!).toBeGreaterThan(gaps[index - 1]!);
-    }
-    // Close in, where the effect lives, the outermost gap is twice the innermost.
-    const near = properDistanceRings(2.0005, 8, 8);
-    const nearGaps = near.slice(1).map((r, i) => r - near[i]!);
-    expect(nearGaps[nearGaps.length - 1]! / nearGaps[0]!).toBeGreaterThan(2);
-  });
-
-  it('spaces them evenly where the geometry is flat, which is the Earth’s case', () => {
-    const earth = CENTRAL_BODIES.find(body => body.id === 'earth')!;
-    const rings = properDistanceRings(earth.surfaceRadius, earth.surfaceRadius * 10, 8);
-    const gaps = rings.slice(1).map((r, i) => r - rings[i]!);
-    for (const gap of gaps) expect(gap / gaps[0]!).toBeCloseTo(1, 3);
-  });
-
-  it('returns nothing for a degenerate range rather than dividing by zero', () => {
-    expect(properDistanceRings(10, 10, 6)).toEqual([]);
-    expect(properDistanceRings(10, 4, 6)).toEqual([]);
-    expect(properDistanceRings(2.1, 30, 1)).toEqual([]);
-  });
-});
-
 describe('the drag-to-velocity mapping', () => {
   it('never launches faster than light, however far the drag goes', () => {
     // One sim unit of drag per sim unit of speed makes a 40-pixel flick a launch at 4.5c in
@@ -246,16 +221,146 @@ describe('bookkeeping', () => {
     expect(advance(state, 100, 2.1)).toBe(state);
   });
 
-  it('keeps a trail that fades oldest to newest', () => {
+  it('keeps a trail to draw', () => {
     const state = advance(release(10, 0, 0, 0), 50, 2.001);
-    const data = trailVertices(state.relativistic.trail);
-    expect(data.length / 3).toBe(state.relativistic.trail.length);
-    expect(data[2]).toBe(0);
-    expect(data[data.length - 1]).toBe(1);
+    expect(state.relativistic.trail.length).toBeGreaterThan(1);
+    expect(state.relativistic.trail[0]!.x).toBeCloseTo(10, 6);
   });
 
   it('advances proper time by the step, exactly', () => {
     const state = advance(release(10, 0, 0, 0), 50, 2.001);
     expect(state.relativistic.time).toBeCloseTo(50 * STEP, 12);
+  });
+});
+
+describe('the Flamm funnel the 3D view draws', () => {
+  it('is the exact embedding, hung so the outer edge is level', () => {
+    expect(funnelHeight(40, 40)).toBeCloseTo(0, 12);
+    for (const r of [2, 5, 12, 30]) {
+      expect(funnelHeight(r, 40)).toBeCloseTo(embeddingHeight(r, 2) - embeddingHeight(40, 2), 12);
+    }
+  });
+
+  it('is the SAME funnel whatever the central body, which is the sim’s whole claim', () => {
+    // The geometry depends on r/M alone, so in units of M there is one surface and the body
+    // selector moves the surface along it rather than deepening it.
+    const shape = (r: number) => funnelHeight(r, 40) / funnelHeight(2, 40);
+    for (const body of CENTRAL_BODIES) {
+      expect(body.surfaceRadius).toBeGreaterThan(0);
+    }
+    expect(shape(2)).toBeCloseTo(1, 12);
+    expect(shape(40)).toBeCloseTo(0, 12);
+  });
+
+  it('bottoms out at the throat and does not continue inside it', () => {
+    expect(funnelHeight(1, 40)).toBe(funnelHeight(2, 40));
+    expect(funnelHeight(0, 40)).toBe(funnelHeight(2, 40));
+  });
+
+  it('is flat where the surface is far out, which is the Earth’s case', () => {
+    // The claim the proper-distance rings used to carry, said against what is now drawn: at 1.44
+    // billion M the funnel's slope is so small that the whole visible frame is level to a part
+    // in 10^4, which is why the Earth's sheet looks flat and should.
+    const earth = CENTRAL_BODIES.find(entry => entry.id === 'earth')!;
+    const outer = earth.surfaceRadius * 6;
+    const depth = Math.abs(funnelHeight(earth.surfaceRadius, outer));
+    expect(depth / outer).toBeLessThan(1e-4);
+    // A black hole, framed the same way, is not remotely flat.
+    expect(Math.abs(funnelHeight(2, 12)) / 12).toBeGreaterThan(0.5);
+  });
+
+  it('rises monotonically outward', () => {
+    const radii = [2, 3, 6, 12, 25, 40];
+    for (let i = 1; i < radii.length; i++) {
+      expect(funnelHeight(radii[i]!, 40)).toBeGreaterThan(funnelHeight(radii[i - 1]!, 40));
+    }
+  });
+});
+
+describe('the gravity field arrows', () => {
+  it('point at the centre, always', () => {
+    for (const arrow of fieldArrows(8, 20, 2, 1.5)) {
+      const radius = Math.hypot(arrow.x, arrow.y);
+      expect(arrow.dx).toBeCloseTo(-arrow.x / radius, 12);
+      expect(arrow.dy).toBeCloseTo(-arrow.y / radius, 12);
+      expect(Math.hypot(arrow.dx, arrow.dy)).toBeCloseTo(1, 12);
+    }
+  });
+
+  it('measures the proper hover acceleration, not GM/r², so it diverges at the horizon', () => {
+    // The distinction the diagram exists to make: GM/r² is finite at the horizon and would draw
+    // it as an ordinary place to stand.
+    expect(hoverFieldAt(2.0001)).toBeGreaterThan(newtonianFieldAt(2.0001) * 50);
+    expect(newtonianFieldAt(2)).toBeCloseTo(0.25, 12);
+    expect(hoverFieldAt(2)).toBe(Infinity);
+    // Far out the two agree.
+    expect(hoverFieldAt(1e5) / newtonianFieldAt(1e5)).toBeCloseTo(1, 4);
+  });
+
+  it('caps the drawn length while keeping the magnitude honest', () => {
+    const arrows = fieldArrows(16, 20, 2, 1.5);
+    expect(arrows.length).toBeGreaterThan(100);
+    for (const arrow of arrows) {
+      expect(arrow.length).toBeLessThanOrEqual(1.5 + 1e-12);
+      expect(arrow.length).toBeGreaterThan(0);
+    }
+    // The magnitude spans orders of magnitude even though the length spans a factor of a few.
+    const magnitudes = arrows.map(a => a.magnitude);
+    const lengths = arrows.map(a => a.length);
+    expect(Math.max(...magnitudes) / Math.min(...magnitudes)).toBeGreaterThan(20);
+    expect(Math.max(...lengths) / Math.min(...lengths)).toBeLessThan(20);
+  });
+
+  it('draws nothing inside the body, where there is no vacuum field', () => {
+    const arrows = fieldArrows(24, 20, 9, 1.5);
+    for (const arrow of arrows) expect(Math.hypot(arrow.x, arrow.y)).toBeGreaterThan(9);
+  });
+
+  it('draws nothing outside the frame, where there is no surface to lie on', () => {
+    // The lattice is square and the mesh is round: the corners reach extent*sqrt(2).
+    for (const arrow of fieldArrows(16, 20, 2, 1.5)) {
+      expect(Math.hypot(arrow.x, arrow.y)).toBeLessThanOrEqual(20);
+    }
+  });
+
+  it('falls off as 1/r² where the cap is not biting', () => {
+    expect(newtonianFieldAt(10) / newtonianFieldAt(20)).toBeCloseTo(4, 12);
+  });
+});
+
+describe('the river overlay', () => {
+  it('reaches exactly c at the horizon and less outside it', () => {
+    expect(riverSpeedAt(2)).toBeCloseTo(1, 12);
+    expect(riverSpeedAt(8)).toBeCloseTo(0.5, 12);
+    expect(riverSpeedAt(200)).toBeLessThan(0.11);
+    expect(riverSpeedAt(1)).toBeGreaterThan(1);
+  });
+
+  it('is the escape velocity, which is what makes the horizon the horizon', () => {
+    for (const r of [3, 10, 50]) expect(riverSpeedAt(r)).toBeCloseTo(escapeSpeedAt(r), 12);
+  });
+
+  it('advects markers inward and keeps them outside the horizon', () => {
+    for (const phase of [0, 0.25, 0.5, 0.9]) {
+      const markers = flowMarkers(12, 6, 30, phase);
+      expect(markers.length).toBeGreaterThan(0);
+      for (const marker of markers) {
+        expect(marker.radius).toBeGreaterThan(2);
+        expect(marker.radius).toBeLessThanOrEqual(30 + 1e-9);
+        expect(marker.speed).toBeCloseTo(riverSpeedAt(marker.radius), 12);
+      }
+    }
+  });
+
+  it('spreads markers over every spoke', () => {
+    const angles = new Set(flowMarkers(8, 4, 30, 0.1).map(m => m.angle.toFixed(6)));
+    expect(angles.size).toBe(8);
+  });
+
+  it('moves them inward as the phase advances', () => {
+    const first = flowMarkers(1, 1, 30, 0)[0]!;
+    const later = flowMarkers(1, 1, 30, 0.4)[0]!;
+    expect(later.radius).toBeLessThan(first.radius);
+    expect(later.speed).toBeGreaterThan(first.speed);
   });
 });

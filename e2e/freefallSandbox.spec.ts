@@ -61,12 +61,14 @@ test('every central body and object selects, with the console clean', async ({ p
     await page.getByRole('button', { name: object }).click();
     await expect(page.locator('.stage-failure'), object).toHaveCount(0);
   }
-  const slider = page.getByRole('slider', { name: 'Speed' });
-  await slider.focus();
-  for (const key of ['Home', 'End'] as const) {
-    await slider.press(key);
-    await page.waitForTimeout(400);
-    await expect(page.locator('.stage-failure')).toHaveCount(0);
+  for (const name of ['Speed', 'Camera height', 'Camera distance', 'Vertical exaggeration']) {
+    const slider = page.getByRole('slider', { name });
+    await slider.focus();
+    for (const key of ['Home', 'End'] as const) {
+      await slider.press(key);
+      await page.waitForTimeout(400);
+      await expect(page.locator('.stage-failure'), `${name} ${key}`).toHaveCount(0);
+    }
   }
   expect(errors).toEqual([]);
 });
@@ -140,7 +142,9 @@ test('states which clock is counting, permanently', async ({ page }) => {
   await page.goto(ROUTE);
   const label = page.locator('.stage-permanent-label');
   await expect(label).toContainText('the faller’s own proper time');
-  await expect(label).toContainText('equal proper radial separation');
+  // The rings that used to carry this are now the funnel itself.
+  await expect(label).toContainText('exact Flamm paraboloid');
+  await expect(label).toContainText('true vertical scale');
   await page.getByRole('button', { name: 'Expand' }).click();
   await expect(page.locator('.sim-stage')).toHaveClass(/is-focused/);
   await expect(label).toBeVisible();
@@ -163,4 +167,124 @@ test('corrects the deeper-well and slower-clock stories', async ({ page }) => {
     .toBeVisible();
   await expect(page.getByText(/An apple and a space station released together stay together/))
     .toBeVisible();
+});
+
+// ---------------------------------------------------------------------------------------------
+// The 3D view: the funnel, the field arrows, the river overlay and the camera.
+// ---------------------------------------------------------------------------------------------
+
+test('the funnel is the same surface for every body, cut at a different place', async ({ page }) => {
+  // The sim's whole thesis, as a number: the geometry depends on r/M alone, so what changes with
+  // the central body is where the surface sits on one fixed funnel.
+  await page.goto(ROUTE);
+  await page.getByRole('button', { name: 'Black hole' }).click();
+  await page.waitForTimeout(600);
+  // Frame is max(6 x 2, 12) = 12, so the drop from the throat is 2 sqrt(2 x 10) = 8.944 M.
+  expect(await numberIn(page, 'funnel')).toBeCloseTo(8.94, 1);
+  await expect(readout(page, 'funnel')).toContainText('at true scale');
+
+  await page.getByRole('button', { name: 'Neutron star' }).click();
+  await page.waitForTimeout(600);
+  expect(await numberIn(page, 'funnel')).toBeCloseTo(10.7, 0);
+
+  // The Earth's surface is 1.4 billion M out, where the same funnel is flat: the depth is a
+  // vanishing fraction of the frame rather than a comparable one.
+  await page.getByRole('button', { name: 'Earth' }).click();
+  await page.waitForTimeout(600);
+  const earth = await numberIn(page, 'funnel');
+  expect(earth).toBeGreaterThan(0);
+  expect(earth / (1.44e9 * 6)).toBeLessThan(1e-4);
+});
+
+test('the field arrows use the hover acceleration, not GM/r²', async ({ page }) => {
+  await page.goto(ROUTE);
+  await page.getByRole('button', { name: 'Neutron star' }).click();
+  await page.waitForTimeout(500);
+  // At 5.8 M the lapse is sqrt(1 - 2/5.8) = 0.810, so the two differ by 23 per cent.
+  const text = await readout(page, 'field').innerText();
+  expect(text).toContain('3.67e-2');
+  expect(text).toContain('2.97e-2');
+
+  // At a horizon there is no static observer at all, and the readout says so rather than
+  // printing the finite Newtonian number.
+  await page.getByRole('button', { name: 'Black hole' }).click();
+  await page.waitForTimeout(500);
+  await expect(readout(page, 'field')).toContainText('∞');
+  await expect(readout(page, 'field')).toContainText('stays finite at a horizon where this does not');
+});
+
+test('the arrows toggle on, off, and explain themselves either way', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.goto(ROUTE);
+  const arrows = page.locator('.react-aria-Switch', { hasText: 'Gravity field arrows' });
+  await expect(arrows.locator('input')).not.toBeChecked();
+  await expect(page.getByText(/rather than GM\/r²/)).toBeVisible();
+  await arrows.click();
+  await expect(page.getByText(/what a scale under your feet would read/)).toBeVisible();
+  await expect(page.getByText(/Lengths are capped/)).toBeVisible();
+  await page.waitForTimeout(1200);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('the river overlay reaches exactly c at a horizon and says it is a coordinate choice', async ({ page }) => {
+  await page.goto(ROUTE);
+  await page.getByRole('button', { name: 'Black hole' }).click();
+  await page.waitForTimeout(500);
+  expect(await numberIn(page, 'flow')).toBeCloseTo(1, 3);
+  await expect(readout(page, 'flow')).toContainText('exactly 1 at a horizon');
+
+  // Further up the funnel it is slower, and it is the escape velocity.
+  await page.getByRole('button', { name: 'Neutron star' }).click();
+  await page.waitForTimeout(500);
+  expect(await numberIn(page, 'flow')).toBeCloseTo(0.587, 2);
+
+  const river = page.locator('.react-aria-Switch', { hasText: 'River model (GP)' });
+  await expect(river.locator('input')).not.toBeChecked();
+  await river.click();
+  await expect(page.getByText(/A COORDINATE CHOICE, not a current/)).toBeVisible();
+  await page.waitForTimeout(1200);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
+});
+
+test('names Hamilton and Lisle for the river model, permanently', async ({ page }) => {
+  await page.goto(ROUTE);
+  const label = page.locator('.stage-permanent-label');
+  await expect(label).toContainText('River model is a coordinate choice (GP)');
+  await expect(label).toContainText('Hamilton & Lisle 2008');
+  await expect(label).toBeVisible();
+});
+
+test('the camera orbits from the keyboard and reports where it is', async ({ page }) => {
+  await page.goto(ROUTE);
+  await page.waitForTimeout(700);
+  await expect(readout(page, 'camera')).toContainText('30.0°');
+  const azimuth = async () => {
+    const text = await readout(page, 'camera').innerText();
+    return Number(/azimuth\s+([\d.]+)°/.exec(text)?.[1] ?? NaN);
+  };
+  const before = await azimuth();
+  const canvas = page.locator('.stage-surface canvas');
+  await canvas.focus();
+  for (let i = 0; i < 5; i++) await canvas.press('ArrowLeft');
+  await page.waitForTimeout(300);
+  expect(await azimuth()).not.toBeCloseTo(before, 1);
+});
+
+test('the vertical exaggeration defaults to the true surface', async ({ page }) => {
+  // CLAUDE.md: physical is the default. An exaggerated funnel is a drawing, not a geometry.
+  await page.goto(ROUTE);
+  const slider = page.getByRole('slider', { name: 'Vertical exaggeration' });
+  // A range input carries its value in `value`; react-aria does not set aria-valuenow on it.
+  await expect(slider).toHaveValue('1');
+  await expect(page.getByText(/1 is the true surface, and is the default/)).toBeVisible();
+  // Exaggerating does not move the physics: the funnel readout is the true depth either way.
+  const before = await numberIn(page, 'funnel');
+  await slider.focus();
+  await slider.press('End');
+  await page.waitForTimeout(700);
+  expect(await numberIn(page, 'funnel')).toBeCloseTo(before, 3);
+  await expect(page.locator('.stage-failure')).toHaveCount(0);
 });
