@@ -1,0 +1,74 @@
+/* SIM J. Panel classes are scoped here as they are in every other sim: `.readout` and the rest
+   are conventions rather than shared components, and a sim that uses the names without the rules
+   gets the user agent's default button, which fails contrast in dark mode. */
+
+.kruskal .control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.kruskal .preset-button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.kruskal .preset-button:hover { border-color: var(--accent); }
+
+.kruskal .preset-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.kruskal .preset-button[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.kruskal .chooser-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.kruskal .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.kruskal .readout div { display: grid; gap: 0.15rem; }
+
+.kruskal .readout dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.kruskal .readout dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-family: Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.kruskal .readout dd span {
+  display: block;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.kruskal .figure-benchmark {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.kruskal .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+.kruskal .stage-surface canvas { cursor: crosshair; }

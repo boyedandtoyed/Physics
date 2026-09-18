@@ -543,3 +543,68 @@ export function maximise(f: (x: number) => number, lo: number, hi: number): numb
   }
   return (low + high) * HALF;
 }
+
+/**
+ * Surface gravities of the two horizons: κ± = (r± − r∓) / (4 M r±). PHYSICS_SPEC §7.4b.
+ *
+ * Uses r±² + a² = 2Mr±, which is the horizon condition itself, so the usual
+ * (r± − r∓)/(2(r±² + a²)) needs no separate evaluation. M = 1 here, as everywhere in this module.
+ *
+ * κ₋ is **negative**, and its magnitude is much the larger: at a/M = ½ the inner horizon's is
+ * 13.93 times the outer's. That ratio is not a curiosity — it is the mass-inflation instability.
+ */
+export function surfaceGravity(spin: number): { outer: number; inner: number } {
+  const { outer, inner } = horizonRadii(spin);
+  if (!(outer > inner)) {
+    throw new RangeError('The horizons have merged; κ vanishes at extremality.');
+  }
+  return {
+    outer: (outer - inner) / (FOUR * outer),
+    inner: (inner - outer) / (FOUR * inner),
+  };
+}
+
+/**
+ * How much more sharply the inner horizon blueshifts than the outer one redshifts: |κ₋|/κ₊.
+ *
+ * An ingoing perturbation arrives at the Cauchy horizon blueshifted as e^{|κ₋|v} while the
+ * outgoing tail decays only as a power of v, so the flux measured there diverges — mass
+ * inflation, Poisson & Israel 1990. This number is why the region beyond it is not expected to
+ * describe anything physical.
+ */
+export function massInflationRatio(spin: number): number {
+  const gravity = surfaceGravity(spin);
+  return Math.abs(gravity.inner) / gravity.outer;
+}
+
+/**
+ * dr* / dr = (r² + a²)/Δ for the equatorial slice. Diverges at both horizons, which is what
+ * pushes them to infinite tortoise distance and gives the diagram its block structure.
+ */
+export function tortoiseDerivative(radius: number, spin: number): number {
+  const gap = delta(radius, spin);
+  if (gap === 0) throw new RangeError('dr*/dr diverges on a horizon.');
+  return (radius * radius + spin * spin) / gap;
+}
+
+/**
+ * The Kerr radial tortoise coordinate, equatorial:
+ *
+ *     r* = r + ln|r − r₊|/(2κ₊) + ln|r − r₋|/(2κ₋)
+ *
+ * The two coefficients are exactly the reciprocal surface gravities — partial fractions of
+ * (r² + a²)/Δ give 2Mr±/(r₊ − r₋), and that is 1/(2κ±). Asserted rather than asserted-in-prose.
+ *
+ * The logarithms are written against 2M so the argument is dimensionless; that choice shifts r*
+ * by a constant and nothing in a causal diagram depends on it.
+ */
+export function radialTortoise(radius: number, spin: number): number {
+  const { outer, inner } = horizonRadii(spin);
+  const gravity = surfaceGravity(spin);
+  if (radius === outer || radius === inner) {
+    throw new RangeError('r* is infinite on a horizon.');
+  }
+  return radius
+    + Math.log(Math.abs((radius - outer) / TWO)) / (TWO * gravity.outer)
+    + Math.log(Math.abs((radius - inner) / TWO)) / (TWO * gravity.inner);
+}

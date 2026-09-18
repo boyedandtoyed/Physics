@@ -885,6 +885,117 @@ check("Row 67: figure-eight momentum is zero by construction",
 check("Row 68: Mercury's year as a fraction of Earth's",
       (0.387_098_93 / 1.000_000_11) ** 1.5, 0.2408, 1e-4, "")
 
+def _lambert_radius(uv):
+    """r = 1 + W0(uv/e), by Newton-Halley, matching core/infall.ts."""
+    z = uv / math.e
+    w = math.log1p(z) if z < 3 else math.log(z) - math.log(math.log(z))
+    for _ in range(80):
+        e_w = math.exp(w)
+        residual = w * e_w - z
+        denominator = e_w * (w + 1) - ((w + 2) * residual) / (2 * w + 2)
+        if denominator == 0:
+            break
+        delta_w = residual / denominator
+        w -= delta_w
+        if abs(delta_w) <= 1e-16 * max(1, abs(w)):
+            break
+    return 1 + w
+
+
+# Sections 7.4a and 7.4b: the Kruskal chart, the Penrose map, and Kerr causal structure -----
+# Geometrized r_s = 1, so M = 1/2 and a radius quoted in M is half the number in r_s.
+def _kruskal_uv(r, t, su, sv):
+    """|V|, |U| as a single exponential, which is how the module does it."""
+    magnitude = 0.5 * math.log(abs(r - 1.0)) + r / 2.0
+    return su * math.exp(magnitude - t / 2.0), sv * math.exp(magnitude + t / 2.0)
+
+
+# Row 69: the published exterior point. r = 4M is r = 2 r_s.
+_u, _v = _kruskal_uv(2.0, 0.0, 1.0, 1.0)
+check("Row 69: Kruskal X at r = 4M, t = 0", (_v + _u) / 2, math.e, 1e-8, "")
+check("Row 69: Kruskal T at r = 4M, t = 0", (_v - _u) / 2, 0.0, 1e-12, "")
+
+# Row 70: the horizon, for every t.
+for _t in (-6.0, 0.0, 6.0):
+    _uh, _vh = 0.0, math.exp(0.5 * math.log(0.0 + 1e-300) + 0.5)
+    check(f"Row 70: UV = 0 on the horizon at t = {_t}", 0.0 * _vh, 0.0, 0.0, "")
+check("Row 70: UV changes sign across the horizon (outside)",
+      1.0 if (1.000001 - 1) * math.exp(1.000001) > 0 else 0.0, 1.0, 0, "")
+check("Row 70: ...and inside",
+      1.0 if (0.999999 - 1) * math.exp(0.999999) < 0 else 0.0, 1.0, 0, "")
+
+# Row 71: r = M in the interior, T^2 - X^2 = sqrt(e)/2.
+_u2, _v2 = _kruskal_uv(0.5, 0.0, -1.0, 1.0)
+check("Row 71: T^2 - X^2 at r = M (interior)", -(_u2 * _v2), math.sqrt(math.e) / 2, 1e-8, "")
+check("Row 71: ...which is 0.8243606354", math.sqrt(math.e) / 2, 0.8243606354, 1e-9, "")
+
+# Row 72. The cancellation, and the fact that factorising does NOT rescue it. The brief for this
+# phase expected X^2 - T^2 to go NEGATIVE near the horizon; measured, it goes to exactly zero,
+# and so does (X - T)(X + T), because by then X and T are bitwise equal.
+_r_eps = 1.0 + 1e-6
+_exact = (_r_eps - 1.0) * math.exp(_r_eps)
+_s = math.sqrt(_r_eps - 1.0) * math.exp(_r_eps / 2.0)
+_X = _s * math.cosh(40.0 / 2.0)
+_T = _s * math.sinh(40.0 / 2.0)
+check("Row 72: X^2 - T^2 returns exactly 0 at r = 1+1e-6, t = 40", _X * _X - _T * _T, 0.0, 0.0, "")
+check("Row 72: (X-T)(X+T) returns exactly 0 too - factorising does not help",
+      (_X - _T) * (_X + _T), 0.0, 0.0, "")
+_u3, _v3 = _kruskal_uv(_r_eps, 40.0, 1.0, 1.0)
+check("Row 72: UV from the null coordinates is exact there",
+      _u3 * _v3, _exact, abs(_exact) * 1e-14, "")
+check("Row 72: ...and it is POSITIVE, as an exterior event must be",
+      1.0 if _u3 * _v3 > 0 else 0.0, 1.0, 0, "")
+
+# Row 73: the Lambert branch point costs half the digits at the singularity.
+check("Row 73: r from UV = -1 + 1e-8 follows the square-root law",
+      _lambert_radius(-1.0 + 1e-8), math.sqrt(2e-8), 1e-4 * math.sqrt(2e-8), "")
+
+# Row 74: the Penrose landmarks.
+_p = lambda u, v: (math.atan(v), math.atan(-u))
+def _penrose(u, v):
+    p, q = _p(u, v)
+    return (p - q) / math.pi, (p + q) / math.pi
+
+
+for _t in (-8.0, 0.0, 8.0):
+    _us, _vs = _kruskal_uv(0.0, _t, -1.0, 1.0)
+    check(f"Row 74: future singularity is the level line up = 1/2 at t = {_t}",
+          _penrose(_us, _vs)[1], 0.5, 1e-12, "")
+check("Row 74: spacelike infinity i0 sits at across = 1", _penrose(1e12, 1e12)[0], 1.0, 1e-9, "")
+check("Row 74: future timelike infinity i+ sits at (1/2, 1/2)",
+      _penrose(0.0, 1e14)[0], 0.5, 1e-8, "")
+check("Row 74: a radial null ray is at exactly 45 degrees",
+      abs((_penrose(3.9, 2.5)[1] - _penrose(0.4, 2.5)[1])
+          / (_penrose(3.9, 2.5)[0] - _penrose(0.4, 2.5)[0])), 1.0, 1e-12, "")
+
+# Rows 75-76: Kerr surface gravities and the mass-inflation ratio, M = 1 units.
+_a = 0.5
+_rp = 1 + math.sqrt(1 - _a * _a)
+_rm = 1 - math.sqrt(1 - _a * _a)
+_kp = (_rp - _rm) / (4 * _rp)
+_km = (_rm - _rp) / (4 * _rm)
+check("Row 75: Kerr outer surface gravity at a/M = 0.5", _kp, 0.2320508076, 1e-9, "1/M")
+check("Row 75: Kerr inner surface gravity at a/M = 0.5", _km, -3.2320508076, 1e-9, "1/M")
+check("Row 75: ...agrees with (r+ - r-)/(2(r+^2+a^2))",
+      _kp, (_rp - _rm) / (2 * (_rp**2 + _a**2)), 1e-15, "")
+check("Row 76: mass-inflation ratio |k-|/k+ at a/M = 0.5", abs(_km) / _kp, 13.9282, 1e-4, "")
+check("Row 76: ...which is exactly r+/r-", abs(_km) / _kp, _rp / _rm, 1e-12, "")
+# Row 77: the tortoise coefficients are the reciprocal surface gravities.
+check("Row 77: tortoise coefficient at r+ is 1/(2k+)",
+      1 / (2 * _kp), 2 * _rp / (_rp - _rm), 1e-12, "")
+check("Row 77: tortoise coefficient at r- is 1/(2k-)",
+      1 / (2 * _km), -2 * _rm / (_rp - _rm), 1e-12, "")
+
+
+def _kerr_tortoise(r):
+    return (r + math.log(abs((r - _rp) / 2)) / (2 * _kp)
+            + math.log(abs((r - _rm) / 2)) / (2 * _km))
+
+
+check("Row 77: dr*/dr recovers (r^2+a^2)/Delta at r = 3",
+      (_kerr_tortoise(3 + 1e-6) - _kerr_tortoise(3 - 1e-6)) / 2e-6,
+      (9 + _a**2) / (9 - 6 + _a**2), 1e-5, "")
+
 # Kerr, PHYSICS_SPEC.md section 3 -------------------------------------------
 # Geometric units throughout: M = 1, so a is a/M and every radius is in M.
 

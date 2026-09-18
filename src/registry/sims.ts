@@ -113,6 +113,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/clock-comparison'),
   },
   {
+    id: 'kruskal-diagram',
+    title: 'The chart where nothing goes wrong',
+    description:
+      'The maximally extended Schwarzschild spacetime, with light at 45\u00b0 everywhere. A static '
+      + 'observer is a hyperbola, not a vertical line; inside the horizon r = 0 stops being a '
+      + 'place and becomes a moment, and the light cones show why.',
+    tags: ['General relativity', 'Causal structure', 'Kruskal'],
+    load: () => import('../sims/kruskal-diagram'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:

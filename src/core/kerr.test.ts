@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   EQUATORIAL_ERGOSPHERE_RADIUS,
   SHADOW_VERTICAL_HALF_EXTENT,
+  angularVelocityRange,
   bardeenEta,
   bardeenEtaUnfactored,
   bardeenXi,
-  angularVelocityRange,
   bisect,
   delta,
   draggedInfallRates,
@@ -16,18 +16,22 @@ import {
   insideErgosphere,
   iscoRadius,
   lapse,
+  massInflationRatio,
   maximise,
   omegaVarpi,
   omegaZamo,
-  penroseMaxEfficiency,
   penroseFragments,
+  penroseMaxEfficiency,
   penroseParent,
   penroseSplit,
   photonOrbitCubic,
   photonOrbitRadius,
   polarPhotonOrbitCubic,
+  radialTortoise,
   shadowBoundary,
   shadowExtent,
+  surfaceGravity,
+  tortoiseDerivative,
 } from './kerr';
 
 const SPINS = [0.1, 0.3, 0.5, 0.7, 0.9, 0.99, 0.998] as const;
@@ -582,5 +586,114 @@ describe('the Penrose fragments, as things that move', () => {
       expect(rates).not.toBeNull();
       expect(rates!.radial).toBeLessThan(0);
     }
+  });
+});
+
+const gravityOf = (spin: number) => surfaceGravity(spin);
+
+describe('the Kerr radial structure a causal diagram is built from', () => {
+  it('gives the two surface gravities at a/M = 0.5', () => {
+    const gravity = surfaceGravity(0.5);
+    expect(gravity.outer).toBeCloseTo(0.2320508076, 9);
+    expect(gravity.inner).toBeCloseTo(-3.2320508076, 9);
+    // κ₋ is NEGATIVE, and that sign is the point: the inner horizon blueshifts.
+    expect(gravity.inner).toBeLessThan(0);
+    expect(gravity.outer).toBeGreaterThan(0);
+  });
+
+  it('agrees with the (r± − r∓)/(2(r±² + a²)) form it was simplified from', () => {
+    for (const spin of [0.1, 0.5, 0.9, 0.998]) {
+      const { outer, inner } = horizonRadii(spin);
+      const gravity = surfaceGravity(spin);
+      expect(gravity.outer)
+        .toBeCloseTo((outer - inner) / (2 * (outer * outer + spin * spin)), 12);
+      expect(gravity.inner)
+        .toBeCloseTo((inner - outer) / (2 * (inner * inner + spin * spin)), 12);
+    }
+  });
+
+  it('makes the inner horizon 13.93 times sharper at a/M = 0.5', () => {
+    expect(massInflationRatio(0.5)).toBeCloseTo(13.9282, 4);
+    // It is worse for slower spins, because r₋ shrinks towards zero.
+    expect(massInflationRatio(0.2)).toBeGreaterThan(massInflationRatio(0.9));
+    // It is exactly r₊/r₋, which is the tidiest statement of it.
+    for (const spin of [0.2, 0.5, 0.9, 0.9999]) {
+      const { outer, inner } = horizonRadii(spin);
+      expect(massInflationRatio(spin), `a = ${spin}`).toBeCloseTo(outer / inner, 10);
+    }
+    // So it tends to 1 only as the horizons actually merge: at a/M = 0.9999 it is still 1.029.
+    expect(massInflationRatio(0.9999)).toBeCloseTo(1.0287, 3);
+  });
+
+  it('reduces to the Schwarzschild κ = 1/4M as the spin goes to zero', () => {
+    expect(surfaceGravity(1e-9).outer).toBeCloseTo(0.25, 8);
+  });
+
+  it('refuses an extremal hole, where κ vanishes and the structure is different', () => {
+    expect(() => surfaceGravity(1)).toThrow(RangeError);
+  });
+
+  it('carries the tortoise coefficients as exactly 1/(2κ±)', () => {
+    // The claim in the docstring, checked: partial fractions of (r²+a²)/Δ give 2Mr±/(r₊−r₋).
+    const spin = 0.5;
+    const { outer, inner } = horizonRadii(spin);
+    const gravity = surfaceGravity(spin);
+    expect(1 / (2 * gravity.outer)).toBeCloseTo((2 * outer) / (outer - inner), 12);
+    expect(1 / (2 * gravity.inner)).toBeCloseTo((-2 * inner) / (outer - inner), 12);
+  });
+
+  it('differentiates back to (r² + a²)/Δ', () => {
+    const spin = 0.5;
+    const step = 1e-6;
+    for (const radius of [0.05, 0.4, 1.2, 3, 20]) {
+      const numerical = (radialTortoise(radius + step, spin) - radialTortoise(radius - step, spin))
+        / (2 * step);
+      expect(numerical, `r = ${radius}`).toBeCloseTo(tortoiseDerivative(radius, spin), 5);
+    }
+  });
+
+  it('pushes both horizons to infinite tortoise distance, in opposite directions', () => {
+    const spin = 0.5;
+    const { outer, inner } = horizonRadii(spin);
+    // Approaching r₊ from outside: ln|r − r₊| → −∞ with a POSITIVE coefficient, so r* → −∞.
+    expect(radialTortoise(outer + 1e-6, spin)).toBeLessThan(-20);
+    expect(radialTortoise(outer + 1e-12, spin)).toBeLessThan(radialTortoise(outer + 1e-6, spin));
+    // Approaching r₋ from above: the coefficient is negative, so r* → +∞ — but SLOWLY, and
+    // that is worth pinning down rather than guessing at. The rate is 1/(2|κ₋|) = 0.155 per
+    // e-fold, against 2.155 at the outer horizon: the horizon with the LARGER surface gravity
+    // is the one whose tortoise coordinate diverges more gently.
+    const near = radialTortoise(inner + 1e-6, spin);
+    const nearer = radialTortoise(inner + 1e-12, spin);
+    expect(near).toBeGreaterThan(0);
+    expect(nearer).toBeGreaterThan(near);
+    const innerSlope = (nearer - near) / Math.log(1e6);
+    // Four places, not more: this is a finite difference over six e-folds and the OTHER
+    // logarithm, plus the linear r term, still vary across it. The asymptotic slope is exact
+    // only in the limit, and four places already separates 2.1547 from 0.1547 unambiguously.
+    expect(innerSlope).toBeCloseTo(1 / (2 * Math.abs(gravityOf(spin).inner)), 4);
+    const outerSlope = (radialTortoise(outer + 1e-12, spin) - radialTortoise(outer + 1e-6, spin))
+      / Math.log(1e6);
+    expect(outerSlope).toBeCloseTo(-1 / (2 * gravityOf(spin).outer), 4);
+    expect(Math.abs(outerSlope)).toBeGreaterThan(Math.abs(innerSlope));
+    expect(() => radialTortoise(outer, spin)).toThrow(RangeError);
+    expect(() => tortoiseDerivative(outer, spin)).toThrow(RangeError);
+  });
+
+  it('is asymptotically r far from the hole', () => {
+    expect(radialTortoise(1e6, 0.5) / 1e6).toBeCloseTo(1, 4);
+  });
+
+  it('is monotone increasing in r between the horizons and outside them', () => {
+    const spin = 0.5;
+    const { outer, inner } = horizonRadii(spin);
+    let previous = -Infinity;
+    for (let r = outer + 0.01; r < 12; r += 0.25) {
+      const value = radialTortoise(r, spin);
+      expect(value).toBeGreaterThan(previous);
+      previous = value;
+    }
+    // Between the horizons Δ < 0, so dr*/dr < 0 and r* runs the other way.
+    expect(tortoiseDerivative((outer + inner) / 2, spin)).toBeLessThan(0);
+    expect(radialTortoise(inner + 0.3, spin)).toBeGreaterThan(radialTortoise(outer - 0.3, spin));
   });
 });

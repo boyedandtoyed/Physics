@@ -1540,6 +1540,101 @@ tidal tensor) are identical, while the *picture* — flowing vs static vs infall
 changes completely. Then show the tidal-force panel that no "expansion" story can reproduce.
 The lesson the module teaches: **coordinate pictures are tools, invariants are physics.**
 
+#### 7.4a The Kruskal chart, and the Penrose compactification
+
+§7.4 carries Kruskal along **one worldline**, which is what the interpretations module needs.
+The diagram needs the **chart**: arbitrary $(r,t)$ in all four regions. The two are related by a
+boost and must not be confused — `core/infall.ts` anchors $V=1$ at its own fall's horizon
+crossing, so it returns $X=5.525$, $T=-4.810$ where the standard chart at $r=2r_s$, $t=0$ has
+$X=e$, $T=0$. Both are correct; the product $UV=e^2$ agrees exactly, because a boost multiplies
+$V$ and divides $U$.
+
+With $r_s = 1$ (so $M = \tfrac12$), and signs $(\sigma_U,\sigma_V)$ fixed per region:
+
+$$|V| = \exp\!\Big(\tfrac12\ln|r-r_s| + \frac{r}{2r_s} + \frac{t}{2r_s}\Big),\qquad
+|U| = \exp\!\Big(\tfrac12\ln|r-r_s| + \frac{r}{2r_s} - \frac{t}{2r_s}\Big)$$
+
+$$UV = (r-r_s)\,e^{r/r_s},\qquad t = r_s\ln\left|\frac{V}{U}\right|,\qquad
+r = r_s\left[1 + W_0(UV/e)\right]$$
+
+| Region | $(\sigma_U,\sigma_V)$ | $UV$ | Where |
+|---|---|---|---|
+| I, exterior | $(+,+)$ | $>0$ | right |
+| II, black-hole interior | $(-,+)$ | $<0$ | above |
+| III, white-hole interior | $(+,-)$ | $<0$ | below |
+| IV, parallel exterior | $(-,-)$ | $>0$ | left |
+
+##### The difference of squares cannot be rescued by factorising it
+
+§7.4 says $X^2-T^2$ loses its significant figures near the horizon. The usual remedy —
+rearrange to $(X-T)(X+T)$ — **does not work here**, and it is worth recording why, because it is
+the obvious thing to reach for. Measured at $r = (1+10^{-6})r_s$ against the exact
+$(r-r_s)e^{r/r_s} = 2.718\times10^{-6}$:
+
+| $t$ ($r_s/c$) | $X^2-T^2$ | $(X-T)(X+T)$ | from $U,V$ |
+|---|---|---|---|
+| 20 | 1.1e-8 | 1.9e-8 | exact |
+| 30 | 9.1e-5 | 6.6e-5 | exact |
+| 40 | **returns 0** | **returns 0** | exact |
+
+By $t=40$ the two coordinates are **bitwise equal**, so $X-T$ is exactly zero and the
+factorisation has nothing left to factor. The fix is not a better formula in $X$ and $T$; it is
+never forming $X$ and $T$. They exist in this repo for drawing only.
+
+##### The singularity costs half the digits, and that is the branch point, not the code
+
+$W_0$ has a square-root branch point at $-1/e$: $W_0(z) \approx -1 + \sqrt{2(ez+1)}$. So the
+error in $r$ is the **square root** of the error in $UV$ — $UV=-1$ known to machine epsilon
+returns $r = 1.3\times10^{-8}$ rather than $0$, and no amount of iteration improves it.
+**ASSERT** the square-root law directly, at three values of $\varepsilon$.
+
+##### Penrose
+
+$$p = \arctan V,\quad q = \arctan(-U),\quad
+\text{across} = \frac{p-q}{\pi},\quad \text{up} = \frac{p+q}{\pi}$$
+
+normalised so the square is $[-1,1]^2$. $\arctan$ is a monotone bijection of $\mathbb R$ onto
+$(-\tfrac\pi2,\tfrac\pi2)$, so infinity arrives at a finite coordinate and nothing is reordered.
+**ASSERT**: the future singularity $UV=-1$ becomes the straight line $\text{up}=\tfrac12$ for
+every $t$; $i^0$ is $(\pm1,0)$; the future horizon is the diagonal $\text{up}=\text{across}$ with
+$i^+$ at $(\tfrac12,\tfrac12)$; and radial null rays are at exactly 45°, which is the only thing
+the map promises to preserve — no distance or duration on the finished diagram means anything.
+
+---
+
+### 7.4b Kerr causal structure — what can and cannot be computed
+
+The Kerr Penrose diagram is **not** a single conformal map of a manifold the way Schwarzschild's
+is. What is exactly computable, and what this repo therefore computes, is the radial structure:
+
+$$r_*(r) = r + \frac{2Mr_+}{r_+-r_-}\ln\left|\frac{r-r_+}{2M}\right|
+- \frac{2Mr_-}{r_+-r_-}\ln\left|\frac{r-r_-}{2M}\right|,\qquad
+\frac{dr_*}{dr} = \frac{r^2+a^2}{\Delta}$$
+
+using $r_\pm^2+a^2 = 2Mr_\pm$, and the surface gravities
+
+$$\kappa_\pm = \frac{r_\pm-r_\mp}{2(r_\pm^2+a^2)} = \frac{r_\pm-r_\mp}{4Mr_\pm}$$
+
+At $a/M=\tfrac12$: $r_+=1.8660M$, $r_-=0.1340M$, $\kappa_+=0.23205/M$, $\kappa_-=-3.2321/M$.
+**The inner surface gravity is larger in magnitude by a factor of 13.93**, and that ratio is the
+whole of the instability: an ingoing perturbation is blueshifted at $e^{\kappa_-v}$ while the
+outgoing tail decays only as a power law, so the flux measured at the Cauchy horizon diverges.
+This is **mass inflation** (Poisson & Israel 1990), and it is why the region beyond the Cauchy
+horizon is not expected to describe anything physical.
+
+**What is drawn is a block diagram.** Each block is Kruskalised about its own horizon with its
+own $\kappa$, and the blocks are glued in the standard Carter arrangement (Carter 1966; Hawking &
+Ellis fig. 29). The **layout** of blocks is a topological statement taken from the literature;
+the **radial contours inside each block** are computed from the exact $r_*$ above. The sim says
+which is which rather than implying the whole picture is derived.
+
+The ring singularity at $r=0,\ \theta=\pi/2$ is **timelike**, not spacelike: it can be avoided,
+which is why the diagram continues past it rather than ending. An equatorial geodesic meets it;
+an off-equatorial one passes through the disc $r=0$ into $r<0$. The equatorial slice this sim
+draws is exactly the slice in which the ring cannot be avoided, and it says so.
+
+---
+
 ### 7.5 General rule
 
 Where a popular framing is wrong, do not simply omit it — users arrive already believing it.
@@ -1615,6 +1710,15 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 66 | The conservative term cannot inspiral | $\sum m_i\mathbf v_i\cdot\mathbf a_{2.6}$, circular | **exactly 0** — §2.6 does no net work, so it precesses and never shrinks | 1e-12 |
 | 67 | Figure-eight choreography | Chenciner–Montgomery, Simó's ICs | period 6.32591398, zero total momentum, survives many periods under Yoshida-4 | 1e-15 on the ICs |
 | 68 | Inner planets, period ratios | Kepler III on uniformly scaled radii | Mercury/Earth $=0.2408$ exactly, because one factor scales out of a ratio | 1e-9 |
+| 69 | Kruskal exterior point | $\sqrt{r/2M-1}\,e^{r/4M}$ | $X=e$, $T=0$ at $r=4M$, $t=0$ | 1e-8 |
+| 70 | Horizon is $UV=0$ | $(r-r_s)e^{r/r_s}$ | exactly 0 for every $t$; sign flips across it | exact |
+| 71 | Kruskal interior point | $T^2-X^2=(1-r/2M)e^{r/2M}$ | $\sqrt e/2 = 0.8243606354$ at $r=M$ | 1e-8 |
+| 72 | The cancellation is unrescuable | $X^2-T^2$ vs $(X-T)(X+T)$ vs $UV$ | at $r=(1+10^{-6})r_s$, $t=40$: **both X-forms return exactly 0**; $UV$ exact | 1e-14 on $UV$ |
+| 73 | Lambert branch point | $W_0(z)\approx-1+\sqrt{2(ez+1)}$ | $r$ error is the **square root** of the $UV$ error | 1e-4 relative |
+| 74 | Penrose landmarks | $p=\arctan V$, $q=\arctan(-U)$ | singularity is the level line $\text{up}=\tfrac12$; $i^0$ at $(\pm1,0)$; $i^+$ at $(\tfrac12,\tfrac12)$; nulls at exactly 45° | 1e-12 |
+| 75 | Kerr surface gravities | $(r_\pm-r_\mp)/4Mr_\pm$ | $\kappa_+=0.2320508076$, $\kappa_-=-3.2320508076$ at $a/M=\tfrac12$ | 1e-9 |
+| 76 | Mass-inflation ratio | $|\kappa_-|/\kappa_+$ | **13.9282**, and exactly $r_+/r_-$ | 1e-4 |
+| 77 | Kerr tortoise | $r_*=r+\ln|r-r_+|/2\kappa_++\ln|r-r_-|/2\kappa_-$ | coefficients are exactly $1/2\kappa_\pm$; $dr_*/dr=(r^2+a^2)/\Delta$ | 1e-12 |
 
 **Rows 42–47 — a Kerr renderer is gated on the shape of the shadow, not just its size.** Row 44
 is the one worth reading twice: the vertical half-extent of the Kerr shadow seen edge-on is
