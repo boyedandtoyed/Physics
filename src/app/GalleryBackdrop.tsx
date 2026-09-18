@@ -74,8 +74,12 @@ export function GalleryBackdrop() {
       return undefined;
     }
 
-    // A page that turns forever is a page that cannot be read by everyone. Respect the setting.
-    const stillness = window.matchMedia('(prefers-reduced-motion: reduce)');
+    // A page that turns forever is a page that cannot be read by everyone. Respect the setting —
+    // and survive an environment that has no way to report it, rather than throwing out of an
+    // effect over a preference.
+    const stillness = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
     let azimuth = 0.8;
     let handle = 0;
     let stopped = false;
@@ -111,18 +115,19 @@ export function GalleryBackdrop() {
       handle = requestAnimationFrame(step);
     };
 
+    const still = () => stillness?.matches ?? false;
     draw();
-    if (!stillness.matches) handle = requestAnimationFrame(step);
+    if (!still()) handle = requestAnimationFrame(step);
     const onPreferenceChange = () => {
       cancelAnimationFrame(handle);
-      if (!stillness.matches && !stopped) handle = requestAnimationFrame(step);
+      if (!still() && !stopped) handle = requestAnimationFrame(step);
     };
-    stillness.addEventListener('change', onPreferenceChange);
+    stillness?.addEventListener('change', onPreferenceChange);
 
     return () => {
       stopped = true;
       cancelAnimationFrame(handle);
-      stillness.removeEventListener('change', onPreferenceChange);
+      stillness?.removeEventListener('change', onPreferenceChange);
       scene.dispose();
     };
   }, [dark]);

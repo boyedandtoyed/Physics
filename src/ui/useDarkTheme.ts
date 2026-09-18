@@ -21,11 +21,24 @@ export function useDarkTheme(): boolean {
     observer.observe(document.documentElement, {
       attributes: true, attributeFilter: ['data-theme'],
     });
-    const query = window.matchMedia('(prefers-color-scheme: dark)');
-    query.addEventListener('change', read);
-    return () => { observer.disconnect(); query.removeEventListener('change', read); };
+    const query = colourSchemeQuery();
+    query?.addEventListener('change', read);
+    return () => { observer.disconnect(); query?.removeEventListener('change', read); };
   }, []);
   return dark;
+}
+
+/**
+ * The system-preference query, or null where there is no `matchMedia`.
+ *
+ * jsdom has none, and neither do some embedded browsers. Calling it unguarded threw out of
+ * render and took the whole page down through its error boundary — which is a large consequence
+ * for a colour preference, and one that only appeared once this hook reached a route that is
+ * rendered in a unit test.
+ */
+function colourSchemeQuery(): MediaQueryList | null {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+  return window.matchMedia('(prefers-color-scheme: dark)');
 }
 
 /** The same question outside React, for a render pass that needs it before the hook has run. */
@@ -34,5 +47,5 @@ export function readDarkTheme(): boolean {
   const explicit = document.documentElement.dataset.theme;
   if (explicit === 'dark') return true;
   if (explicit === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return colourSchemeQuery()?.matches ?? false;
 }

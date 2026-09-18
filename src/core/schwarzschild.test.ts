@@ -164,11 +164,21 @@ describe('what a scale under a hovering observer’s feet reads', () => {
     expect(() => hoverAcceleration(0.9)).toThrow(RangeError);
   });
 
-  it('tends to the Newtonian value far away, exceeding it by exactly r_s/2r', () => {
-    // 1/sqrt(1 - 1/r) = 1 + 1/2r + O(1/r^2), so the excess is a number rather than a vibe: one
-    // part in two million at a million r_s, and one part in twenty at r = 10.
+  it('tends to the Newtonian value far away, exceeding it by r_s/2r + 3r_s²/8r²', () => {
+    // 1/sqrt(1 - 1/r) = 1 + 1/2r + 3/8r^2 + O(1/r^3). Asserting only the leading term and
+    // demanding eight places of it is asserting that an asymptotic series is exact: at r = 100
+    // the second term is 3.75e-5, seven thousand times the tolerance that would allow.
     for (const r of [1e6, 1e4, 100]) {
-      expect(hoverAcceleration(r) / newtonianField(r) - 1).toBeCloseTo(1 / (2 * r), 8);
+      const excess = hoverAcceleration(r) / newtonianField(r) - 1;
+      const series = 1 / (2 * r) + 3 / (8 * r * r);
+      // Two error sources, and the larger one wins: the series truncates at O(1/r^3), and
+      // `ratio - 1` cancels to a floor of a few ulps of 1. At r = 1e6 the truncation is 3e-19
+      // and the cancellation floor is 1e-16, so demanding the former would be asserting
+      // something float64 cannot represent.
+      const floor = 1 / r ** 3 + 8 * Number.EPSILON;
+      expect(Math.abs(excess - series), `r = ${r}`).toBeLessThan(floor);
+      // The leading term still dominates, which is the statement worth making.
+      expect(excess * 2 * r).toBeCloseTo(1, 1);
     }
     expect(hoverAcceleration(1e6) / newtonianField(1e6)).toBeCloseTo(1, 5);
   });
