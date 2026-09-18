@@ -133,6 +133,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/penrose-schwarzschild'),
   },
   {
+    id: 'penrose-kerr',
+    title: 'The one with a door at the bottom',
+    description:
+      'Kerr\u2019s causal diagram at a/M = 0.5: two horizons, a timelike ring singularity that '
+      + 'can be missed, and a pattern that repeats without end \u2014 behind a Cauchy horizon '
+      + 'that general relativity predicts is unstable.',
+    tags: ['General relativity', 'Kerr', 'Causal structure'],
+    load: () => import('../sims/penrose-kerr'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:

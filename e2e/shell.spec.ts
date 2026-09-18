@@ -66,6 +66,7 @@ const SIM_ROUTES = [
   '/sims/clock-comparison',
   '/sims/kruskal-diagram',
   '/sims/penrose-schwarzschild',
+  '/sims/penrose-kerr',
 ];
 
 for (const width of [360, 390]) {

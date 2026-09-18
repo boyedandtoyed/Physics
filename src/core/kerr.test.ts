@@ -697,3 +697,27 @@ describe('the Kerr radial structure a causal diagram is built from', () => {
     expect(radialTortoise(inner + 0.3, spin)).toBeGreaterThan(radialTortoise(outer - 0.3, spin));
   });
 });
+
+describe('why the Kerr diagram continues past r = 0', () => {
+  it('puts the ring singularity at FINITE tortoise distance, unlike a horizon', () => {
+    // This is the computed fact the whole Kerr causal diagram turns on. Both horizons are at
+    // r* = ∓∞ — that is what makes them boundaries between blocks. r = 0 is not: the logarithms
+    // are finite there, so the ring sits at a finite place inside the innermost block, which is
+    // exactly why it is a timelike line that can be avoided rather than a spacelike end.
+    expect(radialTortoise(0, 0.5)).toBeCloseTo(0.2688, 4);
+    expect(Number.isFinite(radialTortoise(0, 0.5))).toBe(true);
+    for (const spin of [0.2, 0.5, 0.9]) {
+      expect(Number.isFinite(radialTortoise(0, spin)), `a = ${spin}`).toBe(true);
+    }
+    // A horizon, by contrast, runs away logarithmically without bound.
+    const { outer } = horizonRadii(0.5);
+    expect(radialTortoise(outer + 1e-12, 0.5)).toBeLessThan(-50);
+  });
+
+  it('contrasts with Schwarzschild, where r = 0 is spacelike and unavoidable', () => {
+    // At a = 0 the inner horizon collapses onto r = 0 and the inner block vanishes with it:
+    // there is nowhere for a timelike singularity to be.
+    const { inner } = horizonRadii(1e-12);
+    expect(inner).toBeLessThan(1e-20);
+  });
+});
