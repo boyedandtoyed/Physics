@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "arch": "depcruise src harness --config .dependency-cruiser.cjs"
+    "arch": "depcruise src harness --config .dependency-cruiser.cjs",
+    "thumbnails": "node scripts/bake-thumbnails.mjs"
   },
   "dependencies": {
     "katex": "^0.16.47",

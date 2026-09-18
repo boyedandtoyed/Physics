@@ -16,6 +16,7 @@ import { createContext, createProgram, uniformLocations } from '../../core/gl/co
 import { matricesFor, type Lens, type Pose } from './camera3d';
 import type { Mat4 } from '../../core/gl/matrix';
 import { FABRIC_GLSL, MAX_FABRIC_MASSES, packMasses, type FabricParams } from './fabric';
+import { STAR_FIELD_GLSL } from '../../core/gl/starFieldGlsl';
 
 export type Rgb = readonly [number, number, number];
 
@@ -135,6 +136,47 @@ void main() {
 }
 `;
 
+/** The decorative star field: the same GLSL the raymarchers use, with no lensing in front of it.
+ *
+ * Reusing `STAR_FIELD_GLSL` rather than scattering dots is not fussiness. The field's equal-area
+ * cells and its reconstruction kernel are a Phase 1 acceptance gate with a mutation that trips
+ * it, and a second implementation would be a second thing to get wrong that nothing watches. The
+ * Jacobian is the identity here, because this pass bends nothing.
+ */
+const STARS_FRAGMENT = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform vec3 uForward;
+uniform vec3 uRight;
+uniform vec3 uUp;
+uniform float uTanHalfFov;
+uniform float uAspect;
+uniform float uSolidAnglePerPixel;
+uniform float uPixelsPerRadian;
+uniform float uBrightness;
+out vec4 fragColor;
+${STAR_FIELD_GLSL}
+void main() {
+  vec2 ndc = vUv * 2.0 - 1.0;
+  vec3 dir = normalize(uForward + uRight * (ndc.x * uTanHalfFov * uAspect)
+    + uUp * (ndc.y * uTanHalfFov));
+  vec3 e1, e2;
+  tangentBasis(dir, e1, e2);
+  // The Jacobian maps a tangential offset in RADIANS to one in PIXELS, so for an undistorted
+  // perspective view it is pixels-per-radian times the identity. Passing a bare identity means
+  // one pixel per radian: every star's half-pixel kernel then spans half the sky, and the field
+  // renders as flat blocks of cell colour.
+  mat2 jacobian = mat2(uPixelsPerRadian, 0.0, 0.0, uPixelsPerRadian);
+  vec3 radiance = starField(dir, jacobian, e1, e2, uSolidAnglePerPixel);
+  vec3 colour = radiance * uBrightness;
+  // Tone-mapped so a bright star does not clip to a white square, then premultiplied out: the
+  // canvas sits over a themed page background and must not paint it opaque.
+  colour = colour / (1.0 + colour);
+  float alpha = clamp(max(colour.r, max(colour.g, colour.b)), 0.0, 1.0);
+  fragColor = vec4(colour, alpha);
+}
+`;
+
 const DISTORT_VERTEX = `#version 300 es
 out vec2 vUv;
 void main() {
@@ -175,6 +217,7 @@ void main() {
 `;
 
 export const MAX_DISTORT_HOLES = 4;
+const TWO = 2;
 const MATRIX_FLOATS = 16;
 const FABRIC_FLOATS = 2;
 const LINE_FLOATS = 7;
@@ -214,6 +257,8 @@ export class Scene3D {
     uniforms: Record<string, WebGLUniformLocation> };
   #distort: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation>;
     vao: WebGLVertexArrayObject };
+  #stars: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation>;
+    vao: WebGLVertexArrayObject };
   #target: { framebuffer: WebGLFramebuffer; texture: WebGLTexture; depth: WebGLRenderbuffer;
     width: number; height: number } | null = null;
   #viewProjection: Mat4 = new Float32Array(MATRIX_FLOATS);
@@ -251,6 +296,15 @@ export class Scene3D {
       buffer: this.#buffer(),
       uniforms: uniformLocations(gl, glowProgram, [
         'uViewProjection', 'uRight', 'uUp', 'uHaloStrength', 'uVoidColour',
+      ]),
+    };
+    const starsProgram = createProgram(gl, DISTORT_VERTEX, STARS_FRAGMENT);
+    this.#stars = {
+      program: starsProgram,
+      vao: this.#vao(),
+      uniforms: uniformLocations(gl, starsProgram, [
+        'uForward', 'uRight', 'uUp', 'uTanHalfFov', 'uAspect', 'uSolidAnglePerPixel',
+        'uPixelsPerRadian', 'uBrightness',
       ]),
     };
     const distortProgram = createProgram(gl, DISTORT_VERTEX, DISTORT_FRAGMENT);
@@ -352,6 +406,40 @@ export class Scene3D {
 
   #eye: [number, number, number] = [0, 0, 1];
   #view: Mat4 = new Float32Array(MATRIX_FLOATS);
+
+  /**
+   * The star field, behind everything. Depth test off: it is at infinity by construction.
+   *
+   * Decorative, and labelled as such wherever it appears — the field is a hash, not a catalogue,
+   * and nothing in it is a real star.
+   */
+  drawStars(brightness = 1): void {
+    const gl = this.#gl;
+    const frame = this.#frame;
+    if (!frame) return;
+    const eye = this.#eye;
+    const length = Math.hypot(eye[0], eye[1], eye[2]);
+    if (!(length > 0)) return;
+    const view = this.#view;
+    const u = this.#stars.uniforms;
+    gl.useProgram(this.#stars.program);
+    gl.uniform3f(u.uForward!, -eye[0] / length, -eye[1] / length, -eye[2] / length);
+    gl.uniform3f(u.uRight!, view[0] as number, view[4] as number, view[8] as number);
+    gl.uniform3f(u.uUp!, view[1] as number, view[5] as number, view[9] as number);
+    const tangent = Math.tan(frame.lens.fieldOfView / TWO);
+    gl.uniform1f(u.uTanHalfFov!, tangent);
+    gl.uniform1f(u.uAspect!, frame.lens.aspect);
+    // Solid angle a pixel covers, which is what the reconstruction kernel is measured against.
+    const perPixel = (TWO * tangent) / Math.max(frame.height, 1);
+    gl.uniform1f(u.uSolidAnglePerPixel!, perPixel * perPixel * frame.lens.aspect);
+    gl.uniform1f(u.uPixelsPerRadian!, 1 / perPixel);
+    gl.uniform1f(u.uBrightness!, brightness);
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(this.#stars.vao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.enable(gl.DEPTH_TEST);
+  }
 
   drawFabric(params: FabricParams, style: FabricStyle): void {
     const gl = this.#gl;
@@ -506,8 +594,10 @@ export class Scene3D {
       gl.deleteVertexArray(pass.vao);
       gl.deleteProgram(pass.program);
     }
-    gl.deleteVertexArray(this.#distort.vao);
-    gl.deleteProgram(this.#distort.program);
+    for (const pass of [this.#distort, this.#stars]) {
+      gl.deleteVertexArray(pass.vao);
+      gl.deleteProgram(pass.program);
+    }
     this.#disposed = true;
   }
 }

@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { simulations, type SimulationEntry } from '../registry/sims';
+import { GalleryBackdrop } from './GalleryBackdrop';
 const PhysicsPanel = lazy(() => import('../ui/PhysicsPanel').then(module => ({ default: module.PhysicsPanel })));
 
 type Theme = 'system' | 'light' | 'dark';
@@ -62,6 +63,7 @@ export function App({ entries = simulations }: { entries?: readonly SimulationEn
 
 function Gallery({ entries }: { entries: readonly SimulationEntry[] }) {
   return <>
+    <GalleryBackdrop />
     <section className="hero">
       <p className="eyebrow">A laboratory for the universe</p>
       <h1>Wonder is the start.<br /><em>Understanding</em> is the work.</h1>
@@ -70,13 +72,37 @@ function Gallery({ entries }: { entries: readonly SimulationEntry[] }) {
     </section>
     <section className="collection" aria-labelledby="collection-heading">
       <div className="section-heading"><h2 id="collection-heading">The collection</h2><span>{entries.length} simulation{entries.length === 1 ? '' : 's'}</span></div>
-      {entries.length ? <div className="sim-grid">{entries.map(entry => <article key={entry.id}><h3><Link to={`/sims/${entry.id}`}>{entry.title}</Link></h3><p>{entry.description}</p><p>{entry.tags.join(' · ')}</p></article>)}</div> : <article className="coming-next">
+      {entries.length ? <div className="sim-grid">{entries.map(entry => <article key={entry.id}><SimThumbnail id={entry.id} /><h3><Link to={`/sims/${entry.id}`}>{entry.title}</Link></h3><p>{entry.description}</p><p>{entry.tags.join(' · ')}</p></article>)}</div> : <article className="coming-next">
         <div><p className="eyebrow">First experiment · In development</p><h3>When light meets<br />a black hole.</h3><p>Trace the geometry that bends starlight. Our first simulation will explore a non-rotating black hole, with its equations and limitations alongside the view.</p></div>
         <aside><span className="status-label">Not available yet</span><p>We’re building and testing the numerical foundation first. There are no playable simulations in this release.</p><Link to="/method">What we’re checking →</Link></aside>
       </article>}
     </section>
     <section className="principles" aria-label="Our commitments"><article><p className="eyebrow">01 / Accuracy</p><h2>The calculation comes first.</h2><p>Known results are benchmarks to reproduce, not details to approximate away.</p></article><article><p className="eyebrow">02 / Honesty</p><h2>Every model has edges.</h2><p>Approximations and common misconceptions belong beside the explanation, not in fine print.</p></article><article><p className="eyebrow">03 / Access</p><h2>More than a picture.</h2><p>Keyboard controls, readable equations, and meaningful descriptions are part of the design.</p></article></section>
   </>;
+}
+
+/**
+ * A baked still of the sim, for the card.
+ *
+ * A single frame captured from the real page by `scripts/bake-thumbnails.mjs`, not a live canvas:
+ * fifteen WebGL contexts on one page is more than a browser will give out, and the ones it did
+ * give would each be running a physics loop to decorate a link. Decorative, so `alt` is empty —
+ * the card's own heading and description are what a screen reader needs — and it removes itself
+ * if the file is not there, which is what happens before the script has been run.
+ */
+function SimThumbnail({ id }: { id: string }) {
+  const [missing, setMissing] = useState(false);
+  if (missing) return null;
+  return <img
+    className="sim-thumbnail"
+    src={`/thumbnails/${id}.png`}
+    alt=""
+    loading="lazy"
+    decoding="async"
+    width={480}
+    height={300}
+    onError={() => setMissing(true)}
+  />;
 }
 
 function Method() {

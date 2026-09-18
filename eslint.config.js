@@ -6,6 +6,13 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Build and release scripts run in Node, not in a browser, and use its globals.
+    files: ['scripts/**/*.{mjs,js}'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly', Buffer: 'readonly' },
+    },
+  },
+  {
     // The dependency-cruiser config is CommonJS, as that tool requires.
     files: ['**/*.cjs'],
     languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly' } },
