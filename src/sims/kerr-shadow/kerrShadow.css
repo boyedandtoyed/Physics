@@ -3,18 +3,6 @@
 .kerr { display: grid; gap: 0; }
 .kerr .sim-head { max-width: 48rem; }
 .kerr .sim-head .intro { color: var(--muted); margin: 0; }
-
-.kerr .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
-.kerr .readout div { display: grid; gap: 0.15rem; }
-.kerr .readout dt {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
-}
-.kerr .readout dd {
-  margin: 0; font-size: 1.05rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
-}
-.kerr .readout dd span {
-  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
-}
 /* The shadow row carries the result the sim exists to show, so it is set apart. */
 .kerr .figure-benchmark {
   padding: 0.55rem 0.7rem; border-radius: 0.4rem;

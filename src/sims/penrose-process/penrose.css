@@ -3,27 +3,10 @@
 .penrose { display: grid; gap: 0; }
 .penrose .sim-head { max-width: 48rem; }
 .penrose .sim-head .intro { color: var(--muted); margin: 0; }
-
-.penrose .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
-.penrose .readout div { display: grid; gap: 0.15rem; }
-.penrose .readout dt {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
-}
-.penrose .readout dd {
-  margin: 0; font-size: 1.05rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
-}
-.penrose .readout dd span {
-  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
-}
 /* The two fragments are colour-coded on the canvas; the readout uses the same coding, as a
    left rule rather than as text colour, so it survives a contrast check in both themes. */
 .penrose .readout .negative { border-left: 3px solid #b8473d; padding-left: 0.6rem; }
 .penrose .readout .positive { border-left: 3px solid #2f7fa8; padding-left: 0.6rem; }
-
-.penrose .figure-benchmark {
-  padding: 0.55rem 0.7rem; border-radius: 0.4rem;
-  border: 1px solid var(--line); background: var(--bg);
-}
 .penrose .figure-benchmark.gaining { border-color: var(--focus); }
 .penrose .figure-benchmark.gaining dd { color: var(--focus); }
 

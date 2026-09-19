@@ -41,66 +41,6 @@
   gap: 0.45rem;
 }
 
-.penrose-schwarzschild .preset-button {
-  padding: 0.45rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 0.4rem;
-  background: var(--bg);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.86rem;
-  cursor: pointer;
-}
-
-.penrose-schwarzschild .preset-button:hover { border-color: var(--accent); }
-.penrose-schwarzschild .preset-button.is-selected {
-  border-color: var(--accent);
-  background: var(--panel);
-  font-weight: 700;
-}
-.penrose-schwarzschild .preset-button:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.penrose-schwarzschild .chooser-hint {
-  margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.6;
-  color: var(--muted);
-}
-
-.penrose-schwarzschild .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
-.penrose-schwarzschild .readout div { display: grid; gap: 0.15rem; }
-
-.penrose-schwarzschild .readout dt {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-}
-
-.penrose-schwarzschild .readout dd {
-  margin: 0;
-  font-size: 1.05rem;
-  font-family: Georgia, serif;
-  font-variant-numeric: tabular-nums;
-}
-
-.penrose-schwarzschild .readout dd span {
-  display: block;
-  font-family: inherit;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.penrose-schwarzschild .figure-benchmark {
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--line);
-  background: var(--bg);
-}
-
 .boundary-key summary {
   cursor: pointer;
   font-size: 0.82rem;

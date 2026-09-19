@@ -231,3 +231,56 @@ for (const { route, text } of LABELLED_SIMS) {
     expect(focusedOccluders, 'the label is painted over in the expanded view').toEqual([]);
   });
 }
+
+/**
+ * The shared panel components must be styled on a COLD load of any route.
+ *
+ * They were not. `.switch-indicator`, `.mode-warning` and `.stage-help` lived only in the
+ * lensing sim's stylesheet, unscoped, so they shipped inside that sim's lazy chunk — and every
+ * other sim that renders a toggle showed an unstyled div, measured at 318 x 0 px with no
+ * background. Nine sims render a toggle. The duplication of `.readout` into nine stylesheets
+ * hid it, because each sim looked after its own panel and nobody owned the switch.
+ *
+ * `page.goto` is a full navigation, so each of these really is a cold load of that route alone.
+ */
+const TOGGLE_ROUTES = [
+  '/sims/gravity-sandbox',
+  '/sims/freefall-sandbox',
+  '/sims/kruskal-diagram',
+  '/sims/kerr-shadow',
+];
+
+for (const route of TOGGLE_ROUTES) {
+  test(`${route}: the toggle is styled without the lensing chunk`, async ({ page }) => {
+    await page.goto(route);
+    await expect(page.locator('.stage-surface canvas')).toBeVisible();
+    const style = await page.locator('.switch-indicator').first().evaluate(node => {
+      const computed = getComputedStyle(node);
+      return {
+        width: parseFloat(computed.width),
+        height: parseFloat(computed.height),
+        background: computed.backgroundColor,
+        radius: parseFloat(computed.borderRadius),
+      };
+    });
+    // A toggle, not a full-width zero-height div.
+    expect(style.height).toBeGreaterThan(12);
+    expect(style.width).toBeGreaterThan(24);
+    expect(style.width).toBeLessThan(60);
+    expect(style.radius).toBeGreaterThan(8);
+    expect(style.background).not.toBe('rgba(0, 0, 0, 0)');
+  });
+}
+
+test('the readout is styled on a cold load too, and only defined once', async ({ page }) => {
+  await page.goto('/sims/penrose-kerr');
+  const value = await page.locator('.readout dd').first().evaluate(node => {
+    const computed = getComputedStyle(node);
+    return { family: computed.fontFamily, size: parseFloat(computed.fontSize) };
+  });
+  expect(value.family).toContain('Georgia');
+  expect(value.size).toBeGreaterThan(14);
+  const label = await page.locator('.readout dt').first()
+    .evaluate(node => getComputedStyle(node).textTransform);
+  expect(label).toBe('uppercase');
+});

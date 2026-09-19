@@ -101,8 +101,19 @@ asymptotic series asserted as exact, float32 vertex buffers compared against flo
 (twice), and a static observer's worldline asserted strictly inside region I at a time where
 `arctan` has saturated and the correct answer *is* the corner.
 
-**Known debt, unchanged:** the `.readout` / `.chooser` panel CSS is now copied into nine sims. It
-is a shared component in everything but name and should be promoted to `ui/components.css`.
+**RESOLVED 2026-09-19 — the `.readout` / `.chooser` panel CSS debt.** Promoted to
+`ui/components.css`, which `main.tsx` already loads globally: 366 lines removed from twelve sim
+stylesheets, 160 added in one place. Genuine per-sim overrides were kept and are now labelled as
+overrides — the effective-potential and Mercury panels' `.mode-warning` spacing, and the gravity
+sandbox's denser `.preset-button` for a row of seven.
+
+**The duplication was hiding a shipped defect.** `.switch-indicator`, `.mode-warning` and
+`.stage-help` were defined **only** in `blackhole-lensing/lensing.css`, and unscoped — so they
+shipped inside that sim's lazy chunk. On a cold load of any other route the toggle was an
+unstyled `div`, measured at **318 × 0 px with no background**; the gravity sandbox's three
+switches were invisible entirely, labels with nothing beside them. Nine sims render a toggle.
+Every sim looked after its own `.readout`, so nobody owned the switch. Five e2e tests now assert
+the shared components are styled on a cold load of four different routes.
 
 **Still open:** every browser check here runs on SwiftShader — the user's Chrome has no WebGL.
 

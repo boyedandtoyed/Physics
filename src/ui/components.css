@@ -69,3 +69,163 @@
   position: absolute; width: 1px; height: 1px; margin: -1px;
   padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
+
+/* ---------------------------------------------------------------------------------------------
+   Panel components shared by every simulation.
+   These were copied into nine sims' stylesheets, each scoped to its own root class and otherwise
+   byte-identical, and PROGRESS.md had been tracking the duplication since Phase 3-Sandbox. They
+   are components, not conventions, and they belong here where every page already loads them.
+
+   Promoting them also fixes a defect the duplication was hiding: `.switch-indicator`,
+   `.mode-warning` and `.stage-help` were defined ONLY in the lensing sim's stylesheet, and
+   unscoped. Every other sim that renders a toggle therefore showed an unstyled div — measured at
+   318 x 0 px with no background on a cold load of any route but that one. Nine sims render a
+   toggle.
+   --------------------------------------------------------------------------------------------- */
+
+.readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
+.readout div { display: grid; gap: 0.15rem; }
+
+.readout dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.readout dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-family: Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.readout dd span {
+  display: block;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* A figure with a published value behind it, boxed so it reads as a claim rather than a number. */
+.figure-benchmark {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.chooser {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.chooser-button {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.chooser-button span {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chooser-button:hover { border-color: var(--accent); }
+
+.chooser-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.chooser-button.is-selected {
+  border-color: var(--accent);
+  background: var(--panel);
+  font-weight: 700;
+}
+
+.chooser-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.preset-button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.preset-button:hover { border-color: var(--accent); }
+
+.preset-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.preset-button.is-selected {
+  border-color: var(--accent);
+  background: var(--panel);
+  font-weight: 700;
+}
+
+.preset-button[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The toggle. Nine sims render one; exactly one of them used to style it. */
+.switch-indicator {
+  width: 2.2rem;
+  height: 1.25rem;
+  border-radius: 1rem;
+  flex: none;
+  background: var(--line);
+  position: relative;
+  transition: background 0.15s;
+}
+
+.switch-indicator::after {
+  content: '';
+  position: absolute;
+  top: 0.16rem;
+  left: 0.16rem;
+  width: 0.93rem;
+  height: 0.93rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.react-aria-Switch[data-selected] .switch-indicator { background: var(--accent); }
+.react-aria-Switch[data-selected] .switch-indicator::after { transform: translateX(0.95rem); }
+
+.react-aria-Switch[data-focus-visible] .switch-indicator {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mode-warning { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.mode-warning.active { color: var(--focus); font-weight: 600; }
+
+.stage-help { color: var(--muted); font-size: 0.85rem; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-indicator, .switch-indicator::after { transition: none; }
+}

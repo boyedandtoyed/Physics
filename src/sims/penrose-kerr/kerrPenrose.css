@@ -17,44 +17,6 @@
 
 .kerr-band-label.is-between { font-weight: 600; }
 
-.penrose-kerr .chooser-hint {
-  margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.6;
-  color: var(--muted);
-}
-
-.penrose-kerr .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
-.penrose-kerr .readout div { display: grid; gap: 0.15rem; }
-
-.penrose-kerr .readout dt {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-}
-
-.penrose-kerr .readout dd {
-  margin: 0;
-  font-size: 1.05rem;
-  font-family: Georgia, serif;
-  font-variant-numeric: tabular-nums;
-}
-
-.penrose-kerr .readout dd span {
-  display: block;
-  font-family: inherit;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.penrose-kerr .figure-benchmark {
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--line);
-  background: var(--bg);
-}
-
 .penrose-kerr .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
 
 @media (max-width: 48rem) {

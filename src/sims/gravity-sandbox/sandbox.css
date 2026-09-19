@@ -30,30 +30,17 @@
 }
 
 .sandbox .presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.sandbox .preset-button {
-  cursor: pointer; padding: 0.35rem 0.7rem; font-size: 0.8rem; font-weight: 600;
-  border: 1px solid var(--line); border-radius: 0.35rem; background: var(--bg); color: var(--ink);
-}
-.sandbox .preset-button:hover { border-color: var(--accent); }
-.sandbox .preset-button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-
-.sandbox .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
-.sandbox .readout div { display: grid; gap: 0.15rem; }
-.sandbox .readout dt {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
-}
-.sandbox .readout dd {
-  margin: 0; font-size: 1.05rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
-}
-.sandbox .readout dd span {
-  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
-}
-.sandbox .figure-benchmark {
-  padding: 0.55rem 0.7rem; border-radius: 0.4rem;
-  border: 1px solid var(--line); background: var(--bg);
-}
 .sandbox .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
 /* When the fixed step cannot resolve the tightest pair, say so loudly: the orbit on screen is
    then an artefact of the step rather than a trajectory. */
 .sandbox .under-resolved { border-color: var(--focus); }
 .sandbox .under-resolved dd { color: var(--focus); }
+
+/* Overrides the shared .preset-button: this sim has seven presets in one row and needs the
+   denser button. Everything else about them is the shared component. */
+.sandbox .preset-button {
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}

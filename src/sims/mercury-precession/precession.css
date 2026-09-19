@@ -42,9 +42,6 @@
 :root[data-theme='dark'] .precession .legend-orbit::before { background: #6bade0; }
 :root[data-theme='dark'] .precession .legend-arc::before { background: #fab838; }
 
-.precession .mode-warning { margin: 0.4rem 0 0; font-size: 0.82rem; color: var(--muted); }
-.precession .mode-warning.active { color: var(--focus); font-weight: 600; }
-
 /* Shown only where the chosen mass and eccentricity admit no bound orbit. */
 .precession .domain-warning {
   margin: 0; padding: 0.7rem 0.85rem; border-radius: 0.4rem;
@@ -53,3 +50,6 @@
 }
 
 .precession .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+/* Same override as the effective-potential panel, and for the same layout reason. */
+.precession .mode-warning { margin: 0.4rem 0 0; font-size: 0.82rem; }

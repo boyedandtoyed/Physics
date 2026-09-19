@@ -40,7 +40,8 @@
 :root:not([data-theme='light']) .legend-unbound::before { background: #ffb833; }
 :root[data-theme='dark'] .legend-bound::before { background: #6ba6ff; }
 :root[data-theme='dark'] .legend-unbound::before { background: #ffb833; }
-
-.potential .mode-warning { margin: 0.4rem 0 0; font-size: 0.82rem; color: var(--muted); }
-.potential .mode-warning.active { color: var(--focus); font-weight: 600; }
 .potential .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
+
+/* Overrides the shared .mode-warning: this panel sets the warning below a switch rather than
+   beside it, so it needs the top margin and sits a notch smaller. */
+.potential .mode-warning { margin: 0.4rem 0 0; font-size: 0.82rem; }

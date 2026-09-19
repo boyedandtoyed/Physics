@@ -4,34 +4,4 @@
 .freefall .sim-head { max-width: 48rem; }
 .freefall .sim-head .intro { color: var(--muted); margin: 0; }
 .freefall .stage-surface > canvas { cursor: crosshair; }
-
-.freefall .chooser { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
-.freefall .chooser-button {
-  display: grid; gap: 0.1rem; text-align: left; cursor: pointer;
-  padding: 0.45rem 0.6rem; border: 1px solid var(--line); border-radius: 0.4rem;
-  background: var(--bg); color: var(--ink); font: inherit; font-size: 0.86rem;
-}
-.freefall .chooser-button span {
-  font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums;
-}
-.freefall .chooser-button:hover { border-color: var(--accent); }
-.freefall .chooser-button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-.freefall .chooser-button.is-selected { border-color: var(--accent); background: var(--panel); font-weight: 700; }
-.freefall .chooser-hint { margin: 0; font-size: 0.82rem; line-height: 1.6; color: var(--muted); }
-
-.freefall .readout dl { display: grid; gap: 0.9rem; margin: 0; padding: 0; }
-.freefall .readout div { display: grid; gap: 0.15rem; }
-.freefall .readout dt {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
-}
-.freefall .readout dd {
-  margin: 0; font-size: 1.05rem; font-family: Georgia, serif; font-variant-numeric: tabular-nums;
-}
-.freefall .readout dd span {
-  display: block; font-family: inherit; font-size: 0.75rem; color: var(--muted);
-}
-.freefall .figure-benchmark {
-  padding: 0.55rem 0.7rem; border-radius: 0.4rem;
-  border: 1px solid var(--line); background: var(--bg);
-}
 .freefall .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }

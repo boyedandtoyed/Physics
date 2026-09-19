@@ -16,42 +16,15 @@
   border: 1px solid var(--line);
 }
 .stage-canvas:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
-.stage-help { color: var(--muted); font-size: 0.85rem; margin: 0; }
 .stage-failure {
   padding: 1.2rem; border-radius: 0.6rem;
   border: 1px solid var(--line); background: var(--panel);
 }
 
-
 .control-switches { gap: 0.7rem; }
 .control-switches .react-aria-Switch {
   display: flex; align-items: center; gap: 0.6rem; cursor: pointer;
 }
-.switch-indicator {
-  width: 2.2rem; height: 1.25rem; border-radius: 1rem; flex: none;
-  background: var(--line); position: relative; transition: background 0.15s;
-}
-.switch-indicator::after {
-  content: ''; position: absolute; top: 0.16rem; left: 0.16rem;
-  width: 0.93rem; height: 0.93rem; border-radius: 50%; background: #fff;
-  transition: transform 0.15s;
-}
-.react-aria-Switch[data-selected] .switch-indicator { background: var(--accent); }
-.react-aria-Switch[data-selected] .switch-indicator::after { transform: translateX(0.95rem); }
-.react-aria-Switch[data-focus-visible] .switch-indicator {
-  outline: 3px solid var(--focus); outline-offset: 2px;
-}
-.mode-warning { margin: 0; font-size: 0.85rem; color: var(--muted); }
-.mode-warning.active { color: var(--focus); font-weight: 600; }
-
-.readout dl {
-  display: grid; gap: 1rem; margin: 0;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-}
-.readout dt { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-.readout dd { margin: 0.2rem 0 0; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
-.readout dd span { display: block; font-size: 0.8rem; color: var(--muted); }
-
 
 @media (prefers-reduced-motion: reduce) {
   .switch-indicator, .switch-indicator::after { transition: none; }
