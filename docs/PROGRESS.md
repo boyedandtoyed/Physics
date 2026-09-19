@@ -1,24 +1,91 @@
 # Progress Log
 
-## Current status — 2026-09-18
+## Current status — 2026-09-19
 
-**Phase:** 5 — Spacetime geometry and causal structure (BUILD_PLAN §5). **COMPLETE** for its
-Kruskal/Penrose half: `kruskal-diagram`, `penrose-schwarzschild`, `penrose-kerr`. Phases 0, 1, 2,
-3, 3-Visual, 3-Sandbox, 3-Immersive and 4 are complete. **What remains in Phase 5 is the
-geodesic-deviation / tidal-tensor visualiser**, the one bullet of BUILD_PLAN §5 this session did
-not cover; the embedding diagram already exists as `/sims/spacetime-curvature`. Next after that:
-**Phase 6 — Quantum field theory, honestly**.
+**Phase:** 5 — Spacetime geometry and causal structure. **COMPLETE — every bullet of BUILD_PLAN
+§5 is done.** The embedding diagram was already `/sims/spacetime-curvature`; this session added
+the last one, the geodesic-deviation / tidal-tensor visualiser. Phases 0, 1, 2, 3, 3-Visual,
+3-Sandbox, 3-Immersive, 4 and 5 are complete. **Next: Phase 6 — Quantum field theory, honestly
+(Hawking radiation and the Casimir effect).** PHYSICS_SPEC §7.1–§7.3 already carry the correct
+treatments and the myths to break; nothing of Phase 6 has been started.
 
-**Branch:** `master`, pushed. **Deployed 2026-09-18** — `physics-web:rc-97cc06e`
-(`sha256:156dd5a4…`), built, staged, verified through the Cloudflare edge and promoted. Staging
-and production run the **identical image ID**. The full **210-test suite passed against staging
+**Branch:** `master`, pushed. **Deployed 2026-09-19** — `physics-web:rc-7119c31`
+(`sha256:cc91b696…`), built, staged, verified through the Cloudflare edge and promoted. Staging
+and production run the **identical image ID**. The full **227-test suite passed against staging
 before promotion and against production after**.
 
-**Live:** https://abstract-physics.binodtiwari.com serves **eighteen simulations**.
+**Live:** https://abstract-physics.binodtiwari.com serves **nineteen simulations**.
 
-**Totals at the Phase 5 close:** **879 Vitest**, **405 Python benchmark checks**, **210
-Playwright app tests**, **20 acceptance tests**. Typecheck, ESLint, dependency rules and the
-production build are green.
+**Totals:** **917 Vitest**, **425 Python benchmark checks**, **227 Playwright app tests**, **20
+acceptance tests**. Typecheck, ESLint, dependency rules and the production build are green.
+
+### The shared-panel CSS debt — RESOLVED *(2026-09-19)*
+
+Promoted `.readout`, `.chooser`, `.figure-benchmark`, `.preset-button`, `.switch-indicator`,
+`.mode-warning` and `.stage-help` into `ui/components.css`, which `main.tsx` already loads on
+every page: **366 lines removed from twelve sim stylesheets, 160 added in one place.** Genuine
+per-sim overrides were kept and are now labelled as overrides.
+
+**The duplication was hiding a defect that had been shipped for months.** `.switch-indicator`,
+`.mode-warning` and `.stage-help` were defined **only** in `blackhole-lensing/lensing.css`, and
+unscoped — so they travelled inside that sim's lazy chunk. Cold-load any other route and the
+toggle was an unstyled `div`, measured at **318 × 0 px with no background**; the gravity
+sandbox's three switches were invisible entirely, labels with nothing beside them. Nine sims
+render a toggle. Each sim looked after its own `.readout`, so nobody owned the switch — the exact
+failure mode CLAUDE.md rule 3 lists from this repo's history. Five e2e tests now assert the
+shared components are styled on a cold load of four separate routes.
+
+One deliberate unification: `blackhole-lensing` is the Phase 1 sim and its readout predated the
+convention the other nine settled on; its values now match the rest of the product, checked
+against before/after screenshots in both themes rather than assumed.
+
+### Phase 5, final bullet — geodesic deviation *(2026-09-19)*
+
+`/sims/geodesic-deviation`. A ring of test particles around a radially infalling observer,
+distorted by the Jacobi equation along the exact infall from `core/infall.ts`, with the
+spaghettification threshold for a real steel body drawn as a labelled ring. **New core:**
+`core/tidal.ts`. **New spec:** §7.6, §8 rows 78–84. **New constants:** `SIGMA_STEEL`,
+`RHO_STEEL`.
+
+**Three errors in the brief, corrected in the spec rather than in a comment:**
+
+1. **The Jacobi sign was dropped.** The brief's scalar equations read
+   `d²ξ_r/dτ² = −2(M/r³)ξ_r` — the eigenvalues fed through *without* the minus sign its own
+   Jacobi equation carries. Since E_rr = −2M/r³ is negative, the radial acceleration is
+   **positive**: stretched head to toe, squeezed at the sides. The brief's version describes a
+   body squashed lengthwise and splayed sideways, which is the opposite of spaghettification and
+   inconsistent with the word. Row 81 asserts the signs and their exact ratio of −2.
+2. **The spaghettification formula is not a length.** `(2ML/σ/ρ)^{1/3}` comes out as
+   m^{5/3}s^{2/3}kg^{−1/3} in SI. Integrating the tidal load along a rod gives σ = ρ(GM/r³)L², so
+   **r = (GMρL²/σ)^{1/3}** — L *squared*, ρ in the numerator. A 10 M☉ hole tears a 1 m steel rod
+   at 296 km = **10.0 r_s, outside the horizon**: a stellar-mass hole spaghettifies you *before*
+   you cross, not after as the brief's parenthetical said. Crossover 317 M☉.
+3. **"Area conserved (Liouville)" is false.** The drawn ellipse's area *grows* ~40% over a fall
+   from 8 r_s, because (ln A)″ starts at +M/r³ rather than zero. Trace-free makes the **volume**
+   stationary at release and Raychaudhuri makes it fall thereafter — the sim shows it at 61%. The
+   exactly conserved quantity is the **Wronskian**, which the sim carries a second solution to
+   measure and displays at 6×10⁻¹⁴. Liouville is about phase space, not about the picture.
+
+Smaller corrections: the routes here are `/sims/<id>` not `/sim/<id>`; `createYoshida4` lives in
+`core/integrators/symplectic.ts`; and the mass slider reaches 0.01 M☉ rather than the brief's
+1 M☉, because the case it asks to demonstrate needs both sides of the 317 M☉ crossover reachable.
+
+**The composition is the equatorial plane seen from above**, not the brief's vertical-worldline
+layout — a vertical line cannot be both a worldline and a radius, and the ring is the thing worth
+having. Found by looking at the first render, where the ellipse was 4% of the frame and the
+tearing ring was off screen entirely.
+
+**Where the arithmetic stops.** E ~ 1/r³, so the tidal timescale collapses towards r = 0: at
+10⁻⁴ r_s a step that resolves the rest of the fall has √|E|·h ≈ 750 and no fixed-step scheme
+conserves anything. The fall stops at 0.5 r_s and the sim says so. Yoshida-4's contract is an
+autonomous q″ = a(q) and this force is not — E depends on τ through r(τ) — so the Wronskian drift
+is displayed rather than assumed away.
+
+**Known debt:** `.preset-buttons` (the flex container, not the button) is still defined in three
+sims with two slightly different gaps. Minor, and deliberately left alone to keep this session's
+CSS change reviewable.
+
+**Still open:** every browser check here runs on SwiftShader — the user's Chrome has no WebGL.
 
 ### Phase 5 — Kruskal, Penrose and Kerr causal structure *(2026-09-18)*
 

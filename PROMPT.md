@@ -135,6 +135,31 @@ enough:
 > and `docs/PHYSICS_SPEC.md`, then pick up the next unstarted task and follow the checkpoint
 > protocol in `BUILD_PLAN.md` §9.
 
+### Where the project is, as of 2026-09-19
+
+**Phases 0 through 5 are complete and deployed.** Nineteen simulations are live at
+https://abstract-physics.binodtiwari.com, with 917 Vitest tests, 425 Python benchmark checks and
+227 Playwright tests, all green against the production host.
+
+**The next phase is 6 — Quantum field theory, honestly: Hawking radiation and the Casimir
+effect.** Nothing of it has been started. Read `PHYSICS_SPEC.md` §7.1–§7.3 before writing a line:
+they already carry the correct treatments and, more importantly, the specific popular stories
+that are wrong and must be shown as wrong —
+
+- the *particle pair at the horizon, one falls in* story for Hawking radiation,
+- *virtual particles constantly popping in and out of the vacuum*,
+- *the Casimir effect is the vacuum pushing the plates together*.
+
+§7 gives the correct mechanism and the sources for each. This is the product's main
+differentiator, so it is worth more care than the rendering.
+
+**One habit this project has earned the hard way.** Every session so far has found at least one
+error in its own brief — a dropped minus sign, a formula that is not dimensionally a length, a
+conserved quantity that is not conserved, a coordinate claim that is false. Check the physics
+against `PHYSICS_SPEC.md` and against dimensional analysis *before* implementing it, correct the
+spec with a citation, and say plainly in the session summary what was wrong. Do not quietly
+implement something you have shown to be incorrect.
+
 **A note on model choice.** Phases 1–3 involve GPU shader work and numerical integration where
 subtle errors are expensive to find later. Use the strongest model you have available for the
 physics core and the raymarcher. Routine UI and wiring work is fine on a cheaper model.
