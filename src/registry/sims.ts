@@ -143,6 +143,16 @@ export const simulations: readonly SimulationEntry[] = [
     load: () => import('../sims/penrose-kerr'),
   },
   {
+    id: 'geodesic-deviation',
+    title: 'Gravity you can feel is the part that differs',
+    description:
+      'A ring of test particles falling in, stretched along the fall and squeezed across it. '
+      + 'The tidal tensor is trace-free, so the ellipse is distorted and never compressed \u2014 '
+      + 'and a stellar-mass hole tears a steel rod apart ten horizons out.',
+    tags: ['General relativity', 'Tidal forces', 'Geodesic deviation'],
+    load: () => import('../sims/geodesic-deviation'),
+  },
+  {
     id: 'kerr-shadow',
     title: 'The shadow is not a circle',
     description:

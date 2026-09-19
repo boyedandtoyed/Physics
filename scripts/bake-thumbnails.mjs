@@ -53,6 +53,7 @@ const SHOTS = [
   { id: 'kruskal-diagram', settle: 5000 },
   { id: 'penrose-schwarzschild', settle: 5000, press: ['Observer in region I', 'Infalling observer'] },
   { id: 'penrose-kerr', settle: 5000 },
+  { id: 'geodesic-deviation', settle: 6000 },
 ];
 
 async function bake(browser, shot) {

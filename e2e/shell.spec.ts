@@ -67,6 +67,7 @@ const SIM_ROUTES = [
   '/sims/kruskal-diagram',
   '/sims/penrose-schwarzschild',
   '/sims/penrose-kerr',
+  '/sims/geodesic-deviation',
 ];
 
 for (const width of [360, 390]) {

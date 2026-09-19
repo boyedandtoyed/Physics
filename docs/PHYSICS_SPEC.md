@@ -1635,6 +1635,83 @@ draws is exactly the slice in which the ring cannot be avoided, and it says so.
 
 ---
 
+### 7.6 Geodesic deviation, the tidal tensor, and spaghettification
+
+The Jacobi equation for a separation vector $\xi$ carried along a geodesic of tangent $u$:
+
+$$\frac{D^2\xi^\alpha}{d\tau^2} = -R^\alpha{}_{\beta\gamma\delta}u^\beta\xi^\gamma u^\delta
+= -E^\alpha{}_\gamma\,\xi^\gamma$$
+
+For a radially infalling observer in Schwarzschild the electric Weyl tensor is diagonal in the
+orthonormal infalling frame with eigenvalues
+
+$$E_{\hat r\hat r} = -\frac{2M}{r^3},\qquad
+E_{\hat\theta\hat\theta}=E_{\hat\phi\hat\phi}=+\frac{M}{r^3},\qquad
+E_{\hat r\hat r}+2E_{\hat\theta\hat\theta}=0$$
+
+**The minus sign in the Jacobi equation is the whole physics, and it is the easiest thing in
+this section to drop.** Feeding the eigenvalues through it gives
+
+$$\boxed{\ddot\xi_{\hat r} = +\frac{2M}{r^3}\xi_{\hat r}\ \ (\text{STRETCH}),\qquad
+\ddot\xi_\perp = -\frac{M}{r^3}\xi_\perp\ \ (\text{SQUEEZE})}$$
+
+which is spaghettification: pulled head to toe, pressed in at the sides. Writing the scalar
+equations as $+E\xi$ instead inverts both and describes a body **squashed lengthwise and splayed
+sideways** — the opposite of every description in the literature, and consistent with neither
+the boxed Jacobi equation above nor the word "spaghettification". **ASSERT** the signs directly:
+the radial acceleration positive, the transverse negative, their ratio exactly $-2$.
+
+The trace-free condition is not decoration. Schwarzschild is a vacuum solution, so $R_{\mu\nu}=0$
+and the tidal tensor is pure Weyl. **ASSERT** $|E_{\hat r\hat r}+2E_{\hat\theta\hat\theta}|<10^{-14}$
+at $r\in\{3,6,10,100\}M$.
+
+#### What is conserved, and what is not
+
+Three statements, often merged into one wrong one:
+
+- **The Wronskian is exactly conserved.** For two solutions of $\ddot\xi=-E(\tau)\xi$,
+  $W=\xi_1\dot\xi_2-\dot\xi_1\xi_2$ has $\dot W=0$ by Abel's identity — the equation has no
+  first-derivative term. This is a *phase-space* area and it is the honest invariant to judge an
+  integrator by. **ASSERT** $|\Delta W/W_0|<10^{-10}$.
+- **The drawn ellipse's area is NOT conserved.** $\xi_{\hat r}\xi_\perp$ grows by about 40% over
+  a fall from $8r_s$: $(\ln A)''$ starts at $+M/r^3$, not zero. "Liouville" applies to phase
+  space, not to the picture.
+- **The 3-volume focuses.** $(\ln V)'' = -[(\dot\xi_r/\xi_r)^2+2(\dot\xi_\perp/\xi_\perp)^2]\le0$
+  once the trace term cancels, so $\xi_{\hat r}\xi_\perp^2$ is *stationary at $\tau=0$* and
+  decreasing thereafter. That is Raychaudhuri's focusing theorem, and it is what the trace-free
+  condition actually buys.
+
+#### Where a fixed step stops working
+
+$E\sim1/r^3$, so the tidal timescale $1/\sqrt{|E|}$ collapses towards $r=0$. At $r=10^{-4}r_s$,
+$\sqrt{|E|}\,h\approx750$ for a step that resolves the rest of the fall perfectly well: no
+fixed-step scheme conserves anything there. That is a statement about the singularity, not about
+the integrator. The benchmark and the sim both stop at $r=0.5\,r_s$ and say so.
+
+#### The spaghettification threshold
+
+A rod of half-length $L$, density $\rho$ and cross-section $A$ feels tidal acceleration
+$(2GM/r^3)x$ at distance $x$ from its centre. The force the material carries at $x$ is
+$\rho A(GM/r^3)(L^2-x^2)$, largest at the centre, so the stress there is
+
+$$\sigma = \rho\,\frac{GM}{r^3}L^2 \quad\Longrightarrow\quad
+\boxed{r_{\rm spag} = \left(\frac{GM\rho L^2}{\sigma}\right)^{1/3}}$$
+
+**Note $L$ squared and $\rho$ in the numerator.** A form such as $(2ML/\sigma\rho)^{1/3}$ is not
+a length at all — in SI it has dimensions $\mathrm{m}^{5/3}\mathrm{s}^{2/3}\mathrm{kg}^{-1/3}$.
+
+The ratio to the horizon is
+
+$$\frac{r_{\rm spag}}{r_s}\propto M^{-2/3},\qquad
+r_{\rm spag}=r_s \iff M=\frac{c^3L}{G}\sqrt{\frac{\rho}{8\sigma}}$$
+
+For a 1 m steel rod ($\rho=7800\,\mathrm{kg/m^3}$, $\sigma=4\times10^8$ Pa) the crossover is
+**317 M☉**. **ASSERT**: a 10 M☉ hole tears it at 296 km $=10.02\,r_s$ — comfortably **outside**
+the horizon, so a stellar-mass hole spaghettifies you *before* you cross, not after; a
+$10^6$ M☉ hole tears it well inside. That contrast is the sim's point.
+
+---
+
 ### 7.5 General rule
 
 Where a popular framing is wrong, do not simply omit it — users arrive already believing it.
@@ -1719,6 +1796,13 @@ are widely transcribed a factor of 10 too small, and this script is what caught 
 | 75 | Kerr surface gravities | $(r_\pm-r_\mp)/4Mr_\pm$ | $\kappa_+=0.2320508076$, $\kappa_-=-3.2320508076$ at $a/M=\tfrac12$ | 1e-9 |
 | 76 | Mass-inflation ratio | $|\kappa_-|/\kappa_+$ | **13.9282**, and exactly $r_+/r_-$ | 1e-4 |
 | 77 | Kerr tortoise | $r_*=r+\ln|r-r_+|/2\kappa_++\ln|r-r_-|/2\kappa_-$ | coefficients are exactly $1/2\kappa_\pm$; $dr_*/dr=(r^2+a^2)/\Delta$ | 1e-12 |
+| 78 | Tidal eigenvalues at the ISCO | $-2M/r^3$, $+M/r^3$ | $-1/108M^2$ and $+1/216M^2$ at $r=6M$ | 1e-15 |
+| 79 | …at the photon sphere | | $-2/27M^2$ at $r=3M$ | 1e-15 |
+| 80 | Trace-free | $E_{rr}+2E_{\perp\perp}$ | **0** at every radius — Schwarzschild is vacuum, so $E$ is pure Weyl | 1e-14 |
+| 81 | The Jacobi sign | $\ddot\xi=-E\xi$ | radial **stretches**, transverse **squeezes**, ratio exactly $-2$ | exact |
+| 82 | Jacobi Wronskian | $\xi_1\dot\xi_2-\dot\xi_1\xi_2$ | conserved along the exact infall to $0.5r_s$; the ellipse's **area is not** | 1e-10 |
+| 83 | Spaghettification radius | $(GM\rho L^2/\sigma)^{1/3}$ | 296 km $=10.02\,r_s$ for 10 M☉ and a 1 m steel rod — **outside** the horizon | 0.5 km |
+| 84 | …and its crossover | $M=(c^3L/G)\sqrt{\rho/8\sigma}$ | **317 M☉**; ratio scales as $M^{-2/3}$ | 1 M☉ |
 
 **Rows 42–47 — a Kerr renderer is gated on the shape of the shadow, not just its size.** Row 44
 is the one worth reading twice: the vertical half-extent of the Kerr shadow seen edge-on is

@@ -996,6 +996,108 @@ check("Row 77: dr*/dr recovers (r^2+a^2)/Delta at r = 3",
       (_kerr_tortoise(3 + 1e-6) - _kerr_tortoise(3 - 1e-6)) / 2e-6,
       (9 + _a**2) / (9 - 6 + _a**2), 1e-5, "")
 
+# Section 7.6: geodesic deviation and the tidal tensor, rows 78-82 --------------------------
+# Geometric units with M = 1 so the eigenvalues read in M; the sims use r_s = 1 where M = 1/2.
+def _tidal(r, mass=1.0):
+    """(E_rr, E_perp) for a radial infaller. The Jacobi equation supplies the minus sign."""
+    return (-2.0 * mass / r**3, mass / r**3)
+
+
+_err6, _eperp6 = _tidal(6.0)
+check("Row 78: E_rr at the ISCO, r = 6M", _err6, -1 / 108, 1e-15, "1/M^2")
+check("Row 78: E_perp at the ISCO", _eperp6, 1 / 216, 1e-15, "1/M^2")
+check("Row 79: E_rr at the photon sphere, r = 3M", _tidal(3.0)[0], -2 / 27, 1e-15, "1/M^2")
+for _r in (3.0, 6.0, 10.0, 100.0):
+    _a, _b = _tidal(_r)
+    check(f"Row 80: trace-free at r = {_r:g}M", abs(_a + 2 * _b), 0.0, 1e-14, "")
+
+# Row 81. The SIGN. D^2 xi/dtau^2 = -E xi, so a NEGATIVE E_rr accelerates a radial separation
+# outward: the body is stretched head to toe and squeezed at the sides. Writing the scalar
+# equations as +E xi inverts both and describes a body squashed lengthwise, which is not
+# spaghettification and is not what any source says.
+check("Row 81: radial Jacobi acceleration is POSITIVE (stretch)",
+      1.0 if -_err6 > 0 else 0.0, 1.0, 0, "")
+check("Row 81: transverse Jacobi acceleration is NEGATIVE (squeeze)",
+      1.0 if -_eperp6 < 0 else 0.0, 1.0, 0, "")
+check("Row 81: their ratio is exactly -2, which is the trace-free condition again",
+      (-_err6) / (-_eperp6), -2.0, 1e-12, "")
+
+# Row 82. Wronskian of xi'' = -E(tau) xi, integrated along the exact infall with Yoshida-4.
+# Abel's identity: no first-derivative term, so W is exactly constant.
+_M_SIM = 0.5          # r_s = 1 units, matching core/infall.ts
+_R0 = 8.0
+_FLOOR = 0.5          # stop where the fixed step still resolves 1/sqrt(|E|); see section 7.6
+
+
+def _radius_at(tau, r0=_R0):
+    return (r0**1.5 - 1.5 * tau) ** (2 / 3)
+
+
+def _integrate(initial, rate, steps=20000):
+    """Yoshida-4 on the pair of scalar Jacobi equations, along r(tau)."""
+    w1 = 1 / (2 - 2 ** (1 / 3))
+    w0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))
+    total = (2 / 3) * (_R0**1.5 - _FLOOR**1.5)
+    h = total / steps
+    q = [initial, initial]
+    v = [rate, rate]
+    tau = 0.0
+    for _ in range(steps):
+        r = max(_radius_at(tau), _FLOOR)
+        e_rr, e_pp = _tidal(r, _M_SIM)
+        for weight in (w1, w0, w1):
+            step = h * weight
+            for i, eig in enumerate((e_rr, e_pp)):
+                a = -eig * q[i]
+                v[i] += step * a / 2
+                q[i] += step * v[i]
+                a = -eig * q[i]
+                v[i] += step * a / 2
+        tau += h
+    return q, v
+
+
+_qa, _va = _integrate(1.0, 0.0)
+_qb, _vb = _integrate(0.0, 1.0)
+for _axis, _name in ((0, "radial"), (1, "transverse")):
+    _w = _qa[_axis] * _vb[_axis] - _va[_axis] * _qb[_axis]
+    check(f"Row 82: Wronskian conserved along the {_name} axis", _w, 1.0, 1e-10, "")
+# …and the physical outcome, which is the point of getting the sign right.
+check("Row 82: the radial separation GREW over the fall",
+      1.0 if _qa[0] > 1.5 else 0.0, 1.0, 0, "")
+check("Row 82: the transverse separation SHRANK",
+      1.0 if _qa[1] < 0.8 else 0.0, 1.0, 0, "")
+
+# Rows 83-84: spaghettification. SI. sigma = rho (GM/r^3) L^2 => r = (G M rho L^2 / sigma)^(1/3).
+_G = 6.674_30e-11
+_c = 299_792_458.0
+_Msun = 1.988_4e30
+_rho_steel = 7800.0
+_sigma_steel = 4e8
+
+
+def _r_spag(mass_kg, half_length):
+    return (_G * mass_kg * _rho_steel * half_length**2 / _sigma_steel) ** (1 / 3)
+
+
+def _r_s(mass_kg):
+    return 2 * _G * mass_kg / _c**2
+
+
+check("Row 83: a 10 Msun hole tears a 1 m steel rod at 296 km",
+      _r_spag(10 * _Msun, 1.0) / 1e3, 295.8, 0.5, "km")
+check("Row 83: which is ten Schwarzschild radii - OUTSIDE the horizon",
+      _r_spag(10 * _Msun, 1.0) / _r_s(10 * _Msun), 10.02, 0.05, "")
+check("Row 83: the length enters SQUARED, not linearly",
+      _r_spag(10 * _Msun, 2.0) / _r_spag(10 * _Msun, 1.0), 4 ** (1 / 3), 1e-12, "")
+check("Row 84: a 1e6 Msun hole tears it well INSIDE the horizon",
+      1.0 if _r_spag(1e6 * _Msun, 1.0) < _r_s(1e6 * _Msun) else 0.0, 1.0, 0, "")
+check("Row 84: crossover mass for a 1 m steel rod",
+      (_c**3 / _G) * math.sqrt(_rho_steel / (8 * _sigma_steel)) / _Msun, 317.0, 1.0, "Msun")
+check("Row 84: the ratio scales as M^(-2/3)",
+      (_r_spag(10 * _Msun, 1) / _r_s(10 * _Msun))
+      / (_r_spag(1000 * _Msun, 1) / _r_s(1000 * _Msun)), 100 ** (2 / 3), 1e-9, "")
+
 # Kerr, PHYSICS_SPEC.md section 3 -------------------------------------------
 # Geometric units throughout: M = 1, so a is a/M and every radius is in M.
 

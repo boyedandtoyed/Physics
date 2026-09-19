@@ -12,6 +12,12 @@ export const ELECTRON_MASS = 9.109_383_7139e-31; // kg
 export const ELECTRON_REST_ENERGY_EV = ELECTRON_MASS * C ** 2 / ELEMENTARY_CHARGE;
 export const FINE_STRUCTURE = 7.297_352_5643e-3;
 export const SOLAR_MASS = 1.988_4e30; // kg, rounded reference mass
+
+/** Structural steel, for the spaghettification threshold. Representative rather than a single
+ * measured alloy — real grades run from roughly 250 MPa to 550 MPa in yield — so the sim quotes
+ * them on screen and the threshold moves visibly when the body's size changes. */
+export const SIGMA_STEEL = 4e8; // Pa, ultimate tensile strength
+export const RHO_STEEL = 7800; // kg/m^3
 export const SOLAR_GM = 1.327_124_400_18e20; // m^3/s^2; do not reconstruct from rounded mass
 export const SOLAR_RADIUS = 6.957e8; // m
 export const SOLAR_GEOMETRIC_LENGTH = SOLAR_GM / C ** 2; // m

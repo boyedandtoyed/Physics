@@ -10,7 +10,7 @@ import AxeBuilder from '@axe-core/playwright';
 const BACKDROP = '.gallery-backdrop';
 /** Kept in one place: three sims joined the registry in Phase 5 and two assertions hard-coded
  * the old count, one of which passed anyway because the missing stills hide themselves. */
-const SIM_COUNT = 18;
+const SIM_COUNT = 19;
 
 for (const theme of ['light', 'dark'] as const) {
   test(`${theme}: the collection renders with its backdrop and stays accessible`, async ({ page }) => {

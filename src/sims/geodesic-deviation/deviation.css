@@ -1,0 +1,10 @@
+/* SIM M. The shared panel components — .readout, .chooser-hint, .preset-button,
+   .figure-benchmark, .stage-help — live in ui/components.css and are not repeated here. */
+
+.deviation .control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.deviation .verification-note { line-height: 1.7; max-width: 52rem; margin: 0; }
